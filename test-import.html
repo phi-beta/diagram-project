@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Import</title>
+</head>
+<body>
+  <h1>Testing Imports</h1>
+  <div id="results"></div>
+  <script type="module">
+    const resultsDiv = document.getElementById('results');
+    
+    try {
+      console.log('Starting import test...');
+      resultsDiv.innerHTML += '<p>🔄 Starting import test...</p>';
+      
+      // Test importing Node
+      console.log('Importing Node...');
+      const nodeModule = await import('./js/Node.js?v=001');
+      console.log('Node module:', nodeModule);
+      resultsDiv.innerHTML += '<p>✅ Node module imported successfully</p>';
+      
+      const { Node } = nodeModule;
+      console.log('Node class:', Node);
+      resultsDiv.innerHTML += '<p>✅ Node class extracted successfully</p>';
+      
+      // Test importing Edge
+      console.log('Importing Edge...');
+      const edgeModule = await import('./js/Edge.js?v=001');
+      console.log('Edge module:', edgeModule);
+      resultsDiv.innerHTML += '<p>✅ Edge module imported successfully</p>';
+      
+      const { Edge } = edgeModule;
+      console.log('Edge class:', Edge);
+      resultsDiv.innerHTML += '<p>✅ Edge class extracted successfully</p>';
+      
+      // Test creating a node
+      const testData = { id: 'test', x: 0, y: 0, svg: 'test.svg', label: 'Test', class: 'test-node', scale: 1 };
+      const testElement = document.createElement('div');
+      const testNode = new Node(testData, testElement);
+      console.log('Test node created:', testNode);
+      resultsDiv.innerHTML += '<p>✅ Test Node instance created successfully</p>';
+      
+      resultsDiv.innerHTML += '<p><strong>✅ All imports working correctly!</strong></p>';
+    } catch (error) {
+      console.error('Import error:', error);
+      resultsDiv.innerHTML += '<p>❌ Import failed: ' + error.message + '</p>';
+      resultsDiv.innerHTML += '<p>Error details: ' + error.stack + '</p>';
+    }
+  </script>
+</body>
+</html>

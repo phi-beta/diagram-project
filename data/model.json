@@ -1,0 +1,9 @@
+{
+  "entities": [
+    { "id": "user1", "type": "User", "name": "Alice" },
+    { "id": "server1", "type": "Server", "name": "Web Server" }
+  ],
+  "relationships": [
+    { "source": "user1", "target": "server1", "type": "accesses" }
+  ]
+}

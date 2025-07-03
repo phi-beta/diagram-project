@@ -1,0 +1,156 @@
+/* Background colors for dark theme */
+body {
+  background-color: #1e1e1e;
+  color: #e1e1e1;
+  margin: 0;
+  padding: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Viewport indicators */
+#viewport-indicators {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  z-index: 1000;
+}
+
+#zoom-level, #coordinates {
+  background: rgba(45, 45, 45, 0.9);
+  border: 1px solid #404040;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: monospace;
+  color: #e1e1e1;
+}
+
+#reset-view {
+  background: #00d4ff;
+  color: #1e1e1e;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background-color 0.2s;
+}
+
+#reset-view:hover {
+  background: #00a8cc;
+}
+
+#diagram {
+  background-color: #2d2d2d;
+  border: 1px solid #404040;
+  border-radius: 4px;
+}
+
+.user-node svg {
+  filter: drop-shadow(2px 2px 4px black);
+}
+
+/* Define the replacement color */
+.user-node svg {
+  --user-primary-color: #f5f6fa;
+}
+
+/* Override stroke color for elements that have stroke:#001f3f but preserve fill:none */
+.user-node svg *[style*="fill:none"][style*="stroke:#001f3f"] {
+  stroke: var(--user-primary-color) !important;
+}
+
+/* Override fill color for elements that have fill:#001f3f but preserve stroke:none, -inkscape-stroke:none, or stroke-width:0 */
+.user-node svg *[style*="fill:#001f3f"][style*="stroke:none"],
+.user-node svg *[style*="fill:#001f3f"][style*="-inkscape-stroke:none"],
+.user-node svg *[style*="fill:#001f3f"][style*="stroke-width:0"] {
+  fill: var(--user-primary-color) !important;
+}
+
+/* Override both fill and stroke for elements that have both set to #001f3f (not none) */
+.user-node svg *[style*="fill:#001f3f"][style*="stroke:#001f3f"] {
+  fill: var(--user-primary-color) !important;
+  stroke: var(--user-primary-color) !important;
+}
+
+/* Handle elements that only have stroke:#001f3f (and no fill specified or fill not none) */
+.user-node svg *[style*="stroke:#001f3f"]:not([style*="fill:none"]):not([style*="fill:#001f3f"]) {
+  stroke: var(--user-primary-color) !important;
+}
+.server-node svg {
+  fill: #222;
+  stroke: #eee;
+  stroke-width: 1;
+}
+.access-link {
+  stroke: white;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 2px #242424)
+}
+
+.connection {
+  stroke: #eee;
+  stroke-width: 2;
+  fill: none;
+  marker-end: url(#arrow-end);
+   filter: drop-shadow(0 0 2px #242424)
+}
+
+/* Arrow markers - these need to be defined in JavaScript but colors can be controlled here */
+.arrow-marker {
+  fill: #eee;
+   filter: drop-shadow(0 0 2px #242424)
+}
+
+.temp-arrow-marker {
+  fill: #ff7675;
+}
+
+/* Selection and interaction states */
+.selected {
+  outline: 3px solid #00d4ff !important;
+  outline-offset: 2px !important;
+  filter: drop-shadow(0 0 8px #00d4ff) !important;
+}
+
+.selected svg {
+  filter: drop-shadow(0 0 8px #00d4ff) !important;
+}
+
+.dragging {
+  outline: 3px solid #ff7675 !important;
+  outline-offset: 2px !important;
+  filter: drop-shadow(0 0 8px #ff7675) !important;
+}
+
+.dragging svg {
+  filter: drop-shadow(0 0 8px #ff7675) !important;
+}
+
+.scaling {
+  outline: 3px solid #a29bfe !important;
+  outline-offset: 2px !important;
+  filter: drop-shadow(0 0 8px #a29bfe) !important;
+}
+
+.scaling svg {
+  filter: drop-shadow(0 0 8px #a29bfe) !important;
+}
+
+/* Temporary edge for edge creation */
+.temporary-edge {
+  stroke: #ff7675;
+  stroke-width: 2;
+  stroke-dasharray: 5,5;
+  fill: none;
+  marker-end: url(#temp-arrow-end);
+  pointer-events: none;
+}
+
+svg, svg * {
+  -webkit-user-select: none;
+  user-select: none;
+}

@@ -1,0 +1,29 @@
+{
+  "nodes": [
+    {
+      "id": "user1",
+      "x": 202,
+      "y": 204,
+      "svg": "user.svg",
+      "label": "Alice",
+      "class": "user-node",
+      "scale": 0.21037687894947063
+    },
+    {
+      "id": "server1",
+      "x": 506,
+      "y": 217,
+      "svg": "server.svg",
+      "label": "Web Server",
+      "class": "server-node",
+      "scale": 0.49719793227240705
+    }
+  ],
+  "edges": [
+    {
+      "from": "user1",
+      "to": "server1",
+      "class": "access-link"
+    }
+  ]
+}

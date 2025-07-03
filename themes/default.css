@@ -1,0 +1,127 @@
+/* Background colors for light theme */
+body {
+  background-color: #f8f9fa;
+  margin: 0;
+  padding: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Viewport indicators */
+#viewport-indicators {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  z-index: 1000;
+}
+
+#zoom-level, #coordinates {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: monospace;
+  color: #495057;
+}
+
+#reset-view {
+  background: #007acc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background-color 0.2s;
+}
+
+#reset-view:hover {
+  background: #0056b3;
+}
+
+#diagram {
+  background-color: #ffffff;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+}
+
+.user-node svg {
+  filter: drop-shadow(2px 2px 4px gray);
+}
+.server-node svg {
+  fill: #f4f4f4;
+  stroke: #333;
+  stroke-width: 1;
+}
+.access-link {
+  stroke: black;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 2px #dfd3d3)
+}
+
+.connection {
+  stroke: #333;
+  stroke-width: 2;
+  fill: none;
+  marker-end: url(#arrow-end);
+  filter: drop-shadow(0 0 2px #dfd3d3)
+}
+
+/* Arrow markers - these need to be defined in JavaScript but colors can be controlled here */
+.arrow-marker {
+  fill: #333;
+   filter: drop-shadow(0 0 2px #dfd3d3)
+}
+
+.temp-arrow-marker {
+  fill: #ff6b6b;
+}
+
+/* Selection and interaction states */
+.selected {
+  outline: 3px solid #007acc !important;
+  outline-offset: 2px !important;
+  filter: drop-shadow(0 0 8px #007acc) !important;
+}
+
+.selected svg {
+  filter: drop-shadow(0 0 8px #007acc) !important;
+}
+
+.dragging {
+  outline: 3px solid #ff6b35 !important;
+  outline-offset: 2px !important;
+  filter: drop-shadow(0 0 8px #ff6b35) !important;
+}
+
+.dragging svg {
+  filter: drop-shadow(0 0 8px #ff6b35) !important;
+}
+
+.scaling {
+  outline: 3px solid #9b59b6 !important;
+  outline-offset: 2px !important;
+  filter: drop-shadow(0 0 8px #9b59b6) !important;
+}
+
+.scaling svg {
+  filter: drop-shadow(0 0 8px #9b59b6) !important;
+}
+
+/* Temporary edge for edge creation */
+.temporary-edge {
+  stroke: #ff6b6b;
+  stroke-width: 2;
+  stroke-dasharray: 5,5;
+  fill: none;
+  marker-end: url(#temp-arrow-end);
+  pointer-events: none;
+}
+
+svg, svg * {
+  -webkit-user-select: none;
+  user-select: none;
+}
