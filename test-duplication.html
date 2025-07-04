@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Node Duplication Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #output { margin-top: 20px; font-family: monospace; }
+    .log-entry { margin: 2px 0; }
+    .success { color: green; }
+    .error { color: red; }
+    .info { color: blue; }
+  </style>
+</head>
+<body>
+  <h1>Node Duplication Test</h1>
+  <p>This test verifies that node duplication creates unique GUIDs and handles collisions properly.</p>
+  
+  <button id="runTest">Run Test</button>
+  <button id="clearOutput">Clear Output</button>
+  
+  <div id="output"></div>
+  
+  <script type="module">
+    import { clearGuidRegistry, getAllIds, ensureUniqueId } from './js/GuidManager.js';
+    import { Node, NodeData } from './js/Node.js';
+    import { Edge, EdgeData } from './js/Edge.js';
+    
+    const output = document.getElementById('output');
+    
+    function log(message, type = 'info') {
+      const div = document.createElement('div');
+      div.className = `log-entry ${type}`;
+      div.textContent = message;
+      output.appendChild(div);
+    }
+    
+    function runTest() {
+      log('=== Node Duplication Test Starting ===', 'info');
+      
+      try {
+        // Clear the registry first
+        clearGuidRegistry();
+        log('Registry cleared', 'success');
+        
+        // Test 1: Create original nodes
+        log('\n--- Test 1: Creating Original Nodes ---', 'info');
+        const nodeData = { x: 100, y: 100, svg: 'server.svg', label: 'Server 1', class: 'server' };
+        const node1 = new NodeData(nodeData);
+        const node2 = new NodeData({ x: 200, y: 200, svg: 'user.svg', label: 'User 1', class: 'user' });
+        
+        log(`Node 1 ID: ${node1.id}`, 'success');
+        log(`Node 2 ID: ${node2.id}`, 'success');
+        
+        // Test 2: Duplicate nodes and verify unique IDs
+        log('\n--- Test 2: Node Duplication ---', 'info');
+        const duplicatedNode1 = node1.duplicate();
+        const duplicatedNode2 = node2.duplicate();
+        
+        log(`Original Node 1 ID: ${node1.id}`, 'info');
+        log(`Duplicated Node 1 ID: ${duplicatedNode1.id}`, 'success');
+        log(`IDs are different: ${node1.id !== duplicatedNode1.id}`, node1.id !== duplicatedNode1.id ? 'success' : 'error');
+        
+        log(`Original Node 2 ID: ${node2.id}`, 'info');
+        log(`Duplicated Node 2 ID: ${duplicatedNode2.id}`, 'success');
+        log(`IDs are different: ${node2.id !== duplicatedNode2.id}`, node2.id !== duplicatedNode2.id ? 'success' : 'error');
+        
+        // Test 3: Create edges and verify unique IDs
+        log('\n--- Test 3: Edge Creation with Node GUIDs ---', 'info');
+        const edge1 = new EdgeData({ from: node1.id, to: node2.id, class: 'connection' });
+        const edge2 = new EdgeData({ from: duplicatedNode1.id, to: duplicatedNode2.id, class: 'connection' });
+        
+        log(`Edge 1 ID: ${edge1.id}`, 'success');
+        log(`Edge 2 ID: ${edge2.id}`, 'success');
+        log(`Edge IDs are different: ${edge1.id !== edge2.id}`, edge1.id !== edge2.id ? 'success' : 'error');
+        
+        // Test 4: Verify all GUIDs are registered
+        log('\n--- Test 4: Registry Verification ---', 'info');
+        const registry = getAllIds();
+        const registeredIds = Object.keys(registry);
+        
+        log(`Total registered GUIDs: ${registeredIds.length}`, 'info');
+        
+        const expectedIds = [node1.id, node2.id, duplicatedNode1.id, duplicatedNode2.id, edge1.id, edge2.id];
+        let allRegistered = true;
+        
+        for (const id of expectedIds) {
+          const isRegistered = registeredIds.includes(id);
+          log(`${id}: ${isRegistered ? 'REGISTERED' : 'NOT REGISTERED'}`, isRegistered ? 'success' : 'error');
+          if (!isRegistered) allRegistered = false;
+        }
+        
+        log(`All GUIDs properly registered: ${allRegistered}`, allRegistered ? 'success' : 'error');
+        
+        // Test 5: Test collision handling
+        log('\n--- Test 5: Collision Handling ---', 'info');
+        const originalId = node1.id;
+        const ensuredId1 = ensureUniqueId(originalId);
+        const ensuredId2 = ensureUniqueId(originalId);
+        
+        log(`Original ID: ${originalId}`, 'info');
+        log(`First ensured ID: ${ensuredId1}`, 'success');
+        log(`Second ensured ID: ${ensuredId2}`, 'success');
+        log(`All three IDs are unique: ${originalId !== ensuredId1 && ensuredId1 !== ensuredId2 && originalId !== ensuredId2}`, 
+          (originalId !== ensuredId1 && ensuredId1 !== ensuredId2 && originalId !== ensuredId2) ? 'success' : 'error');
+        
+        // Test 6: Test massive duplication (stress test)
+        log('\n--- Test 6: Stress Test (100 duplications) ---', 'info');
+        const ids = new Set();
+        const startTime = performance.now();
+        
+        for (let i = 0; i < 100; i++) {
+          const duplicate = node1.duplicate();
+          ids.add(duplicate.id);
+        }
+        
+        const endTime = performance.now();
+        const uniqueIds = ids.size;
+        
+        log(`Created ${uniqueIds} unique IDs out of 100 duplications`, 'info');
+        log(`All IDs are unique: ${uniqueIds === 100}`, uniqueIds === 100 ? 'success' : 'error');
+        log(`Time taken: ${(endTime - startTime).toFixed(2)}ms`, 'info');
+        
+        // Test 7: Memory cleanup test
+        log('\n--- Test 7: Memory Cleanup Test ---', 'info');
+        const registryBefore = Object.keys(getAllIds()).length;
+        
+        // Create some temporary objects
+        const tempNodes = [];
+        for (let i = 0; i < 10; i++) {
+          tempNodes.push(new NodeData({ x: i * 10, y: i * 10, label: `Temp ${i}` }));
+        }
+        
+        const registryAfter = Object.keys(getAllIds()).length;
+        
+        // Destroy the temporary objects
+        for (const node of tempNodes) {
+          node.destroy();
+        }
+        
+        const registryAfterCleanup = Object.keys(getAllIds()).length;
+        
+        log(`Registry before temp nodes: ${registryBefore}`, 'info');
+        log(`Registry after temp nodes: ${registryAfter}`, 'info');
+        log(`Registry after cleanup: ${registryAfterCleanup}`, 'info');
+        log(`Cleanup worked properly: ${registryAfterCleanup === registryBefore}`, 
+          registryAfterCleanup === registryBefore ? 'success' : 'error');
+        
+        log('\n=== Test Complete ===', 'success');
+        
+      } catch (error) {
+        log(`TEST FAILED: ${error.message}`, 'error');
+        console.error('Test error:', error);
+      }
+    }
+    
+    function clearOutput() {
+      output.innerHTML = '';
+    }
+    
+    document.getElementById('runTest').addEventListener('click', runTest);
+    document.getElementById('clearOutput').addEventListener('click', clearOutput);
+    
+    // Run test automatically on load
+    runTest();
+  </script>
+</body>
+</html>

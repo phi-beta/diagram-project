@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GUID System Test</title>
+</head>
+<body>
+  <h1>GUID System Test</h1>
+  <div id="output"></div>
+  
+  <script type="module">
+    import { generateGuid, ensureUniqueId, getAllIds, clearGuidRegistry } from './js/GuidManager.js';
+    import { NodeData } from './js/Node.js';
+    import { EdgeData } from './js/Edge.js';
+    
+    const output = document.getElementById('output');
+    
+    function log(message) {
+      const div = document.createElement('div');
+      div.textContent = message;
+      output.appendChild(div);
+    }
+    
+    // Test GUID generation
+    log('=== GUID Generation Test ===');
+    const guid1 = generateGuid('node');
+    const guid2 = generateGuid('edge');
+    const guid3 = generateGuid('node');
+    
+    log(`Node GUID 1: ${guid1}`);
+    log(`Edge GUID: ${guid2}`);
+    log(`Node GUID 2: ${guid3}`);
+    
+    // Test uniqueness
+    log(`\n=== Uniqueness Test ===`);
+    log(`GUID 1 === GUID 3: ${guid1 === guid3} (should be false)`);
+    
+    // Test NodeData GUID assignment
+    log(`\n=== NodeData GUID Test ===`);
+    const nodeData1 = new NodeData({ x: 100, y: 100, label: 'Node 1' });
+    const nodeData2 = new NodeData({ x: 200, y: 200, label: 'Node 2' });
+    
+    log(`NodeData 1 ID: ${nodeData1.id}`);
+    log(`NodeData 2 ID: ${nodeData2.id}`);
+    log(`IDs are unique: ${nodeData1.id !== nodeData2.id} (should be true)`);
+    
+    // Test duplication
+    log(`\n=== Duplication Test ===`);
+    const duplicatedNode = nodeData1.duplicate();
+    log(`Original ID: ${nodeData1.id}`);
+    log(`Duplicated ID: ${duplicatedNode.id}`);
+    log(`IDs are different: ${nodeData1.id !== duplicatedNode.id} (should be true)`);
+    
+    // Test EdgeData GUID assignment
+    log(`\n=== EdgeData GUID Test ===`);
+    const edgeData1 = new EdgeData({ from: nodeData1.id, to: nodeData2.id, class: 'connection' });
+    const edgeData2 = new EdgeData({ from: nodeData2.id, to: duplicatedNode.id, class: 'connection' });
+    
+    log(`EdgeData 1 ID: ${edgeData1.id}`);
+    log(`EdgeData 2 ID: ${edgeData2.id}`);
+    log(`Edge IDs are unique: ${edgeData1.id !== edgeData2.id} (should be true)`);
+    
+    // Test registry
+    log(`\n=== Registry Test ===`);
+    const registry = getAllIds();
+    log(`Total registered GUIDs: ${Object.keys(registry).length}`);
+    log(`Registry contents:`);
+    for (const [id, type] of Object.entries(registry)) {
+      log(`  ${id}: ${type}`);
+    }
+    
+    // Test collision detection
+    log(`\n=== Collision Detection Test ===`);
+    const testId = nodeData1.id;
+    const ensuredId = ensureUniqueId(testId);
+    log(`Original ID: ${testId}`);
+    log(`Ensured unique ID: ${ensuredId}`);
+    log(`ID was modified: ${testId !== ensuredId} (should be true due to collision)`);
+    
+    log(`\n=== Test Complete ===`);
+  </script>
+</body>
+</html>

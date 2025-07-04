@@ -29,7 +29,9 @@
  * ```
  */
 
-import { GuidManager } from './GuidManager.js';
+import { generateGuid, ensureUniqueId, registerExistingId, unregisterId, isIdInUse } from './GuidManager.js';
+import { debugNodeEvents, debugEdgeCreation } from './debug.js';
+import { nodeStateManager } from './NodeStateManager.js?v=010';
 
 // Default node dimensions (used for fallback calculations)
 const DEFAULT_NODE_SIZE = 50;
@@ -40,11 +42,23 @@ const DEFAULT_NODE_RADIUS = DEFAULT_NODE_SIZE / 2;
  */
 export class NodeData {
   constructor(data) {
-    // Generate GUID for this node using GuidManager
-    this.id = data.id ? GuidManager.ensureUniqueId(data.id) : GuidManager.generateGuid('node');
+    // Handle ID assignment differently for existing vs new nodes
+    if (data.id && isIdInUse(data.id)) {
+      // This is an existing ID (already registered by initializeFromExisting)
+      // Use it as-is without modification
+      this.id = data.id;
+    } else if (data.id) {
+      // This is a new node with a proposed ID, ensure it's unique
+      this.id = ensureUniqueId(data.id);
+    } else {
+      // This is a completely new node, generate a fresh GUID
+      this.id = generateGuid('node');
+    }
     
-    // Register this ID in the global registry
-    GuidManager.registerGuid(this.id, 'node');
+    // Register this ID if it's not already registered
+    if (!isIdInUse(this.id)) {
+      registerExistingId(this.id, 'node');
+    }
     
     // Basic properties
     this.x = data.x || 0;
@@ -121,7 +135,7 @@ export class NodeData {
 
   // Destroy this node data (unregister GUID)
   destroy() {
-    GuidManager.unregisterGuid(this.id);
+    unregisterId(this.id);
   }
 }
 
@@ -133,7 +147,11 @@ export class NodeRenderer {
     this.nodeData = nodeData;
     this.element = element;
     
-    // Interaction state for rendering
+    // State machine support
+    this.stateMachine = null;
+    this.useStateMachine = false; // Will be enabled after initialization
+    
+    // Legacy interaction state for rendering
     this.isDragging = false;
     this.isScaling = false;
     this.hasStartedDragging = false;
@@ -271,6 +289,9 @@ export class NodeRenderer {
     if (this.element) {
       this.element.classList.add('selected');
     }
+    
+    // Note: Removed automatic state machine sync to prevent circular calls
+    // State machine coordination should happen at a higher level
   }
 
   deselect() {
@@ -278,6 +299,9 @@ export class NodeRenderer {
     if (this.element) {
       this.element.classList.remove('selected');
     }
+    
+    // Note: Removed automatic state machine sync to prevent circular calls
+    // State machine coordination should happen at a higher level
   }
 
   // Visual state methods
@@ -297,12 +321,55 @@ export class NodeRenderer {
 
   clearInteractionStates() {
     this.nodeData.clearInteractionModes();
+    
+    // Clean up drag manager state if a drag manager is available and we're currently dragging
+    if (this.isDragging && this.dragManager) {
+      this.dragManager.stopDrag(this);
+    }
+    
     this.isDragging = false;
     this.isScaling = false;
     this.hasStartedDragging = false;
     
     if (this.element) {
       this.element.classList.remove('dragging', 'scaling');
+    }
+    
+    // Sync state machine back to appropriate state if using state machine
+    if (this.useStateMachine && this.stateMachine && nodeStateManager) {
+      const currentState = this.stateMachine.getCurrentState();
+      console.log(`🔄 Clearing interaction states for ${this.nodeData.id}, current state: ${currentState}`);
+      
+      // Transition back to appropriate state based on current state
+      if (currentState === 'dragging' || currentState === 'scaling') {
+        console.log(`🔄 Transitioning ${this.nodeData.id} from ${currentState} to selected via stopDrag/stopScale`);
+        try {
+          if (currentState === 'dragging') {
+            this.stateMachine.transition('stopDrag');
+          } else if (currentState === 'scaling') {
+            this.stateMachine.transition('stopScale');
+          }
+        } catch (error) {
+          console.warn(`⚠️ Could not transition ${this.nodeData.id} via stop action, forcing to selected`, error);
+          this.stateMachine.forceState('selected');
+        }
+      } else if (currentState === 'selected') {
+        console.log(`🔄 Transitioning ${this.nodeData.id} from selected to idle`);
+        try {
+          this.stateMachine.transition('deselect');
+        } catch (error) {
+          console.warn(`⚠️ Could not transition ${this.nodeData.id} via deselect, forcing to idle`, error);
+          this.stateMachine.forceState('idle');
+        }
+      } else if (currentState === 'edgeSource' || currentState === 'edgeTarget') {
+        console.log(`🔄 Transitioning ${this.nodeData.id} from ${currentState} to idle via cancelEdgeCreation`);
+        try {
+          this.stateMachine.transition('cancelEdgeCreation');
+        } catch (error) {
+          console.warn(`⚠️ Could not transition ${this.nodeData.id} via cancelEdgeCreation, forcing to idle`, error);
+          this.stateMachine.forceState('idle');
+        }
+      }
     }
   }
 
@@ -321,6 +388,77 @@ export class NodeRenderer {
     this.clickStartTime = Date.now();
     this.hasStartedDragging = false;
     
+    // Get node center for drag/scale calculations
+    const center = this.coordinateSystem 
+      ? this.coordinateSystem.getNodeCenter(this.element, 'global')
+      : this.getGlobalCenter();
+    
+    // Try state machine first if available
+    if (this.useStateMachine && this.stateMachine) {
+      console.log(`🖱️ Trying state machine for mouse down on: ${this.nodeData.id}`);
+      
+      // Add debug info about current state
+      const currentState = nodeStateManager.getStateMachine(this.nodeData.id)?.getCurrentState();
+      console.log(`🔍 Current state of ${this.nodeData.id}: ${currentState}`);
+      
+      // Let state machine handle basic transitions and edge creation
+      if (currentState === 'idle' || currentState === 'selected' || currentState === 'edgeSource') {
+        const handled = nodeStateManager.handleNodeMouseDown(this.nodeData.id, e, {
+          shiftKey: getShiftDown(),
+          ctrlKey: e.ctrlKey,
+          mousePos: mousePos,
+          edgeCreationMode: isEdgeCreationMode ? isEdgeCreationMode() : false
+        });
+        
+        if (handled) {
+          debugNodeEvents(`✅ Mouse down handled by state machine for: ${this.nodeData.id}`);
+          console.log(`✅ Mouse down handled by state machine for: ${this.nodeData.id}`);
+          
+          // If transitioning to dragging state, also set legacy flags for compatibility
+          const newState = nodeStateManager.getStateMachine(this.nodeData.id)?.getCurrentState();
+          if (newState === 'dragging') {
+            this.isDragging = true;
+            this.nodeData.setInteractionMode(getShiftDown() ? 'scale' : 'move');
+            
+            // Initialize drag/scale parameters
+            if (getShiftDown()) {
+              this.isScaling = true;
+              this.centerX = center.x;
+              this.centerY = center.y;
+              this.startDistance = Math.hypot(mousePos.x - this.centerX, mousePos.y - this.centerY);
+              this.startScale = this.nodeData.scale ?? 1;
+            } else {
+              if (this.dragManager) {
+                this.dragManager.startDrag(this, mousePos.x, mousePos.y);
+              } else {
+                this.dragStartMousePos = { x: mousePos.x, y: mousePos.y };
+                this.dragStartNodePos = { x: this.nodeData.x, y: this.nodeData.y };
+              }
+            }
+          } else if (newState === 'edgeSource') {
+            // Starting edge creation - call the edge creation callback
+            if (startEdgeCreationCallback) {
+              console.log(`🔗 Starting edge creation from ${this.nodeData.id}`);
+              startEdgeCreationCallback(this);
+            }
+          }
+          
+          return;
+        }
+      } else {
+        console.log(`⚠️ State machine skipped for ${this.nodeData.id} in state ${currentState} - using legacy logic`);
+      }
+    } else {
+      console.log(`⚠️ State machine not available for: ${this.nodeData.id}, useStateMachine=${this.useStateMachine}, stateMachine=${!!this.stateMachine}`);
+    }
+    
+    // Fall back to legacy logic
+    this.legacyMouseDown(e, svg, getShiftDown, selectCallback, scheduleRedrawCallback, isEdgeCreationMode, cancelEdgeCreationCallback, startEdgeCreationCallback, getMousePositionInViewBox);
+  }
+  
+  legacyMouseDown(e, svg, getShiftDown, selectCallback, scheduleRedrawCallback, isEdgeCreationMode, cancelEdgeCreationCallback, startEdgeCreationCallback, getMousePositionInViewBox) {
+    const mousePos = getMousePositionInViewBox(e);
+    
     // Get node center using coordinate system or fallback
     const center = this.coordinateSystem 
       ? this.coordinateSystem.getNodeCenter(this.element, 'global')
@@ -334,8 +472,9 @@ export class NodeRenderer {
     this.isScaling = getShiftDown();
     this.nodeData.setInteractionMode(getShiftDown() ? 'scale' : 'move');
 
-    // Cancel edge creation if we start dragging/scaling
-    if (cancelEdgeCreationCallback) {
+    // Cancel edge creation if we start dragging/scaling, but NOT if we're already in edge creation mode
+    // (because the user might be trying to complete an edge by clicking on this node)
+    if (cancelEdgeCreationCallback && !isEdgeCreationMode()) {
       cancelEdgeCreationCallback();
     }
 
@@ -439,18 +578,84 @@ export class NodeRenderer {
     scheduleRedrawCallback();
   }
 
-  onMouseUp(e, selectCallback, isEdgeCreationMode, getMousePositionInViewBox) {
+  onMouseUp(e, selectCallback, isEdgeCreationMode, getMousePositionInViewBox, getJustCompletedEdge) {
+    debugNodeEvents(`🎯 Node ${this.nodeData.id} onMouseUp - isEdgeCreationMode: ${isEdgeCreationMode ? isEdgeCreationMode() : 'undefined'}`);
+    
+    // Calculate mouse up metrics
+    const mousePos = getMousePositionInViewBox(e);
+    const timeDiff = Date.now() - this.clickStartTime;
+    const distanceMoved = Math.hypot(mousePos.x - this.clickStartX, mousePos.y - this.clickStartY);
+    const isClick = timeDiff < 200 && distanceMoved < 5;
+    
+    console.log(`🔍 Mouse up on ${this.nodeData.id}: timeDiff=${timeDiff}, distanceMoved=${distanceMoved}, isClick=${isClick}`);
+    
+    // Try state machine first if available and it makes sense
+    if (this.useStateMachine && this.stateMachine) {
+      const currentState = nodeStateManager.getStateMachine(this.nodeData.id)?.getCurrentState();
+      console.log(`🔍 Current state of ${this.nodeData.id} before mouse up: ${currentState}`);
+      
+      // Let state machine handle specific state transitions
+      if ((currentState === 'selected' && isClick) || 
+          (currentState === 'dragging') ||
+          (currentState === 'scaling') ||
+          (currentState === 'edgeSource')) {
+        const handled = nodeStateManager.handleNodeMouseUp(this.nodeData.id, e, {
+          isClick: isClick,
+          timeDiff: timeDiff,
+          distanceMoved: distanceMoved,
+          mousePos: mousePos,
+          edgeCreationMode: isEdgeCreationMode ? isEdgeCreationMode() : false,
+          justCompletedEdge: getJustCompletedEdge ? getJustCompletedEdge() : false
+        });
+        
+        if (handled) {
+          debugNodeEvents(`✅ Mouse up handled by state machine for: ${this.nodeData.id}`);
+          console.log(`✅ Mouse up handled by state machine for: ${this.nodeData.id}`);
+          
+          // Sync legacy flags with state machine state
+          const newState = nodeStateManager.getStateMachine(this.nodeData.id)?.getCurrentState();
+          if (newState === 'selected' || newState === 'idle') {
+            this.isDragging = false;
+            this.isScaling = false;
+            this.hasStartedDragging = false;
+            
+            if (this.element) {
+              this.element.classList.remove('dragging', 'scaling');
+            }
+          }
+          
+          return;
+        }
+      }
+    }
+    
+    // Fall back to legacy logic
+    console.log(`⚠️ Using legacy logic for ${this.nodeData.id} mouse up`);
+    this.legacyMouseUp(e, selectCallback, isEdgeCreationMode, getMousePositionInViewBox, getJustCompletedEdge);
+  }
+  
+  legacyMouseUp(e, selectCallback, isEdgeCreationMode, getMousePositionInViewBox, getJustCompletedEdge) {
     // Handle clicks during edge creation mode
     if (isEdgeCreationMode && isEdgeCreationMode()) {
       const mousePos = getMousePositionInViewBox(e);
       const timeDiff = Date.now() - this.clickStartTime;
       const distanceMoved = Math.hypot(mousePos.x - this.clickStartX, mousePos.y - this.clickStartY);
       
+      debugEdgeCreation(`🎯 Edge creation mode - timeDiff: ${timeDiff}, distanceMoved: ${distanceMoved}`);
+      
       // Only trigger selection if this was a quick click (not a drag attempt)
       if (timeDiff < 200 && distanceMoved < 5) {
-        console.log(`Click detected on node ${this.nodeData.id} during edge creation`);
+        debugEdgeCreation(`🎯 Edge target: ${this.nodeData.id} - calling selectCallback`);
         selectCallback(this);
       }
+      return;
+    }
+    
+    // Check if an edge was just completed - if so, don't process as a click
+    const justCompleted = getJustCompletedEdge ? getJustCompletedEdge() : false;
+    
+    if (justCompleted) {
+      debugNodeEvents(`🚫 Ignoring mouse up on ${this.nodeData.id} - edge just completed`);
       return;
     }
     
@@ -463,6 +668,15 @@ export class NodeRenderer {
       console.log(`Mouse up on node ${this.nodeData.id}: timeDiff=${timeDiff}, distanceMoved=${distanceMoved}, hasStartedDragging=${this.hasStartedDragging}, justCreated=${this.nodeData.justCreated}`);
       
       if (timeDiff < 200 && distanceMoved < 5) {
+        // Check if an edge was just completed - if so, don't process as a click
+        const justCompleted = getJustCompletedEdge ? getJustCompletedEdge() : false;
+        
+        if (justCompleted) {
+          debugNodeEvents(`🚫 Ignoring click on ${this.nodeData.id} - edge just completed`);
+          this.clearInteractionStates();
+          return;
+        }
+        
         // This was a click - toggle selection
         console.log(`Click detected on node ${this.nodeData.id}`);
         this.clearInteractionStates();
@@ -472,6 +686,23 @@ export class NodeRenderer {
         this.clearInteractionStates();
         this.nodeData.justCreated = false;
       }
+    }
+  }
+
+  /**
+   * Initialize state machine for this node
+   */
+  async initializeStateMachine() {
+    try {
+      console.log(`🔧 Initializing state machine for node: ${this.nodeData.id}`);
+      this.stateMachine = await nodeStateManager.registerNode(this.nodeData.id, this);
+      this.useStateMachine = true;
+      debugNodeEvents(`✅ State machine initialized for node: ${this.nodeData.id}`);
+      console.log(`✅ State machine initialized for node: ${this.nodeData.id}`);
+    } catch (error) {
+      debugNodeEvents(`❌ Failed to initialize state machine for node: ${this.nodeData.id}`, error);
+      console.error(`❌ Failed to initialize state machine for node: ${this.nodeData.id}`, error);
+      this.useStateMachine = false;
     }
   }
 
@@ -537,7 +768,7 @@ export class NodeRenderer {
   }
 
   // Event listener setup
-  setupEventListeners(svg, getShiftDown, selectCallback, scheduleRedrawCallback, isEdgeCreationMode, cancelEdgeCreationCallback, startEdgeCreationCallback, getMousePositionInViewBox) {
+  setupEventListeners(svg, getShiftDown, selectCallback, scheduleRedrawCallback, isEdgeCreationMode, cancelEdgeCreationCallback, startEdgeCreationCallback, getMousePositionInViewBox, getJustCompletedEdge) {
     this.element.addEventListener('mousedown', (e) => 
       this.onMouseDown(e, svg, getShiftDown, selectCallback, scheduleRedrawCallback, isEdgeCreationMode, cancelEdgeCreationCallback, startEdgeCreationCallback, getMousePositionInViewBox)
     );
@@ -547,7 +778,7 @@ export class NodeRenderer {
     );
     
     window.addEventListener('mouseup', (e) => 
-      this.onMouseUp(e, selectCallback, isEdgeCreationMode, getMousePositionInViewBox)
+      this.onMouseUp(e, selectCallback, isEdgeCreationMode, getMousePositionInViewBox, getJustCompletedEdge)
     );
   }
 
@@ -646,6 +877,17 @@ export class Node {
   // Delegate all methods to nodeRenderer
   getLocalCenter() { return this.nodeRenderer.getLocalCenter(); }
   getGlobalCenter() { return this.nodeRenderer.getGlobalCenter(); }
+  
+  // Legacy method for backward compatibility with Edge class
+  getTransformedCenter() { return this.nodeRenderer.getGlobalCenter(); }
+  
+  // Method for checking if a global point is inside this node
+  containsGlobalPoint(x, y) {
+    const center = this.nodeRenderer.getGlobalCenter();
+    const distance = Math.hypot(x - center.x, y - center.y);
+    return distance <= center.radius;
+  }
+  
   select() { return this.nodeRenderer.select(); }
   deselect() { return this.nodeRenderer.deselect(); }
   setDraggingState() { return this.nodeRenderer.setDraggingState(); }
@@ -656,6 +898,7 @@ export class Node {
   setPosition(x, y) { return this.nodeRenderer.setPosition(x, y); }
   moveTo(x, y, animate = false) { return this.nodeRenderer.moveTo(x, y, animate); }
   scaleTo(newScale, animate = false) { return this.nodeRenderer.scaleTo(newScale, animate); }
+  initializeStateMachine() { return this.nodeRenderer.initializeStateMachine(); }
   destroy() { return this.nodeRenderer.destroy(); }
   
   // Mouse event methods
@@ -671,8 +914,18 @@ export class Node {
     return this.nodeRenderer.onMouseUp(e, selectCallback, isEdgeCreationMode, getMousePositionInViewBox);
   }
   
-  setupEventListeners(svg, getShiftDown, selectCallback, scheduleRedrawCallback, isEdgeCreationMode, cancelEdgeCreationCallback, startEdgeCreationCallback, getMousePositionInViewBox) {
-    return this.nodeRenderer.setupEventListeners(svg, getShiftDown, selectCallback, scheduleRedrawCallback, isEdgeCreationMode, cancelEdgeCreationCallback, startEdgeCreationCallback, getMousePositionInViewBox);
+  setupEventListeners(svg, getShiftDown, selectCallback, scheduleRedrawCallback, isEdgeCreationMode, cancelEdgeCreationCallback, startEdgeCreationCallback, getMousePositionInViewBox, getJustCompletedEdge) {
+    return this.nodeRenderer.setupEventListeners(svg, getShiftDown, selectCallback, scheduleRedrawCallback, isEdgeCreationMode, cancelEdgeCreationCallback, startEdgeCreationCallback, getMousePositionInViewBox, getJustCompletedEdge);
+  }
+
+  // Legacy makeDraggable method for backward compatibility
+  makeDraggable(svg, getShiftDown, selectCallback, scheduleRedrawCallback, isEdgeCreationMode, cancelEdgeCreationCallback, startEdgeCreationCallback, getMousePositionInViewBox, dragManager, coordinateSystem, getJustCompletedEdge) {
+    // Set external dependencies
+    this.coordinateSystem = coordinateSystem;
+    this.dragManager = dragManager;
+    
+    // Setup event listeners using the new API
+    this.nodeRenderer.setupEventListeners(svg, getShiftDown, selectCallback, scheduleRedrawCallback, isEdgeCreationMode, cancelEdgeCreationCallback, startEdgeCreationCallback, getMousePositionInViewBox, getJustCompletedEdge);
   }
 
   // Duplication method with GUID
@@ -680,6 +933,49 @@ export class Node {
     const duplicatedNodeData = this.nodeData.duplicate();
     // Note: The element will need to be created separately by the caller
     return duplicatedNodeData;
+  }
+
+  // Clone method for backward compatibility (used by renderer.js)
+  async clone(svg) {
+    // Create a duplicate of the node data with new GUID
+    const duplicatedNodeData = this.nodeData.duplicate();
+    
+    // Create a new SVG element for the cloned node
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', duplicatedNodeData.class);
+    
+    // Load and append the SVG content
+    if (duplicatedNodeData.svg) {
+      const svgRes = await fetch(`assets/icons/${duplicatedNodeData.svg}`);
+      const svgText = await svgRes.text();
+      const parser = new DOMParser();
+      const svgNode = parser.parseFromString(svgText, 'image/svg+xml').documentElement;
+      g.appendChild(svgNode);
+    }
+    
+    // Position the cloned node slightly offset from original
+    const offset = 50; // Offset in pixels
+    duplicatedNodeData.setPosition(this.nodeData.x + offset, this.nodeData.y + offset);
+    
+    // Update the SVG transform
+    const scale = duplicatedNodeData.scale ?? 1;
+    g.setAttribute('transform', `translate(${duplicatedNodeData.x}, ${duplicatedNodeData.y}) scale(${scale})`);
+    
+    // Append to SVG
+    svg.appendChild(g);
+    
+    // Create new Node instance with the duplicated data and new element
+    const clonedNode = new Node(duplicatedNodeData.toData(), g);
+    
+    // Initialize state machine for the cloned node
+    try {
+      await clonedNode.initializeStateMachine();
+      debugNodeEvents(`✅ State machine initialized for cloned node: ${clonedNode.id}`);
+    } catch (error) {
+      debugNodeEvents(`⚠️ State machine initialization failed for cloned node ${clonedNode.id}:`, error);
+    }
+    
+    return clonedNode;
   }
 
   // Get node data for serialization

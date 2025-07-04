@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Selection State Machine</title>
+  <link rel="stylesheet" href="themes/default.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+    }
+    
+    #instructions {
+      margin-bottom: 20px;
+      padding: 10px;
+      background-color: #f0f0f0;
+      border-radius: 5px;
+    }
+    
+    #status {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #e8f4fd;
+      border-radius: 5px;
+      font-family: monospace;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    #diagram {
+      border: 1px solid #ccc;
+      background-color: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>Selection State Machine Test</h1>
+  
+  <div id="instructions">
+    <h3>Test Instructions:</h3>
+    <ol>
+      <li>Click on a node to select it</li>
+      <li>Click on the same node again to deselect it</li>
+      <li>Try selecting different nodes</li>
+      <li>Check the status area to see state transitions</li>
+      <li>Press Shift+D to duplicate selected node</li>
+      <li>Press Escape to reset all states</li>
+    </ol>
+  </div>
+  
+  <svg id="diagram" width="800" height="600" viewBox="0 0 800 600">
+    <!-- Nodes will be created here -->
+  </svg>
+  
+  <div id="status">
+    <strong>Status Log:</strong><br>
+    Waiting for interactions...
+  </div>
+  
+  <script type="module">
+    import { Node } from './js/Node.js?v=040';
+    import { nodeStateManager } from './js/NodeStateManager.js?v=011';
+    
+    const svg = document.getElementById('diagram');
+    const statusEl = document.getElementById('status');
+    
+    let selectedNode = null;
+    const nodes = [];
+    
+    function log(message) {
+      const timestamp = new Date().toLocaleTimeString();
+      statusEl.innerHTML += `<br>[${timestamp}] ${message}`;
+      statusEl.scrollTop = statusEl.scrollHeight;
+      console.log(`[${timestamp}] ${message}`);
+    }
+    
+    // Initialize node state manager
+    await nodeStateManager.initialize();
+    log('✅ NodeStateManager initialized');
+    
+    // Create test nodes
+    const nodeData1 = { 
+      id: 'test-node-1', 
+      x: 100, 
+      y: 100, 
+      svg: '<circle r="30" fill="#4a90e2" stroke="#2c5aa0" stroke-width="2"/><text x="0" y="5" text-anchor="middle" fill="white" font-size="12">Node 1</text>', 
+      label: 'Test Node 1', 
+      class: 'test-node', 
+      scale: 1 
+    };
+    
+    const nodeData2 = { 
+      id: 'test-node-2', 
+      x: 300, 
+      y: 200, 
+      svg: '<circle r="30" fill="#e94b3c" stroke="#c62d1c" stroke-width="2"/><text x="0" y="5" text-anchor="middle" fill="white" font-size="12">Node 2</text>', 
+      label: 'Test Node 2', 
+      class: 'test-node', 
+      scale: 1 
+    };
+    
+    // Create Node instances
+    const node1 = Node.createNodeRenderer(nodeData1, svg);
+    const node2 = Node.createNodeRenderer(nodeData2, svg);
+    
+    svg.appendChild(node1.element);
+    svg.appendChild(node2.element);
+    
+    nodes.push(node1, node2);
+    
+    // Initialize state machines
+    await node1.initializeStateMachine();
+    await node2.initializeStateMachine();
+    
+    log('✅ Test nodes created and state machines initialized');
+    
+    // Mock functions
+    function getMousePositionInViewBox(e) {
+      const rect = svg.getBoundingClientRect();
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    }
+    
+    function selectCallback(node) {
+      log(`🎯 selectCallback called for: ${node.nodeData.id}`);
+      
+      // Deselect previous node
+      if (selectedNode && selectedNode !== node) {
+        selectedNode.element.classList.remove('selected');
+        log(`🔄 Deselected: ${selectedNode.nodeData.id}`);
+      }
+      
+      // Handle selection/deselection
+      if (selectedNode === node) {
+        // Clicking same node - deselect
+        selectedNode.element.classList.remove('selected');
+        selectedNode = null;
+        log(`❌ Deselected: ${node.nodeData.id}`);
+      } else {
+        // Select new node
+        node.element.classList.add('selected');
+        selectedNode = node;
+        log(`✅ Selected: ${node.nodeData.id}`);
+      }
+      
+      // Log state machine state
+      const stateMachine = nodeStateManager.getStateMachine(node.nodeData.id);
+      if (stateMachine) {
+        log(`📊 State machine state for ${node.nodeData.id}: ${stateMachine.getCurrentState()}`);
+      }
+    }
+    
+    function isEdgeCreationMode() { return false; }
+    function getShiftDown() { return false; }
+    function scheduleRedrawCallback() { }
+    function cancelEdgeCreationCallback() { }
+    function startEdgeCreationCallback() { }
+    function getJustCompletedEdge() { return false; }
+    
+    // Add event handlers
+    nodes.forEach(node => {
+      node.element.addEventListener('mousedown', (e) => {
+        log(`🖱️ Mouse down on: ${node.nodeData.id}`);
+        node.onMouseDown(e, svg, getShiftDown, selectCallback, scheduleRedrawCallback, isEdgeCreationMode, cancelEdgeCreationCallback, startEdgeCreationCallback, getMousePositionInViewBox);
+      });
+      
+      node.element.addEventListener('mouseup', (e) => {
+        log(`🖱️ Mouse up on: ${node.nodeData.id}`);
+        node.onMouseUp(e, selectCallback, isEdgeCreationMode, getMousePositionInViewBox, getJustCompletedEdge);
+      });
+    });
+    
+    // Add keyboard handlers
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        log('🔑 Escape pressed - resetting all states');
+        nodeStateManager.resetAllStates();
+        nodes.forEach(node => {
+          node.element.classList.remove('selected');
+        });
+        selectedNode = null;
+      }
+    });
+    
+    log('🎮 Test ready - try clicking on the nodes!');
+  </script>
+</body>
+</html>

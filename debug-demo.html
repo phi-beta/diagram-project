@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug Mode Demo - Diagram Project</title>
+  <link rel="stylesheet" href="themes/default.css?v=006" id="theme-link">
+  <style>
+    .debug-controls {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: monospace;
+      font-size: 12px;
+      z-index: 1000;
+    }
+    .debug-controls button {
+      margin: 2px;
+      padding: 5px 10px;
+      background: #333;
+      color: white;
+      border: 1px solid #555;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .debug-controls button:hover {
+      background: #555;
+    }
+    .debug-controls button.active {
+      background: #007acc;
+    }
+  </style>
+</head>
+<body>
+  <div class="debug-controls">
+    <div><strong>Debug Controls</strong></div>
+    <button onclick="window.enableDebug()">Enable All Debug</button>
+    <button onclick="window.disableDebug()">Disable Debug</button>
+    <br>
+    <button onclick="window.enableDebug(['EDGE_CREATION'])">Edge Creation</button>
+    <button onclick="window.enableDebug(['INTERACTION'])">Interactions</button>
+    <button onclick="window.enableDebug(['KEYBOARD'])">Keyboard</button>
+    <button onclick="window.enableDebug(['NODE_EVENTS'])">Node Events</button>
+    <br>
+    <div style="margin-top: 10px; font-size: 10px;">
+      Use F12 console to see debug output<br>
+      Try creating edges with Shift+Drag
+    </div>
+  </div>
+  
+  <button id="theme-toggle">Toggle Theme</button>
+  <div id="viewport-indicators">
+    <div id="zoom-level">100%</div>
+    <div id="coordinates">0, 0</div>
+    <button id="reset-view">Reset View</button>
+  </div>
+  <svg id="diagram" width="800" height="600" viewBox="0 0 800 600"></svg>
+  <script type="module" src="js/debug.js"></script>
+  <script type="module" src="js/renderer.js?v=000048"></script>
+</body>
+</html>

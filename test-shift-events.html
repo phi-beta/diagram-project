@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Shift Key Events</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border: 1px solid #ccc; }
+        .shift-down { background-color: #ffeeee; border-color: #ff0000; }
+        .shift-up { background-color: #eeffee; border-color: #00ff00; }
+        #log { height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Shift Key Event Test</h1>
+    <div id="status" class="status">Shift key status will appear here</div>
+    <div>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+    <div id="log"></div>
+
+    <script>
+        let shiftDown = false;
+        const statusDiv = document.getElementById('status');
+        const logDiv = document.getElementById('log');
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus() {
+            statusDiv.textContent = `Shift key: ${shiftDown ? 'DOWN' : 'UP'}`;
+            statusDiv.className = `status ${shiftDown ? 'shift-down' : 'shift-up'}`;
+        }
+
+        function clearLog() {
+            logDiv.innerHTML = '';
+        }
+
+        document.addEventListener('keydown', (e) => {
+            log(`KeyDown: key="${e.key}" code="${e.code}" shiftKey=${e.shiftKey} repeat=${e.repeat}`);
+            
+            if (e.key === 'Shift') {
+                shiftDown = true;
+                updateStatus();
+                log('SHIFT DETECTED - shiftDown set to true');
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            log(`KeyUp: key="${e.key}" code="${e.code}" shiftKey=${e.shiftKey}`);
+            
+            if (e.key === 'Shift') {
+                shiftDown = false;
+                updateStatus();
+                log('SHIFT RELEASED - shiftDown set to false');
+            }
+        });
+
+        // Initialize status
+        updateStatus();
+        log('Test page loaded - press Shift key to test events');
+    </script>
+</body>
+</html>

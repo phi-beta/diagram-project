@@ -1,0 +1,166 @@
+{
+  "stateMachine": {
+    "name": "NodeInteractionStateMachine",
+    "description": "Pure logical state machine for node interactions - no technical events or visual actions",
+    "initialState": "idle",
+    "states": {
+      "idle": {
+        "description": "Node is not being interacted with"
+      },
+      "selected": {
+        "description": "Node is selected but not being manipulated"
+      },
+      "dragging": {
+        "description": "Node is being dragged"
+      },
+      "scaling": {
+        "description": "Node is being scaled"
+      },
+      "edgeSource": {
+        "description": "Node is the source of an edge being created"
+      },
+      "edgeTarget": {
+        "description": "Node is being targeted for edge completion"
+      },
+      "cooldown": {
+        "description": "Node is in cooldown after edge completion (prevents immediate reselection)"
+      }
+    },
+    "transitions": {
+      "idle": {
+        "select": "selected",
+        "startDrag": "dragging",
+        "startScale": "scaling",
+        "becomeEdgeTarget": "edgeTarget"
+      },
+      "selected": {
+        "deselect": "idle",
+        "startDrag": "dragging",
+        "startScale": "scaling",
+        "startEdgeCreation": "edgeSource",
+        "becomeEdgeTarget": "edgeTarget"
+      },
+      "dragging": {
+        "finishDrag": "selected",
+        "cancelToIdle": "idle"
+      },
+      "scaling": {
+        "finishScale": "selected",
+        "cancelToIdle": "idle"
+      },
+      "edgeSource": {
+        "completeEdge": "selected",
+        "cancelEdgeCreation": "selected"
+      },
+      "edgeTarget": {
+        "completeEdge": "cooldown",
+        "cancelEdgeTarget": "idle"
+      },
+      "cooldown": {
+        "timeout": "idle"
+      }
+    }
+  },
+  "eventMapping": {
+    "description": "Maps technical events to logical transitions",
+    "rules": [
+      {
+        "event": "mouseDown",
+        "conditions": [
+          {
+            "state": "idle",
+            "action": "select"
+          },
+          {
+            "state": "selected",
+            "condition": "shiftKey",
+            "action": "startEdgeCreation"
+          },
+          {
+            "state": "selected",
+            "condition": "!shiftKey",
+            "action": "startDrag"
+          }
+        ]
+      },
+      {
+        "event": "mouseUp",
+        "conditions": [
+          {
+            "state": "dragging",
+            "action": "finishDrag"
+          },
+          {
+            "state": "scaling",
+            "action": "finishScale"
+          },
+          {
+            "state": "selected",
+            "condition": "isClick",
+            "action": "deselect"
+          },
+          {
+            "state": "edgeTarget",
+            "condition": "inEdgeCreationMode",
+            "action": "completeEdge"
+          }
+        ]
+      },
+      {
+        "event": "escapeKey",
+        "conditions": [
+          {
+            "state": "edgeSource",
+            "action": "cancelEdgeCreation"
+          },
+          {
+            "state": "edgeTarget",
+            "action": "cancelEdgeTarget"
+          }
+        ]
+      },
+      {
+        "event": "timeout",
+        "conditions": [
+          {
+            "state": "cooldown",
+            "action": "timeout"
+          }
+        ]
+      }
+    ]
+  },
+  "visualActions": {
+    "description": "Visual changes for each state",
+    "states": {
+      "idle": {
+        "onEnter": ["removeHighlight", "setDefaultCursor"],
+        "onExit": []
+      },
+      "selected": {
+        "onEnter": ["addHighlight", "setPointerCursor"],
+        "onExit": ["removeHighlight"]
+      },
+      "dragging": {
+        "onEnter": ["addDragHighlight", "setGrabbingCursor"],
+        "onExit": ["removeDragHighlight"]
+      },
+      "scaling": {
+        "onEnter": ["addScaleHighlight", "setResizeCursor"],
+        "onExit": ["removeScaleHighlight"]
+      },
+      "edgeSource": {
+        "onEnter": ["addEdgeSourceHighlight", "setCrosshairCursor"],
+        "onExit": ["removeEdgeSourceHighlight"]
+      },
+      "edgeTarget": {
+        "onEnter": ["addEdgeTargetHighlight", "setCrosshairCursor"],
+        "onExit": ["removeEdgeTargetHighlight"]
+      },
+      "cooldown": {
+        "onEnter": ["removeHighlight", "setDefaultCursor", "setTimeout:500"],
+        "onExit": []
+      }
+    }
+  }
+}

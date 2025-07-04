@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Separated Architecture</title>
+  <link rel="stylesheet" href="themes/default.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+    }
+    
+    #status {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #e8f4fd;
+      border-radius: 5px;
+      font-family: monospace;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    #diagram {
+      border: 1px solid #ccc;
+      background-color: white;
+    }
+    
+    .test-node {
+      fill: lightblue;
+      stroke: black;
+      stroke-width: 2;
+      cursor: pointer;
+    }
+    
+    .test-node.highlighted {
+      fill: yellow;
+    }
+    
+    .test-node.highlight-selected {
+      fill: lightgreen;
+    }
+    
+    .test-node.highlight-dragging {
+      fill: orange;
+    }
+    
+    .test-node.highlight-edge-source {
+      fill: red;
+    }
+    
+    .test-node.highlight-edge-target {
+      fill: purple;
+    }
+  </style>
+</head>
+<body>
+  <h1>Separated Architecture Test</h1>
+  
+  <div>
+    <h3>Instructions:</h3>
+    <ul>
+      <li>Click a node to select it (should turn green)</li>
+      <li>Hold Shift and click to start edge creation (should turn red)</li>
+      <li>Press Escape to cancel edge creation</li>
+      <li>Watch the console for debug messages</li>
+    </ul>
+  </div>
+  
+  <svg id="diagram" width="800" height="400">
+    <rect id="testNode1" class="test-node" x="100" y="100" width="80" height="60" rx="5"></rect>
+    <text x="140" y="135" text-anchor="middle" fill="black" font-size="12">Node 1</text>
+    
+    <rect id="testNode2" class="test-node" x="300" y="150" width="80" height="60" rx="5"></rect>
+    <text x="340" y="185" text-anchor="middle" fill="black" font-size="12">Node 2</text>
+    
+    <rect id="testNode3" class="test-node" x="500" y="200" width="80" height="60" rx="5"></rect>
+    <text x="540" y="235" text-anchor="middle" fill="black" font-size="12">Node 3</text>
+  </svg>
+  
+  <div id="status">
+    <strong>Console Output:</strong><br>
+  </div>
+  
+  <script type="module">
+    import { NodeStateMachine } from './js/NodeStateMachine.js?v=011';
+    import { NodeEventMapper } from './js/NodeEventMapper.js?v=011';
+    import { NodeVisualActions } from './js/NodeVisualActions.js?v=011';
+    
+    let stateMachine, eventMapper, visualActions;
+    
+    async function initTest() {
+      const status = document.getElementById('status');
+      
+      function log(message) {
+        status.innerHTML += message + '<br>';
+        status.scrollTop = status.scrollHeight;
+        console.log(message);
+      }
+      
+      try {
+        log('🔧 Loading configuration...');
+        
+        // Load configuration
+        const response = await fetch('/config/node-state-machine.json');
+        const config = await response.json();
+        
+        log('✅ Configuration loaded');
+        log(`📋 State machine: ${config.stateMachine.name}`);
+        log(`🗺️ Event mapping rules: ${config.eventMapping.rules.length}`);
+        log(`🎨 Visual action states: ${Object.keys(config.visualActions.states).length}`);
+        
+        // Create the three layers
+        const testElement = document.getElementById('testNode1');
+        
+        stateMachine = new NodeStateMachine('testNode1', config);
+        eventMapper = new NodeEventMapper(config.eventMapping);
+        visualActions = new NodeVisualActions(config.visualActions, testElement);
+        
+        log('✅ All three layers created successfully');
+        
+        // Connect layers
+        stateMachine.addListener('stateChange', (data) => {
+          log(`🔄 State change: ${data.oldState} → ${data.newState} (${data.trigger})`);
+          visualActions.executeTransition(data.newState, data.oldState, data.trigger, data.context);
+        });
+        
+        visualActions.onCallback('timeout', (data) => {
+          log(`⏰ Timeout callback triggered`);
+          stateMachine.transition('timeout', data);
+        });
+        
+        log('✅ Layers connected successfully');
+        
+        // Set up event handlers
+        testElement.addEventListener('mousedown', (e) => {
+          const eventData = {
+            shiftKey: e.shiftKey,
+            ctrlKey: e.ctrlKey
+          };
+          
+          log(`🖱️ Mouse down event: shiftKey=${e.shiftKey}`);
+          
+          const currentState = stateMachine.getCurrentState();
+          const action = eventMapper.mapEventToAction('mouseDown', currentState, eventData);
+          
+          if (action) {
+            log(`🗺️ Event mapped: mouseDown (${currentState}) → ${action}`);
+            stateMachine.transition(action, eventData);
+          } else {
+            log(`❌ No mapping for mouseDown in state ${currentState}`);
+          }
+        });
+        
+        testElement.addEventListener('mouseup', (e) => {
+          const eventData = {
+            isClick: true // Simplified for this test
+          };
+          
+          log(`🖱️ Mouse up event: isClick=${eventData.isClick}`);
+          
+          const currentState = stateMachine.getCurrentState();
+          const action = eventMapper.mapEventToAction('mouseUp', currentState, eventData);
+          
+          if (action) {
+            log(`🗺️ Event mapped: mouseUp (${currentState}) → ${action}`);
+            stateMachine.transition(action, eventData);
+          } else {
+            log(`❌ No mapping for mouseUp in state ${currentState}`);
+          }
+        });
+        
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            log(`⌨️ Escape key pressed`);
+            
+            const currentState = stateMachine.getCurrentState();
+            const action = eventMapper.mapEventToAction('escapeKey', currentState, {});
+            
+            if (action) {
+              log(`🗺️ Event mapped: escapeKey (${currentState}) → ${action}`);
+              stateMachine.transition(action, {});
+            } else {
+              log(`❌ No mapping for escapeKey in state ${currentState}`);
+            }
+          }
+        });
+        
+        log('✅ Event handlers set up');
+        log('🎯 Test ready! Current state: ' + stateMachine.getCurrentState());
+        
+      } catch (error) {
+        log('❌ Error during initialization: ' + error.message);
+        console.error(error);
+      }
+    }
+    
+    initTest();
+  </script>
+</body>
+</html>

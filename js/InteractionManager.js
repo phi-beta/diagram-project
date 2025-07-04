@@ -2,8 +2,15 @@
  * Manages all user interactions with the diagram including
  * node selection, dragging, scaling, and edge creation
  */
+import { debugInteraction, debugEdgeCreation, debugKeyboard, debugMouse } from './debug.js';
+
 export class InteractionManager {
   constructor(svg, viewBoxManager, dragManager) {
+    debugInteraction('🚀 InteractionManager constructor called');
+    debugInteraction('  svg:', svg);
+    debugInteraction('  viewBoxManager:', viewBoxManager);
+    debugInteraction('  dragManager:', dragManager);
+    
     this.svg = svg;
     this.viewBoxManager = viewBoxManager;
     this.dragManager = dragManager;
@@ -13,6 +20,8 @@ export class InteractionManager {
     this.selectedNode = null;
     this.shiftDown = false;
     this.ctrlDown = false;
+    this.justCompletedEdge = false;
+    this.lastEdgeTargetNode = null;
     
     // Edge creation state
     this.isCreatingEdge = false;
@@ -29,15 +38,30 @@ export class InteractionManager {
     this.redrawCallback = null;
     
     this.setupEventListeners();
+    debugInteraction('✅ InteractionManager constructor complete');
   }
   
   /**
    * Set up all event listeners
    */
   setupEventListeners() {
-    // Keyboard events
-    document.addEventListener('keydown', (e) => this.handleKeyDown(e));
-    document.addEventListener('keyup', (e) => this.handleKeyUp(e));
+    debugInteraction('🎯 Setting up InteractionManager event listeners');
+    
+    // Keyboard events - simplified approach
+    const keyDownHandler = (e) => {
+      debugKeyboard('🎯 InteractionManager keydown:', e.key, 'target:', e.target.tagName);
+      this.handleKeyDown(e);
+    };
+    
+    const keyUpHandler = (e) => {
+      debugKeyboard('🎯 InteractionManager keyup:', e.key, 'target:', e.target.tagName);
+      this.handleKeyUp(e);
+    };
+    
+    document.addEventListener('keydown', keyDownHandler);
+    document.addEventListener('keyup', keyUpHandler);
+    
+    debugInteraction('✅ Keyboard event listeners attached');
     
     // Mouse events
     this.svg.addEventListener('click', (e) => this.handleSvgClick(e));
@@ -45,6 +69,16 @@ export class InteractionManager {
     this.svg.addEventListener('wheel', (e) => this.handleWheel(e));
     this.svg.addEventListener('mousedown', (e) => this.handleMouseDown(e));
     document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+    
+    debugInteraction('✅ Mouse event listeners attached');
+    
+    // Ensure the document can receive focus for keyboard events
+    if (document.activeElement !== document.body) {
+      document.body.focus();
+      debugInteraction('✅ Document body focused for keyboard events');
+    }
+    
+    debugInteraction('✅ InteractionManager event listeners setup complete');
   }
   
   /**
@@ -60,16 +94,30 @@ export class InteractionManager {
    * Handle keyboard key down events
    */
   handleKeyDown(e) {
+    // Prevent key repeat and multiple triggers
+    if (e.repeat) return;
+    
     if (e.key === 'Shift') {
+      // Prevent multiple shift key triggers
+      if (this.shiftDown) {
+        return;
+      }
+      
       this.shiftDown = true;
+      
       // Start edge creation if a node is selected and mouse is not over that node
       if (this.selectedNode && !this.isCreatingEdge && 
           !this.dragManager.isAnyNodeDragging() && !this.isMouseOverSelectedNode()) {
+        debugEdgeCreation('🚀 Starting edge creation from:', this.selectedNode.id);
         this.startEdgeCreation(this.selectedNode);
       }
     }
     if (e.key === 'Control') {
       this.ctrlDown = true;
+    }
+    if (e.key === 'Escape') {
+      debugEdgeCreation('Escape pressed - canceling edge creation');
+      this.cancelEdgeCreation();
     }
     
     // Note: Ctrl+D for duplication is handled by the main renderer
@@ -81,7 +129,9 @@ export class InteractionManager {
   handleKeyUp(e) {
     if (e.key === 'Shift') {
       this.shiftDown = false;
-      this.cancelEdgeCreation();
+      // Don't cancel edge creation on shift up - let it complete naturally
+      // Edge creation will be canceled when clicking on empty space or pressing escape
+      debugKeyboard('Shift released - edge creation continues until target selected');
     }
     if (e.key === 'Control') {
       this.ctrlDown = false;
@@ -106,8 +156,16 @@ export class InteractionManager {
    * Handle mouse move events
    */
   handleMouseMove(e) {
+    // Update mouse position
+    const oldMouseX = this.lastMouseX;
+    const oldMouseY = this.lastMouseY;
     this.lastMouseX = e.clientX;
     this.lastMouseY = e.clientY;
+    
+    // Debug mouse tracking occasionally
+    if (this.shiftDown && Math.random() < 0.05) { // 5% of the time when shift is down
+      debugMouse('Mouse move - shift down:', this.shiftDown, 'pos:', this.lastMouseX, this.lastMouseY);
+    }
     
     // Check if any node is being interacted with and cancel edge creation if so
     this.checkForNodeInteractions();
@@ -118,9 +176,11 @@ export class InteractionManager {
       
       if (this.isCreatingEdge && mouseOverSelectedNode) {
         // Cancel edge creation when mouse moves over the selected node
+        debugEdgeCreation('🛑 Canceling edge creation - mouse over selected node');
         this.cancelEdgeCreation();
       } else if (!this.isCreatingEdge && !mouseOverSelectedNode) {
         // Start edge creation when mouse moves away from the selected node
+        debugEdgeCreation('🚀 STARTING EDGE CREATION - mouse away from selected node');
         this.startEdgeCreation(this.selectedNode);
       }
     }
@@ -166,6 +226,27 @@ export class InteractionManager {
    * Select a node
    */
   selectNode(node) {
+    debugInteraction('selectNode called:', node ? node.id : 'null');
+    debugInteraction('  isCreatingEdge:', this.isCreatingEdge);
+    debugInteraction('  edgeStartNode:', this.edgeStartNode ? this.edgeStartNode.id : 'null');
+    
+    // PRIORITY: Handle edge completion first if we're creating an edge
+    if (this.isCreatingEdge && this.edgeStartNode && node && node !== this.edgeStartNode) {
+      debugEdgeCreation('🎯 COMPLETING EDGE:', this.edgeStartNode.id, '->', node.id);
+      this.completeEdgeCreation(this.edgeStartNode, node);
+      return;
+    }
+    
+    // Prevent selection of the node that was just the target of an edge completion
+    if (this.justCompletedEdge && this.lastEdgeTargetNode && node) {
+      const isSameNode = node === this.lastEdgeTargetNode || node.id === this.lastEdgeTargetNode.id;
+      
+      if (isSameNode) {
+        debugInteraction('🚫 Ignoring selection of edge target node:', node.id);
+        return;
+      }
+    }
+    
     // Clear previous selection
     if (this.selectedNode) {
       this.selectedNode.deselect();
@@ -175,12 +256,6 @@ export class InteractionManager {
     if (node === null) {
       this.selectedNode = null;
       this.cancelEdgeCreation();
-      return;
-    }
-    
-    // Check if we're in edge creation mode and this is a different node
-    if (this.isCreatingEdge && this.edgeStartNode && node !== this.edgeStartNode) {
-      this.completeEdgeCreation(this.edgeStartNode, node);
       return;
     }
     
@@ -199,6 +274,8 @@ export class InteractionManager {
    * Start edge creation from a node
    */
   startEdgeCreation(fromNode) {
+    debugEdgeCreation('Starting edge creation from:', fromNode ? fromNode.id : 'null');
+    
     this.isCreatingEdge = true;
     this.edgeStartNode = fromNode;
     
@@ -208,10 +285,15 @@ export class InteractionManager {
     // Create temporary edge element with CSS class
     this.temporaryEdge = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     this.temporaryEdge.setAttribute('class', 'temporary-edge');
+    this.temporaryEdge.setAttribute('stroke', '#ff6b6b');
+    this.temporaryEdge.setAttribute('stroke-width', '2');
+    this.temporaryEdge.setAttribute('stroke-dasharray', '5,5');
+    this.temporaryEdge.setAttribute('fill', 'none');
+    this.temporaryEdge.setAttribute('pointer-events', 'none');
     
     this.svg.appendChild(this.temporaryEdge);
     
-    // Update the temporary edge position
+    // Update the temporary edge position immediately
     this.updateTemporaryEdge();
   }
   
@@ -219,10 +301,13 @@ export class InteractionManager {
    * Update the temporary edge during creation
    */
   updateTemporaryEdge() {
-    if (!this.isCreatingEdge || !this.temporaryEdge || !this.edgeStartNode) return;
+    if (!this.isCreatingEdge || !this.temporaryEdge || !this.edgeStartNode) {
+      return;
+    }
     
     // Cancel edge creation if any node is being interacted with
     if (this.dragManager.isAnyNodeDragging()) {
+      console.log('🚫 Canceling edge creation - node is dragging');
       this.cancelEdgeCreation();
       return;
     }
@@ -232,8 +317,16 @@ export class InteractionManager {
     const mouseX = mousePos.x;
     const mouseY = mousePos.y;
     
-    // Get the start node's center and radius
-    const startCenter = this.edgeStartNode.getTransformedCenter();
+    // Get the start node's center and radius - handle both Node and NodeRenderer
+    let startCenter;
+    if (typeof this.edgeStartNode.getGlobalCenter === 'function') {
+      startCenter = this.edgeStartNode.getGlobalCenter();
+    } else if (typeof this.edgeStartNode.getTransformedCenter === 'function') {
+      startCenter = this.edgeStartNode.getTransformedCenter();
+    } else {
+      console.error('edgeStartNode does not have getGlobalCenter or getTransformedCenter method:', this.edgeStartNode);
+      return;
+    }
     
     // Calculate direction vector from node center to mouse
     const dx = mouseX - startCenter.x;
@@ -247,6 +340,11 @@ export class InteractionManager {
     // Create path from node edge to mouse position
     const pathData = `M ${startX} ${startY} L ${mouseX} ${mouseY}`;
     this.temporaryEdge.setAttribute('d', pathData);
+    
+    // Force a visual update
+    if (this.temporaryEdge.parentNode) {
+      this.temporaryEdge.parentNode.appendChild(this.temporaryEdge); // Move to end to ensure it's on top
+    }
   }
   
   /**
@@ -255,20 +353,42 @@ export class InteractionManager {
   completeEdgeCreation(fromNode, toNode) {
     if (!this.isCreatingEdge || !fromNode || !toNode) return;
     
+    // Mark that we just completed an edge to prevent shift key up from interfering
+    this.justCompletedEdge = true;
+    
+    // Store the target node to prevent immediate re-selection
+    this.lastEdgeTargetNode = toNode;
+    
     // Call the external callback to create the edge
     if (this.edgeCreateCallback) {
       this.edgeCreateCallback(fromNode, toNode);
     }
     
-    // Clean up
+    // Clean up edge creation state
     this.cancelEdgeCreation();
+    
+    // Clear any node selection after edge completion
+    if (this.selectedNode) {
+      this.selectedNode.deselect();
+      this.selectedNode = null;
+    }
+    
+    // Clear the flag after a longer delay to ensure subsequent mouse events are ignored
+    setTimeout(() => {
+      this.justCompletedEdge = false;
+      this.lastEdgeTargetNode = null;
+    }, 500);
   }
   
   /**
    * Cancel edge creation
    */
   cancelEdgeCreation() {
-    if (!this.isCreatingEdge) return;
+    if (!this.isCreatingEdge) {
+      return;
+    }
+    
+    debugEdgeCreation('🚫 Canceling edge creation');
     
     this.isCreatingEdge = false;
     this.edgeStartNode = null;
@@ -291,7 +411,22 @@ export class InteractionManager {
     
     const mousePos = this.viewBoxManager.screenToViewBox(this.lastMouseX, this.lastMouseY);
     
-    return this.selectedNode.containsGlobalPoint(mousePos.x, mousePos.y);
+    // Handle both Node (legacy) and NodeRenderer objects
+    let result;
+    if (typeof this.selectedNode.containsGlobalPoint === 'function') {
+      // Legacy Node object
+      result = this.selectedNode.containsGlobalPoint(mousePos.x, mousePos.y);
+    } else if (this.selectedNode.nodeData && this.selectedNode.element) {
+      // NodeRenderer object - calculate manually
+      const center = this.selectedNode.getGlobalCenter();
+      const distance = Math.hypot(mousePos.x - center.x, mousePos.y - center.y);
+      result = distance <= center.radius;
+    } else {
+      console.error('Unknown selectedNode type:', this.selectedNode);
+      return false;
+    }
+    
+    return result;
   }
   
   /**
@@ -307,6 +442,7 @@ export class InteractionManager {
   checkForNodeInteractions() {
     // Cancel edge creation if any node is being interacted with
     if (this.dragManager.isAnyNodeDragging() && this.isCreatingEdge) {
+      debugEdgeCreation('🚫 Canceling edge creation - node is dragging');
       this.cancelEdgeCreation();
     }
   }

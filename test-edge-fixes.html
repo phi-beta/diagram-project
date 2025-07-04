@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Creation Test - Fixes Applied</title>
+    <link rel="stylesheet" href="themes/default.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+        .test-info {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-info h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        .test-steps {
+            background: #e8f4f8;
+            padding: 10px;
+            border-left: 4px solid #2196f3;
+            margin: 10px 0;
+        }
+        #diagram {
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-info">
+        <h2>🔧 Edge Creation Test - Fixes Applied</h2>
+        <div class="test-steps">
+            <strong>Test Scenarios:</strong><br>
+            1. <strong>Duplicate Edge Prevention:</strong> Try creating multiple edges between same nodes<br>
+            2. <strong>Shift Key Spam Fix:</strong> Hold shift key and observe console (should not spam)<br>
+            3. <strong>Smooth Edge Creation:</strong> Shift + drag should work smoothly<br>
+            4. <strong>Reduced Logging:</strong> Console output should be cleaner
+        </div>
+        <div style="background: #fff3cd; padding: 8px; border-radius: 4px; margin-top: 10px;">
+            <strong>Instructions:</strong> Select a node, hold Shift, drag to another node to create edge
+        </div>
+    </div>
+
+    <svg id="diagram" width="800" height="600" style="border: 1px solid #ccc;">
+        <!-- Content will be loaded by renderer.js -->
+    </svg>
+
+    <script type="module" src="js/renderer.js?v=edge-fixes-v2"></script>
+</body>
+</html>

@@ -31,6 +31,8 @@
  * ```
  */
 
+import { generateGuid, ensureUniqueId, registerExistingId, unregisterId, isIdInUse } from './GuidManager.js';
+
 /**
  * EdgeData class - Manages edge data and business logic
  */
@@ -39,7 +41,24 @@ export class EdgeData {
     this.from = data.from;
     this.to = data.to;
     this.class = data.class;
-    this.id = data.id || `${data.from}_to_${data.to}`;
+    
+    // Handle ID assignment differently for existing vs new edges
+    if (data.id && isIdInUse(data.id)) {
+      // This is an existing ID (already registered by initializeFromExisting)
+      // Use it as-is without modification
+      this.id = data.id;
+    } else if (data.id) {
+      // This is a new edge with a proposed ID, ensure it's unique
+      this.id = ensureUniqueId(data.id);
+    } else {
+      // This is a completely new edge, generate a fresh GUID
+      this.id = generateGuid('edge');
+    }
+    
+    // Register this ID if it's not already registered
+    if (!isIdInUse(this.id)) {
+      registerExistingId(this.id, 'edge');
+    }
     
     // Interaction state
     this.isSelected = false;
@@ -89,6 +108,23 @@ export class EdgeData {
     return (this.from === otherEdge.from && this.to === otherEdge.to) ||
            (this.from === otherEdge.to && this.to === otherEdge.from);
   }
+
+  // Create a duplicate of this edge with a new GUID
+  duplicate() {
+    const duplicateData = this.toData();
+    // Remove the existing ID so a new GUID will be generated
+    delete duplicateData.id;
+    
+    // Create new edge with new GUID
+    const duplicatedEdge = new EdgeData(duplicateData);
+    
+    return duplicatedEdge;
+  }
+
+  // Destroy this edge data (unregister GUID)
+  destroy() {
+    unregisterId(this.id);
+  }
 }
 
 /**
@@ -104,8 +140,8 @@ export class EdgeRenderer {
   updatePath(fromNode, toNode) {
     if (!fromNode || !toNode) return false;
     
-    const p1 = fromNode.getTransformedCenter();
-    const p2 = toNode.getTransformedCenter();
+    const p1 = fromNode.getGlobalCenter();
+    const p2 = toNode.getGlobalCenter();
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
     const distance = Math.hypot(dx, dy) || 1;
@@ -146,6 +182,19 @@ export class EdgeRenderer {
   remove() {
     if (this.element && this.element.parentNode) {
       this.element.parentNode.removeChild(this.element);
+    }
+  }
+
+  // Destroy this edge renderer (remove from DOM and clean up)
+  destroy() {
+    this.remove();
+    
+    // Clean up any references
+    this.element = null;
+    
+    // Also destroy the associated data
+    if (this.edgeData) {
+      this.edgeData.destroy();
     }
   }
 
@@ -199,6 +248,7 @@ export class Edge {
     this.from = this.edgeData.from;
     this.to = this.edgeData.to;
     this.class = this.edgeData.class;
+    this.id = this.edgeData.id;
     this.element = this.renderer.element;
   }
 
@@ -242,6 +292,10 @@ export class Edge {
 
   toData() {
     return this.edgeData.toData();
+  }
+
+  destroy() {
+    return this.renderer.destroy();
   }
 
   // Static methods for backward compatibility
