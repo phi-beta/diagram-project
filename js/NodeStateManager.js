@@ -11,7 +11,7 @@
  */
 
 import { NodeStateMachine } from './NodeStateMachine.js';
-import { NodeEventMapper } from './NodeEventMapper.js';
+import { NodeEventMapper } from './NodeEventMapper.js?v=003';
 import { NodeVisualActions } from './NodeVisualActions.js';
 import { debugInteraction, debugNodeEvents } from './debug.js';
 

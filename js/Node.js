@@ -1,3 +1,4 @@
+// Version 055 - Fixed cursor behavior for consistent UX
 /**
  * Node Classes - Separated Data Model and Rendering
  * 
@@ -31,7 +32,7 @@
 
 import { generateGuid, ensureUniqueId, registerExistingId, unregisterId, isIdInUse } from './GuidManager.js';
 import { debugNodeEvents, debugEdgeCreation } from './debug.js';
-import { nodeStateManager } from './NodeStateManager.js?v=010';
+import { nodeStateManager } from './NodeStateManager.js?v=012';
 
 // Default node dimensions (used for fallback calculations)
 const DEFAULT_NODE_SIZE = 50;
@@ -380,6 +381,14 @@ export class NodeRenderer {
 
   // Mouse interaction methods
   onMouseDown(e, svg, getShiftDown, selectCallback, scheduleRedrawCallback, isEdgeCreationMode, cancelEdgeCreationCallback, startEdgeCreationCallback, getMousePositionInViewBox) {
+    console.log(`🖱️ onMouseDown called for ${this.nodeData.id} at time ${Date.now()}`);
+    
+    // Add instruction for edge creation
+    const isGloballyCreatingEdge = isEdgeCreationMode ? isEdgeCreationMode() : false;
+    if (isGloballyCreatingEdge) {
+      console.log(`💡 EDGE CREATION MODE: Clicking ${this.nodeData.id} should complete the edge!`);
+    }
+    
     e.stopPropagation();
     
     const mousePos = getMousePositionInViewBox(e);
@@ -401,13 +410,17 @@ export class NodeRenderer {
       const currentState = nodeStateManager.getStateMachine(this.nodeData.id)?.getCurrentState();
       console.log(`🔍 Current state of ${this.nodeData.id}: ${currentState}`);
       
+      // Store the state before mouseDown for mouseUp logic
+      this.stateBeforeMouseDown = currentState;
+      
       // Let state machine handle basic transitions and edge creation
       if (currentState === 'idle' || currentState === 'selected' || currentState === 'edgeSource') {
         const handled = nodeStateManager.handleNodeMouseDown(this.nodeData.id, e, {
           shiftKey: getShiftDown(),
           ctrlKey: e.ctrlKey,
           mousePos: mousePos,
-          edgeCreationMode: isEdgeCreationMode ? isEdgeCreationMode() : false
+          edgeCreationMode: isEdgeCreationMode ? isEdgeCreationMode() : false,
+          inEdgeCreationMode: isEdgeCreationMode ? isEdgeCreationMode() : false
         });
         
         if (handled) {
@@ -419,6 +432,10 @@ export class NodeRenderer {
           if (newState === 'dragging') {
             this.isDragging = true;
             this.nodeData.setInteractionMode(getShiftDown() ? 'scale' : 'move');
+            
+            // Set grabbing cursor during drag
+            console.log(`🖱️ CURSOR: Starting drag for ${this.nodeData.id} - setting grabbing cursor`);
+            this.element.style.cursor = 'grabbing';
             
             // Initialize drag/scale parameters
             if (getShiftDown()) {
@@ -436,10 +453,25 @@ export class NodeRenderer {
               }
             }
           } else if (newState === 'edgeSource') {
-            // Starting edge creation - call the edge creation callback
+            // Starting edge creation - clear ALL drag states to prevent cancellation
+            this.isDragging = false;
+            this.isScaling = false;
+            this.hasStartedDragging = false;
+            
+            // Clear all drag states in DragManager to prevent any interference
+            if (this.dragManager) {
+              this.dragManager.clearAllDragStates();
+            }
+            
             if (startEdgeCreationCallback) {
-              console.log(`🔗 Starting edge creation from ${this.nodeData.id}`);
+              console.log(`🔗 Starting edge creation from ${this.nodeData.id} (all drag states cleared)`);
               startEdgeCreationCallback(this);
+            }
+          } else if (newState === 'edgeTarget') {
+            // Becoming edge target - trigger selection to complete edge
+            console.log(`🎯 Node ${this.nodeData.id} became edge target - triggering selection`);
+            if (selectCallback) {
+              selectCallback(this);
             }
           }
           
@@ -474,7 +506,9 @@ export class NodeRenderer {
 
     // Cancel edge creation if we start dragging/scaling, but NOT if we're already in edge creation mode
     // (because the user might be trying to complete an edge by clicking on this node)
-    if (cancelEdgeCreationCallback && !isEdgeCreationMode()) {
+    // Also don't cancel if this is just a simple click (not dragging/scaling)
+    if (cancelEdgeCreationCallback && !isEdgeCreationMode() && (this.isDragging || this.isScaling)) {
+      console.log(`🚫 Node ${this.nodeData.id} canceling edge creation due to drag/scale start`);
       cancelEdgeCreationCallback();
     }
 
@@ -595,10 +629,8 @@ export class NodeRenderer {
       console.log(`🔍 Current state of ${this.nodeData.id} before mouse up: ${currentState}`);
       
       // Let state machine handle specific state transitions
-      if ((currentState === 'selected' && isClick) || 
-          (currentState === 'dragging') ||
-          (currentState === 'scaling') ||
-          (currentState === 'edgeSource')) {
+      if (currentState === 'dragging' || currentState === 'scaling') {
+        // Handle drag/scale completion
         const handled = nodeStateManager.handleNodeMouseUp(this.nodeData.id, e, {
           isClick: isClick,
           timeDiff: timeDiff,
@@ -619,11 +651,63 @@ export class NodeRenderer {
             this.isScaling = false;
             this.hasStartedDragging = false;
             
+            // Stop drag in the DragManager
+            if (this.dragManager) {
+              this.dragManager.stopDrag(this);
+            }
+            
+            // Reset cursor to pointer when drag finishes
+            console.log(`🖱️ CURSOR: Drag finished for ${this.nodeData.id} - resetting to pointer cursor`);
+            this.element.style.cursor = 'pointer';
+            
             if (this.element) {
               this.element.classList.remove('dragging', 'scaling');
             }
           }
           
+          return;
+        }
+      } else if (currentState === 'selected' && isClick && distanceMoved < 5 && this.stateBeforeMouseDown === 'selected') {
+        // Handle click on already selected node (deselect) - only if it was selected BEFORE mouseDown
+        console.log(`🔄 Second click detected: stateBeforeMouseDown=${this.stateBeforeMouseDown}, currentState=${currentState}`);
+        const handled = nodeStateManager.handleEvent(this.nodeData.id, 'clickToDeselect', {
+          isClick: isClick,
+          timeDiff: timeDiff,
+          distanceMoved: distanceMoved,
+          mousePos: mousePos
+        });
+        
+        if (handled) {
+          debugNodeEvents(`✅ Click-to-deselect handled by state machine for: ${this.nodeData.id}`);
+          console.log(`✅ Click-to-deselect handled by state machine for: ${this.nodeData.id}`);
+          return;
+        }
+      } else if (currentState === 'selected' && isClick && distanceMoved < 5 && this.stateBeforeMouseDown === 'idle') {
+        // First click that resulted in selection - just stay selected
+        console.log(`✨ First click completed: stateBeforeMouseDown=${this.stateBeforeMouseDown}, currentState=${currentState} - staying selected`);
+        return;
+      } else if (currentState === 'edgeSource' || currentState === 'edgeTarget') {
+        // Handle edge creation completion
+        // For edgeSource nodes, don't try to complete edge on mouse up - that should only happen via selectCallback
+        if (currentState === 'edgeSource') {
+          console.log(`🚫 Edge source node ${this.nodeData.id} mouse up - not completing edge to self`);
+          return; // Don't handle edge source mouse up as edge completion
+        }
+        
+        // For edgeTarget nodes, handle normally
+        const handled = nodeStateManager.handleNodeMouseUp(this.nodeData.id, e, {
+          isClick: isClick,
+          timeDiff: timeDiff,
+          distanceMoved: distanceMoved,
+          mousePos: mousePos,
+          edgeCreationMode: isEdgeCreationMode ? isEdgeCreationMode() : false,
+          inEdgeCreationMode: isEdgeCreationMode ? isEdgeCreationMode() : false,
+          justCompletedEdge: getJustCompletedEdge ? getJustCompletedEdge() : false
+        });
+        
+        if (handled) {
+          debugNodeEvents(`✅ Edge creation mouse up handled by state machine for: ${this.nodeData.id}`);
+          console.log(`✅ Edge creation mouse up handled by state machine for: ${this.nodeData.id}`);
           return;
         }
       }
@@ -645,7 +729,33 @@ export class NodeRenderer {
       
       // Only trigger selection if this was a quick click (not a drag attempt)
       if (timeDiff < 200 && distanceMoved < 5) {
-        debugEdgeCreation(`🎯 Edge target: ${this.nodeData.id} - calling selectCallback`);
+        debugEdgeCreation(`🎯 Edge target click detected: ${this.nodeData.id}`);
+        
+        // Try state machine first for edge mode clicks
+        if (this.useStateMachine && nodeStateManager) {
+          const currentState = nodeStateManager.getStateMachine(this.nodeData.id)?.getCurrentState();
+          console.log(`🎯 Trying state machine for edge mode click on ${this.nodeData.id} in state ${currentState}`);
+          
+          const handled = nodeStateManager.handleEvent(this.nodeData.id, 'nodeClickInEdgeMode', {
+            isClick: true,
+            timeDiff: timeDiff,
+            distanceMoved: distanceMoved,
+            mousePos: mousePos,
+            inEdgeCreationMode: true
+          });
+          
+          if (handled) {
+            console.log(`✅ Edge mode click handled by state machine for ${this.nodeData.id}`);
+            // State machine will handle the transition, but we still need to trigger the selection callback
+            // for the InteractionManager to complete the edge
+            debugEdgeCreation(`🎯 Edge target: ${this.nodeData.id} - calling selectCallback`);
+            selectCallback(this);
+            return;
+          }
+        }
+        
+        // Fall back to direct selection callback
+        debugEdgeCreation(`🎯 Edge target (fallback): ${this.nodeData.id} - calling selectCallback`);
         selectCallback(this);
       }
       return;
@@ -773,6 +883,15 @@ export class NodeRenderer {
       this.onMouseDown(e, svg, getShiftDown, selectCallback, scheduleRedrawCallback, isEdgeCreationMode, cancelEdgeCreationCallback, startEdgeCreationCallback, getMousePositionInViewBox)
     );
     
+    // Add mouse enter/leave for consistent cursor behavior
+    this.element.addEventListener('mouseenter', (e) => 
+      this.onMouseEnter(e, isEdgeCreationMode)
+    );
+    
+    this.element.addEventListener('mouseleave', (e) => 
+      this.onMouseLeave(e)
+    );
+    
     svg.addEventListener('mousemove', (e) => 
       this.onMouseMove(e, svg, getShiftDown, scheduleRedrawCallback, selectCallback, getMousePositionInViewBox)
     );
@@ -780,6 +899,31 @@ export class NodeRenderer {
     window.addEventListener('mouseup', (e) => 
       this.onMouseUp(e, selectCallback, isEdgeCreationMode, getMousePositionInViewBox, getJustCompletedEdge)
     );
+  }
+
+  /**
+   * Handle mouse enter events for consistent cursor behavior
+   */
+  onMouseEnter(e, isEdgeCreationMode) {
+    const isGloballyCreatingEdge = isEdgeCreationMode ? isEdgeCreationMode() : false;
+    
+    // During edge creation, don't change cursor - let InteractionManager handle it
+    if (isGloballyCreatingEdge) {
+      return;
+    }
+    
+    // Set pointer cursor for all nodes when not in edge creation mode
+    console.log(`🖱️ CURSOR: Mouse enter ${this.nodeData.id} - setting pointer cursor`);
+    this.element.style.cursor = 'pointer';
+  }
+  
+  /**
+   * Handle mouse leave events for consistent cursor behavior  
+   */
+  onMouseLeave(e) {
+    // Reset to default cursor when leaving node
+    console.log(`🖱️ CURSOR: Mouse leave ${this.nodeData.id} - resetting to default cursor`);
+    this.element.style.cursor = '';
   }
 
   // Destroy this node renderer

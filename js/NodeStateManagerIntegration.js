@@ -5,7 +5,7 @@
  * for cleaner state management and elimination of timing issues.
  */
 
-import { nodeStateManager } from './NodeStateManager.js';
+import { nodeStateManager } from './NodeStateManager.js?v=011';
 import { debugNodeEvents } from './debug.js';
 
 /**

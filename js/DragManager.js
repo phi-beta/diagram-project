@@ -1,3 +1,4 @@
+// Version 051 - Added getDraggingNodeIds method
 /**
  * Manages drag operations and coordinate transformations for nodes
  * Handles the complex interactions between dragging and viewBox changes
@@ -17,6 +18,7 @@ export class DragManager {
    * Start a drag operation for a node
    */
   startDrag(node, mouseX, mouseY) {
+    console.log(`🚀 DragManager.startDrag called for ${node.id}, current size: ${this.draggingNodes.size}`);
     const dragState = {
       node: node,
       startMousePos: { x: mouseX, y: mouseY },
@@ -26,6 +28,7 @@ export class DragManager {
     
     this.draggingNodes.set(node.id, dragState);
     node.isDragging = true;
+    console.log(`🚀 DragManager.startDrag completed for ${node.id}, new size: ${this.draggingNodes.size}`);
   }
   
   /**
@@ -51,17 +54,32 @@ export class DragManager {
    * Stop a drag operation for a node
    */
   stopDrag(node) {
+    console.log(`🛑 DragManager.stopDrag called for ${node.id}, current size: ${this.draggingNodes.size}`);
     this.draggingNodes.delete(node.id);
     node.isDragging = false;
+    console.log(`🛑 DragManager.stopDrag completed for ${node.id}, new size: ${this.draggingNodes.size}`);
   }
   
   /**
    * Check if any nodes are currently being dragged
    */
   isAnyNodeDragging() {
-    return this.draggingNodes.size > 0;
+    const result = this.draggingNodes.size > 0;
+    // Reduce logging spam - only log occasionally
+    if (Math.random() < 0.01) { // 1% of the time
+      const nodeIds = Array.from(this.draggingNodes.keys());
+      console.log(`🔍 DragManager.isAnyNodeDragging: ${result} (size: ${this.draggingNodes.size}, nodes: [${nodeIds.join(', ')}])`);
+    }
+    return result;
   }
   
+  /**
+   * Get list of currently dragging node IDs
+   */
+  getDraggingNodeIds() {
+    return Array.from(this.draggingNodes.keys());
+  }
+
   /**
    * Handle viewBox changes by transforming drag coordinates
    */
@@ -102,5 +120,24 @@ export class DragManager {
    */
   getDragState(node) {
     return this.draggingNodes.get(node.id);
+  }
+  
+  /**
+   * Clear all drag states - useful for resetting before edge creation
+   */
+  clearAllDragStates() {
+    const nodeIds = Array.from(this.draggingNodes.keys());
+    console.log(`🧹 DragManager.clearAllDragStates: clearing ${nodeIds.length} dragging nodes: [${nodeIds.join(', ')}]`);
+    
+    // Clear each node's drag state
+    for (const [nodeId, dragState] of this.draggingNodes) {
+      if (dragState.node) {
+        dragState.node.isDragging = false;
+      }
+    }
+    
+    // Clear the map
+    this.draggingNodes.clear();
+    console.log(`🧹 DragManager.clearAllDragStates: completed, new size: ${this.draggingNodes.size}`);
   }
 }

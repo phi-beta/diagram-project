@@ -69,16 +69,22 @@
         "conditions": [
           {
             "state": "idle",
-            "action": "select"
+            "condition": "inEdgeCreationMode",
+            "action": "becomeEdgeTarget"
+          },
+          {
+            "state": "idle",
+            "condition": "!inEdgeCreationMode",
+            "action": "startDrag"
           },
           {
             "state": "selected",
-            "condition": "shiftKey",
-            "action": "startEdgeCreation"
+            "condition": "inEdgeCreationMode",
+            "action": "becomeEdgeTarget"
           },
           {
             "state": "selected",
-            "condition": "!shiftKey",
+            "condition": "!inEdgeCreationMode",
             "action": "startDrag"
           }
         ]
@@ -95,14 +101,33 @@
             "action": "finishScale"
           },
           {
-            "state": "selected",
-            "condition": "isClick",
-            "action": "deselect"
-          },
-          {
             "state": "edgeTarget",
             "condition": "inEdgeCreationMode",
             "action": "completeEdge"
+          }
+        ]
+      },
+      {
+        "event": "clickToDeselect",
+        "conditions": [
+          {
+            "state": "selected",
+            "action": "deselect"
+          }
+        ]
+      },
+      {
+        "event": "nodeClickInEdgeMode",
+        "conditions": [
+          {
+            "state": "idle",
+            "condition": "inEdgeCreationMode",
+            "action": "becomeEdgeTarget"
+          },
+          {
+            "state": "selected",
+            "condition": "inEdgeCreationMode",
+            "action": "becomeEdgeTarget"
           }
         ]
       },
@@ -134,31 +159,31 @@
     "description": "Visual changes for each state",
     "states": {
       "idle": {
-        "onEnter": ["removeHighlight", "setDefaultCursor"],
+        "onEnter": ["removeHighlight"],
         "onExit": []
       },
       "selected": {
-        "onEnter": ["addHighlight", "setPointerCursor"],
+        "onEnter": ["addHighlight"],
         "onExit": ["removeHighlight"]
       },
       "dragging": {
-        "onEnter": ["addDragHighlight", "setGrabbingCursor"],
+        "onEnter": ["addDragHighlight"],
         "onExit": ["removeDragHighlight"]
       },
       "scaling": {
-        "onEnter": ["addScaleHighlight", "setResizeCursor"],
+        "onEnter": ["addScaleHighlight"],
         "onExit": ["removeScaleHighlight"]
       },
       "edgeSource": {
-        "onEnter": ["addEdgeSourceHighlight", "setCrosshairCursor"],
+        "onEnter": ["addEdgeSourceHighlight"],
         "onExit": ["removeEdgeSourceHighlight"]
       },
       "edgeTarget": {
-        "onEnter": ["addEdgeTargetHighlight", "setCrosshairCursor"],
+        "onEnter": ["addEdgeTargetHighlight"],
         "onExit": ["removeEdgeTargetHighlight"]
       },
       "cooldown": {
-        "onEnter": ["removeHighlight", "setDefaultCursor", "setTimeout:500"],
+        "onEnter": ["removeHighlight"],
         "onExit": []
       }
     }

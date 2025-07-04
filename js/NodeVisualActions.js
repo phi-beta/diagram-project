@@ -1,3 +1,4 @@
+// Version 002 - Added cursor debug logging
 /**
  * Node Visual Actions - Handles visual updates and side effects
  * 
@@ -141,8 +142,7 @@ export class NodeVisualActions {
     
     const element = this.getNodeElement();
     if (element) {
-      element.classList.add(`highlight-${type}`);
-      element.classList.add('highlighted');
+      element.classList.add(type); // Use direct class name, not prefixed
       debugNodeEvents(`🎨 Added ${type} highlight`);
     }
   }
@@ -157,16 +157,10 @@ export class NodeVisualActions {
     const element = this.getNodeElement();
     if (element) {
       if (type) {
-        element.classList.remove(`highlight-${type}`);
+        element.classList.remove(type); // Use direct class name, not prefixed
       } else {
-        // Remove all highlight classes
-        const classes = [...element.classList];
-        classes.forEach(className => {
-          if (className.startsWith('highlight-')) {
-            element.classList.remove(className);
-          }
-        });
-        element.classList.remove('highlighted');
+        // Remove all state classes
+        element.classList.remove('selected', 'dragging', 'scaling', 'edge-source', 'edge-target');
       }
       debugNodeEvents(`🎨 Removed ${type || 'all'} highlight(s)`);
     }
@@ -181,6 +175,7 @@ export class NodeVisualActions {
     
     const element = this.getNodeElement();
     if (element) {
+      console.log(`🖱️ CURSOR: Setting node cursor to '${cursor}' for element:`, element);
       element.style.cursor = cursor;
       debugNodeEvents(`🎨 Set cursor: ${cursor}`);
     }

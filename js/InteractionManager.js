@@ -1,8 +1,9 @@
+// Version 055 - Added cursor debug logging
 /**
- * Manages all user interactions with the diagram including
- * node selection, dragging, scaling, and edge creation
+ * Interaction Manager - Handles user interactions with the diagram
  */
 import { debugInteraction, debugEdgeCreation, debugKeyboard, debugMouse } from './debug.js';
+import { nodeStateManager } from './NodeStateManager.js?v=012';
 
 export class InteractionManager {
   constructor(svg, viewBoxManager, dragManager) {
@@ -103,11 +104,13 @@ export class InteractionManager {
         return;
       }
       
+      console.log(`⌨️ SHIFT KEY DOWN: selectedNode=${this.selectedNode?.id || 'null'}, isCreating=${this.isCreatingEdge}, dragging=${this.dragManager.isAnyNodeDragging()}`);
       this.shiftDown = true;
       
       // Start edge creation if a node is selected and mouse is not over that node
       if (this.selectedNode && !this.isCreatingEdge && 
           !this.dragManager.isAnyNodeDragging() && !this.isMouseOverSelectedNode()) {
+        console.log(`🚀 SHIFT KEY EDGE CREATION: Starting edge creation from ${this.selectedNode.id}`);
         debugEdgeCreation('🚀 Starting edge creation from:', this.selectedNode.id);
         this.startEdgeCreation(this.selectedNode);
       }
@@ -128,6 +131,7 @@ export class InteractionManager {
    */
   handleKeyUp(e) {
     if (e.key === 'Shift') {
+      console.log(`⌨️ SHIFT KEY UP: was creating edge=${this.isCreatingEdge}, from=${this.edgeStartNode?.id || 'null'}`);
       this.shiftDown = false;
       // Don't cancel edge creation on shift up - let it complete naturally
       // Edge creation will be canceled when clicking on empty space or pressing escape
@@ -174,12 +178,18 @@ export class InteractionManager {
     if (this.shiftDown && this.selectedNode && !this.dragManager.isAnyNodeDragging()) {
       const mouseOverSelectedNode = this.isMouseOverSelectedNode();
       
+      // Debug the conditions
+      if (Math.random() < 0.05) { // 5% of the time
+        console.log(`🔍 EDGE CREATION CONDITIONS: shift=${this.shiftDown}, selectedNode=${this.selectedNode?.id || 'null'}, dragging=${this.dragManager.isAnyNodeDragging()}, mouseOver=${mouseOverSelectedNode}, isCreating=${this.isCreatingEdge}`);
+      }
+      
       if (this.isCreatingEdge && mouseOverSelectedNode) {
         // Cancel edge creation when mouse moves over the selected node
         debugEdgeCreation('🛑 Canceling edge creation - mouse over selected node');
         this.cancelEdgeCreation();
       } else if (!this.isCreatingEdge && !mouseOverSelectedNode) {
         // Start edge creation when mouse moves away from the selected node
+        console.log(`🚀 MOUSE MOVE EDGE CREATION: Starting edge creation from ${this.selectedNode?.id} - mouse moved away from node`);
         debugEdgeCreation('🚀 STARTING EDGE CREATION - mouse away from selected node');
         this.startEdgeCreation(this.selectedNode);
       }
@@ -226,7 +236,7 @@ export class InteractionManager {
    * Select a node
    */
   selectNode(node) {
-    debugInteraction('selectNode called:', node ? node.id : 'null');
+    debugInteraction('🎯 InteractionManager.selectNode called:', node ? node.id : 'null');
     debugInteraction('  isCreatingEdge:', this.isCreatingEdge);
     debugInteraction('  edgeStartNode:', this.edgeStartNode ? this.edgeStartNode.id : 'null');
     
@@ -274,10 +284,24 @@ export class InteractionManager {
    * Start edge creation from a node
    */
   startEdgeCreation(fromNode) {
+    debugEdgeCreation('🚀 InteractionManager.startEdgeCreation called with:', fromNode ? fromNode.id : 'null');
     debugEdgeCreation('Starting edge creation from:', fromNode ? fromNode.id : 'null');
     
+    // Cancel any existing edge creation before starting a new one
+    if (this.isCreatingEdge) {
+      console.log(`🔄 Canceling existing edge creation from ${this.edgeStartNode?.id} to start new one from ${fromNode?.id}`);
+      this.cancelEdgeCreation();
+    }
+    
+    // Debug: Check if any nodes are dragging at start
+    const anyDragging = this.dragManager.isAnyNodeDragging();
+    debugEdgeCreation(`Drag state check: anyDragging=${anyDragging}, fromNode.isDragging=${fromNode?.isDragging}`);
+    
+    console.log(`🚀 EDGE CREATION STARTING: Setting isCreatingEdge to true for node ${fromNode?.id}`);
     this.isCreatingEdge = true;
     this.edgeStartNode = fromNode;
+    console.log(`🚀 EDGE CREATION STATE SET: isCreatingEdge=${this.isCreatingEdge}, edgeStartNode=${this.edgeStartNode?.id}`);
+    console.log(`📝 INSTRUCTION: Now click on a DIFFERENT node to complete the edge from ${fromNode?.id}`);
     
     // Change cursor to indicate edge creation mode
     this.svg.style.cursor = 'crosshair';
@@ -293,8 +317,15 @@ export class InteractionManager {
     
     this.svg.appendChild(this.temporaryEdge);
     
-    // Update the temporary edge position immediately
-    this.updateTemporaryEdge();
+    console.log('🎯 TEMPORARY EDGE CREATED:', this.temporaryEdge);
+    
+    // Delay the temporary edge update to allow drag state to clear
+    setTimeout(() => {
+      if (this.isCreatingEdge) {
+        console.log('🎯 UPDATING TEMPORARY EDGE via timeout');
+        this.updateTemporaryEdge();
+      }
+    }, 0);
   }
   
   /**
@@ -302,11 +333,18 @@ export class InteractionManager {
    */
   updateTemporaryEdge() {
     if (!this.isCreatingEdge || !this.temporaryEdge || !this.edgeStartNode) {
+      debugEdgeCreation('updateTemporaryEdge: early return', {
+        isCreatingEdge: this.isCreatingEdge,
+        hasTemporaryEdge: !!this.temporaryEdge,
+        hasEdgeStartNode: !!this.edgeStartNode
+      });
       return;
     }
     
     // Cancel edge creation if any node is being interacted with
-    if (this.dragManager.isAnyNodeDragging()) {
+    const anyDragging = this.dragManager.isAnyNodeDragging();
+    debugEdgeCreation(`updateTemporaryEdge: checking drag state - anyDragging=${anyDragging}`);
+    if (anyDragging) {
       console.log('🚫 Canceling edge creation - node is dragging');
       this.cancelEdgeCreation();
       return;
@@ -351,13 +389,37 @@ export class InteractionManager {
    * Complete edge creation between two nodes
    */
   completeEdgeCreation(fromNode, toNode) {
-    if (!this.isCreatingEdge || !fromNode || !toNode) return;
+    debugEdgeCreation('🎯 InteractionManager.completeEdgeCreation called:', fromNode?.id, '->', toNode?.id);
+    debugEdgeCreation('  isCreatingEdge:', this.isCreatingEdge);
+    debugEdgeCreation('  edgeCreateCallback:', typeof this.edgeCreateCallback);
+    
+    if (!this.isCreatingEdge || !fromNode || !toNode) {
+      debugEdgeCreation('🚫 Early return - missing requirements');
+      return;
+    }
     
     // Mark that we just completed an edge to prevent shift key up from interfering
     this.justCompletedEdge = true;
     
     // Store the target node to prevent immediate re-selection
     this.lastEdgeTargetNode = toNode;
+    
+    // Trigger state machine transitions for both nodes if available
+    if (nodeStateManager) {
+      // Complete edge on source node (edgeSource -> selected)
+      const sourceHandled = nodeStateManager.handleEvent(fromNode.id, 'completeEdge', {
+        targetNodeId: toNode.id,
+        isEdgeCompletion: true
+      });
+      console.log(`🔄 Source node ${fromNode.id} edge completion handled: ${sourceHandled}`);
+      
+      // Complete edge on target node (edgeTarget -> cooldown)
+      const targetHandled = nodeStateManager.handleEvent(toNode.id, 'completeEdge', {
+        sourceNodeId: fromNode.id,
+        isEdgeCompletion: true
+      });
+      console.log(`🔄 Target node ${toNode.id} edge completion handled: ${targetHandled}`);
+    }
     
     // Call the external callback to create the edge
     if (this.edgeCreateCallback) {
@@ -388,12 +450,14 @@ export class InteractionManager {
       return;
     }
     
+    console.log(`🚫 CANCELING EDGE CREATION: was creating edge from ${this.edgeStartNode?.id}`);
     debugEdgeCreation('🚫 Canceling edge creation');
     
     this.isCreatingEdge = false;
     this.edgeStartNode = null;
     
     // Reset cursor
+    console.log(`🖱️ CURSOR: Resetting cursor to default in cancelEdgeCreation`);
     this.svg.style.cursor = 'default';
     
     // Remove temporary edge
@@ -433,6 +497,7 @@ export class InteractionManager {
    * Check if we're in edge creation mode
    */
   getIsCreatingEdge() {
+    console.log(`🔍 getIsCreatingEdge called: isCreatingEdge=${this.isCreatingEdge}, edgeStartNode=${this.edgeStartNode?.id || 'null'}`);
     return this.isCreatingEdge;
   }
   
@@ -440,10 +505,17 @@ export class InteractionManager {
    * Check for node interactions and cancel edge creation if needed
    */
   checkForNodeInteractions() {
-    // Cancel edge creation if any node is being interacted with
+    // Cancel edge creation if any node OTHER than the edge source is being dragged
     if (this.dragManager.isAnyNodeDragging() && this.isCreatingEdge) {
-      debugEdgeCreation('🚫 Canceling edge creation - node is dragging');
-      this.cancelEdgeCreation();
+      // Check if the dragging node is the edge source node
+      const draggingNodeIds = this.dragManager.getDraggingNodeIds();
+      const isSourceNodeDragging = this.edgeStartNode && draggingNodeIds.includes(this.edgeStartNode.id);
+      
+      // Only cancel if a different node is dragging
+      if (!isSourceNodeDragging) {
+        debugEdgeCreation(`🚫 Canceling edge creation - different node is dragging: ${draggingNodeIds.join(', ')}`);
+        this.cancelEdgeCreation();
+      }
     }
   }
   

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edge Creation Test</title>
+  <link rel="stylesheet" href="themes/default.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+    }
+    
+    #status {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #e8f4fd;
+      border-radius: 5px;
+      font-family: monospace;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    #diagram {
+      border: 1px solid #ccc;
+      background-color: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>Edge Creation Test</h1>
+  
+  <div>
+    <h3>Test Steps:</h3>
+    <ol>
+      <li><strong>Click</strong> on the server node to select it</li>
+      <li><strong>Press D</strong> to duplicate the server node</li>
+      <li><strong>Drag</strong> the duplicate node to move it</li>
+      <li><strong>Click</strong> on the duplicate node to select it</li>
+      <li><strong>Hold Shift</strong> and <strong>click</strong> on the original server node</li>
+      <li>This should start edge creation and show a temporary edge</li>
+      <li>Move mouse to see the temporary edge follow the cursor</li>
+      <li><strong>Click</strong> on the user node to complete the edge</li>
+    </ol>
+    <p><strong>Expected:</strong> Temporary edge should appear and follow mouse cursor, then permanent edge should be created.</p>
+  </div>
+  
+  <svg id="diagram" width="800" height="400"></svg>
+  
+  <div id="status">
+    <strong>Console Output:</strong><br>
+  </div>
+  
+  <script type="module" src="js/debug.js"></script>    <script type="module" src="js/renderer.js?v=060"></script>
+  
+  <script>
+    // Capture console logs and display them
+    const status = document.getElementById('status');
+    const originalLog = console.log;
+    console.log = function(...args) {
+      const message = args.join(' ');
+      // Show all edge creation, drag, and state related logs
+      if (message.includes('🔗') || message.includes('🚫') || message.includes('edge') || 
+          message.includes('drag') || message.includes('state') || message.includes('transition') || 
+          message.includes('DragManager') || message.includes('InteractionManager')) {
+        status.innerHTML += message + '<br>';
+        status.scrollTop = status.scrollHeight;
+      }
+      originalLog.apply(console, args);
+    };
+  </script>
+</body>
+</html>

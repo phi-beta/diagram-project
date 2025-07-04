@@ -1,10 +1,11 @@
-import { Node } from './Node.js?v=040';
+// Version 060 - Fixed cursor behavior for consistent UX
+import { Node } from './Node.js?v=055';
 import { Edge } from './Edge.js?v=009';
 import { ViewBoxManager } from './ViewBoxManager.js?v=002';
-import { DragManager } from './DragManager.js?v=002';
-import { InteractionManager } from './InteractionManager.js?v=003';
+import { DragManager } from './DragManager.js?v=051';
+import { InteractionManager } from './InteractionManager.js?v=055';
 import { generateGuid, clearGuidRegistry, initializeFromExisting } from './GuidManager.js';
-import { nodeStateManager } from './NodeStateManager.js?v=010';
+import { nodeStateManager } from './NodeStateManager.js?v=012';
 
 // Global variables for diagram state
 let nodeMap = new Map();
@@ -18,6 +19,7 @@ let dragManager = null;
 let interactionManager = null;
 
 function selectNode(node) {
+  console.log('🎯 selectNode called with:', node?.id || node);
   interactionManager.selectNode(node);
 }
 
@@ -82,6 +84,8 @@ async function duplicateSelectedNode() {
 }
 
 function completeEdgeCreation(fromNode, toNode) {
+  console.log('🎯 completeEdgeCreation called with:', fromNode?.id, '->', toNode?.id);
+  
   // Prevent duplicate edges between the same nodes
   const existingEdge = edgeList.find(edge => 
     (edge.from === fromNode.id && edge.to === toNode.id) ||

@@ -31,22 +31,41 @@ export class NodeEventMapper {
       return null;
     }
     
-    // Find the condition that matches current state
-    const matchingCondition = eventRule.conditions.find(condition => 
+    // Find all conditions that match current state
+    const stateConditions = eventRule.conditions.filter(condition => 
       condition.state === currentState
     );
     
-    if (!matchingCondition) {
+    if (stateConditions.length === 0) {
       debugNodeEvents(`⚠️ No condition found for event '${eventType}' in state '${currentState}'`);
       return null;
     }
     
-    // Evaluate condition if present
-    if (matchingCondition.condition) {
-      if (!this.evaluateCondition(matchingCondition.condition, eventData)) {
-        debugNodeEvents(`❌ Condition '${matchingCondition.condition}' not met for event '${eventType}'`);
-        return null;
+    // Find the first condition that evaluates to true (or has no condition)
+    let matchingCondition = null;
+    for (const condition of stateConditions) {
+      console.log(`🧪 DEBUG: Testing condition for state '${currentState}':`, condition);
+      if (!condition.condition) {
+        // No condition means it always matches
+        console.log(`✅ DEBUG: No condition - auto-match`);
+        matchingCondition = condition;
+        break;
+      } else {
+        const conditionResult = this.evaluateCondition(condition.condition, eventData);
+        console.log(`🔍 DEBUG: Evaluating condition '${condition.condition}' with eventData:`, eventData, `result=${conditionResult}`);
+        if (conditionResult) {
+          console.log(`✅ DEBUG: Condition matched - selecting action '${condition.action}'`);
+          matchingCondition = condition;
+          break;
+        } else {
+          console.log(`❌ DEBUG: Condition failed - trying next`);
+        }
       }
+    }
+    
+    if (!matchingCondition) {
+      debugNodeEvents(`❌ No matching condition found for event '${eventType}' in state '${currentState}'`);
+      return null;
     }
     
     const action = matchingCondition.action;
