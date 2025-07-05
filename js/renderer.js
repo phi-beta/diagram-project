@@ -221,6 +221,17 @@ async function loadLayout() {
     resetViewButton.addEventListener('click', () => viewBoxManager.resetView());
   }
 
+  // Add download SVG button handler
+  const downloadSvgButton = document.getElementById('download-svg');
+  if (downloadSvgButton) {
+    downloadSvgButton.addEventListener('click', downloadSVG);
+  }
+
+  const downloadPngButton = document.getElementById('download-png');
+  if (downloadPngButton) {
+    downloadPngButton.addEventListener('click', downloadPNG);
+  }
+
   // Initialize GUID registry with existing data to avoid collisions
   console.log('Initializing GUID registry with existing layout data');
   initializeFromExisting(layout.nodes, layout.edges);
@@ -318,5 +329,234 @@ document.addEventListener('keydown', e => {
     duplicateSelectedNode();
   }
 });
+
+/**
+ * Download the current diagram as an SVG file
+ */
+function downloadSVG() {
+  const svg = document.getElementById('diagram');
+  if (!svg) {
+    console.error('SVG diagram not found');
+    return;
+  }
+
+  try {
+    // Clone the SVG to avoid modifying the original
+    const svgClone = svg.cloneNode(true);
+    
+    // Add XML namespace for proper SVG file format
+    svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    svgClone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    
+    // Get the current viewBox to preserve the current view
+    const viewBox = svg.getAttribute('viewBox');
+    if (viewBox) {
+      svgClone.setAttribute('viewBox', viewBox);
+    }
+    
+    // Get the currently active CSS styles and embed them into the SVG
+    const styleElement = document.createElement('style');
+    let allStyles = '';
+    
+    // Extract styles from all active stylesheets
+    for (let i = 0; i < document.styleSheets.length; i++) {
+      try {
+        const styleSheet = document.styleSheets[i];
+        // Skip external stylesheets that might cause CORS issues
+        if (styleSheet.href && !styleSheet.href.includes(window.location.origin)) {
+          continue;
+        }
+        
+        const rules = styleSheet.cssRules || styleSheet.rules;
+        if (rules) {
+          for (let j = 0; j < rules.length; j++) {
+            const rule = rules[j];
+            if (rule.cssText) {
+              allStyles += rule.cssText + '\n';
+            }
+          }
+        }
+      } catch (e) {
+        // Skip stylesheets that can't be accessed (CORS restrictions)
+        console.warn('Could not access stylesheet:', e);
+      }
+    }
+    
+    // Add essential SVG-specific styles that might not be in CSS
+    allStyles += `
+      /* Essential SVG styles for export */
+      svg { background-color: inherit; }
+      .node { cursor: default; } /* Remove cursor pointer for static SVG */
+      .edge { marker-end: url(#arrow-end); }
+      .temporary-edge { marker-end: url(#temp-arrow-end); }
+      .connection { marker-end: url(#arrow-end); }
+      .access-link { marker-end: url(#arrow-end); }
+    `;
+    
+    styleElement.textContent = allStyles;
+    svgClone.insertBefore(styleElement, svgClone.firstChild);
+    
+    // Convert SVG to string
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(svgClone);
+    
+    // Create blob and download
+    const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    
+    // Create download link
+    const downloadLink = document.createElement('a');
+    downloadLink.href = url;
+    downloadLink.download = `diagram-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.svg`;
+    
+    // Trigger download
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    
+    // Clean up
+    URL.revokeObjectURL(url);
+    
+    console.log('📁 SVG diagram downloaded successfully with active theme styles');
+    
+  } catch (error) {
+    console.error('Error downloading SVG:', error);
+    alert('Failed to download SVG. Please try again.');
+  }
+}
+
+/**
+ * Download the current diagram as a PNG file with active styles
+ */
+function downloadPNG() {
+  const svg = document.getElementById('diagram');
+  if (!svg) {
+    console.error('SVG diagram not found');
+    return;
+  }
+
+  try {
+    // Clone the SVG to avoid modifying the original
+    const svgClone = svg.cloneNode(true);
+    
+    // Add XML namespace for proper SVG file format
+    svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    svgClone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    
+    // Get the current viewBox to preserve the current view
+    const viewBox = svg.getAttribute('viewBox');
+    if (viewBox) {
+      svgClone.setAttribute('viewBox', viewBox);
+    }
+    
+    // Get the currently active CSS styles and embed them into the SVG
+    const styleElement = document.createElement('style');
+    let allStyles = '';
+    
+    // Extract styles from all active stylesheets
+    for (let i = 0; i < document.styleSheets.length; i++) {
+      try {
+        const styleSheet = document.styleSheets[i];
+        // Skip external stylesheets that might cause CORS issues
+        if (styleSheet.href && !styleSheet.href.includes(window.location.origin)) {
+          continue;
+        }
+        
+        const rules = styleSheet.cssRules || styleSheet.rules;
+        if (rules) {
+          for (let j = 0; j < rules.length; j++) {
+            const rule = rules[j];
+            if (rule.cssText) {
+              allStyles += rule.cssText + '\n';
+            }
+          }
+        }
+      } catch (e) {
+        // Skip stylesheets that can't be accessed (CORS restrictions)
+        console.warn('Could not access stylesheet:', e);
+      }
+    }
+    
+    // Add essential SVG-specific styles that might not be in CSS
+    allStyles += `
+      /* Essential SVG styles for export */
+      svg { background-color: inherit; }
+      .node { cursor: default; } /* Remove cursor pointer for static image */
+      .edge { marker-end: url(#arrow-end); }
+      .temporary-edge { marker-end: url(#temp-arrow-end); }
+      .connection { marker-end: url(#arrow-end); }
+      .access-link { marker-end: url(#arrow-end); }
+    `;
+    
+    styleElement.textContent = allStyles;
+    svgClone.insertBefore(styleElement, svgClone.firstChild);
+    
+    // Get SVG dimensions
+    const svgRect = svg.getBoundingClientRect();
+    const svgWidth = svgRect.width || 800;
+    const svgHeight = svgRect.height || 600;
+    
+    // Convert SVG to string
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(svgClone);
+    
+    // Create a canvas to render the SVG
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set canvas size with higher resolution for better quality
+    const scale = 2; // 2x resolution for crisp output
+    canvas.width = svgWidth * scale;
+    canvas.height = svgHeight * scale;
+    ctx.scale(scale, scale);
+    
+    // Create an image from the SVG
+    const img = new Image();
+    img.onload = function() {
+      // Clear canvas with background color
+      const computedStyle = window.getComputedStyle(svg);
+      const backgroundColor = computedStyle.backgroundColor || '#ffffff';
+      ctx.fillStyle = backgroundColor;
+      ctx.fillRect(0, 0, svgWidth, svgHeight);
+      
+      // Draw the SVG image onto the canvas
+      ctx.drawImage(img, 0, 0, svgWidth, svgHeight);
+      
+      // Convert canvas to PNG blob and download
+      canvas.toBlob(function(blob) {
+        const url = URL.createObjectURL(blob);
+        
+        // Create download link
+        const downloadLink = document.createElement('a');
+        downloadLink.href = url;
+        downloadLink.download = `diagram-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.png`;
+        
+        // Trigger download
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        
+        // Clean up
+        URL.revokeObjectURL(url);
+        
+        console.log('🖼️ PNG diagram downloaded successfully with active theme styles');
+      }, 'image/png', 1.0);
+    };
+    
+    img.onerror = function(error) {
+      console.error('Error loading SVG for PNG conversion:', error);
+      alert('Failed to convert SVG to PNG. Please try again.');
+    };
+    
+    // Load the SVG string as a data URL
+    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl = URL.createObjectURL(svgBlob);
+    img.src = svgUrl;
+    
+  } catch (error) {
+    console.error('Error downloading PNG:', error);
+    alert('Failed to download PNG. Please try again.');
+  }
+}
 
 window.onload = loadLayout;

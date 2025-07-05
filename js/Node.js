@@ -314,6 +314,30 @@ export class NodeRenderer {
   }
 
   setScalingState() {
+    console.log(`⚠️ SCALING: Node ${this.nodeData.id} entering scaling state`);
+    console.log(`⚠️ SCALING: Node ${this.nodeData.id} isSelected: ${this.nodeData.isSelected}`);
+    console.log(`⚠️ SCALING: Node ${this.nodeData.id} current state:`, nodeStateManager?.getStateMachine(this.nodeData.id)?.getCurrentState());
+    console.log(`⚠️ SCALING: Node ${this.nodeData.id} isDragging: ${this.isDragging}, hasStartedDragging: ${this.hasStartedDragging}`);
+    
+    // Prevent scaling on nodes that are not selected
+    if (!this.nodeData.isSelected) {
+      console.log(`🚫 SCALING PREVENTED: Node ${this.nodeData.id} is not selected`);
+      return;
+    }
+    
+    // Prevent scaling on nodes that are not actually being dragged
+    if (!this.isDragging || !this.hasStartedDragging) {
+      console.log(`🚫 SCALING PREVENTED: Node ${this.nodeData.id} is not actively being dragged (isDragging: ${this.isDragging}, hasStartedDragging: ${this.hasStartedDragging})`);
+      return;
+    }
+    
+    // Prevent scaling on nodes that are in cooldown state (recently edge targets)
+    const currentState = nodeStateManager?.getStateMachine(this.nodeData.id)?.getCurrentState();
+    if (currentState === 'cooldown') {
+      console.log(`🚫 SCALING PREVENTED: Node ${this.nodeData.id} is in cooldown state`);
+      return;
+    }
+    
     if (this.element) {
       this.element.classList.add('scaling');
       this.element.classList.remove('dragging');
@@ -381,7 +405,20 @@ export class NodeRenderer {
 
   // Mouse interaction methods
   onMouseDown(e, svg, getShiftDown, selectCallback, scheduleRedrawCallback, isEdgeCreationMode, cancelEdgeCreationCallback, startEdgeCreationCallback, getMousePositionInViewBox) {
-    console.log(`🖱️ onMouseDown called for ${this.nodeData.id} at time ${Date.now()}`);
+    debugNodeEvents(`🎯 Node ${this.nodeData.id} onMouseDown`);
+    
+    // Clean up any existing mousemove listener first
+    if (this.svgElement && this.mouseMoveHandler) {
+      this.svgElement.removeEventListener('mousemove', this.mouseMoveHandler);
+      console.log(`🧹 MOUSEMOVE CLEANUP: Removed existing mousemove listener for ${this.nodeData.id} before adding new one`);
+    }
+    
+    // Add mousemove listener only when this node is actively being interacted with
+    this.svgElement = svg; // Store reference for cleanup
+    if (this.mouseMoveHandler) {
+      svg.addEventListener('mousemove', this.mouseMoveHandler);
+      console.log(`🎯 MOUSEMOVE SETUP: Added mousemove listener for ${this.nodeData.id}`);
+    }
     
     // Add instruction for edge creation
     const isGloballyCreatingEdge = isEdgeCreationMode ? isEdgeCreationMode() : false;
@@ -468,8 +505,8 @@ export class NodeRenderer {
               startEdgeCreationCallback(this);
             }
           } else if (newState === 'edgeTarget') {
-            // Becoming edge target - trigger selection to complete edge
-            console.log(`🎯 Node ${this.nodeData.id} became edge target - triggering selection`);
+            // Becoming edge target - trigger selection to complete edge, but don't actually select the target node
+            console.log(`🎯 Node ${this.nodeData.id} became edge target - triggering edge completion without selecting target`);
             if (selectCallback) {
               selectCallback(this);
             }
@@ -536,8 +573,17 @@ export class NodeRenderer {
   onMouseMove(e, svg, getShiftDown, scheduleRedrawCallback, selectCallback, getMousePositionInViewBox) {
     if (!this.isDragging) return;
     
+    // Additional safety check: if this node is not selected and we're not actively dragging, ignore mouse move
+    if (!this.nodeData.isSelected && !this.isDragging) {
+      console.log(`🚫 MOUSE MOVE IGNORED: Node ${this.nodeData.id} not selected and not dragging`);
+      return;
+    }
+    
     // Store previous mode and determine current mode
-    this.nodeData.setInteractionMode(getShiftDown() ? 'scale' : 'move');
+    // Only allow scale mode if the node is selected
+    const requestedMode = getShiftDown() ? 'scale' : 'move';
+    const allowedMode = (requestedMode === 'scale' && !this.nodeData.isSelected) ? 'move' : requestedMode;
+    this.nodeData.setInteractionMode(allowedMode);
     this.isScaling = (this.nodeData.interactionMode === 'scale');
     
     // Convert mouse coordinates to viewBox coordinates
@@ -573,9 +619,11 @@ export class NodeRenderer {
     // Check if we've actually started dragging (moved more than a few pixels)
     const distanceMoved = Math.hypot(mouseXInSvg - this.clickStartX, mouseYInSvg - this.clickStartY);
     if (distanceMoved > 5 && !this.hasStartedDragging) {
-      // We've started actually dragging, so select this node and set appropriate visual state
+      // We've started actually dragging, so select this node if it's not already selected
       this.hasStartedDragging = true;
-      selectCallback(this);
+      if (!this.nodeData.isSelected) {
+        selectCallback(this);
+      }
       
       // Set the appropriate visual state based on interaction mode
       if (this.nodeData.interactionMode === 'scale') {
@@ -593,6 +641,12 @@ export class NodeRenderer {
     }
 
     if (this.nodeData.interactionMode === 'scale') {
+      // Only allow scaling if the node is selected
+      if (!this.nodeData.isSelected) {
+        console.log(`🚫 SCALING PREVENTED: Node ${this.nodeData.id} scale operation blocked - not selected`);
+        return;
+      }
+      
       const currentDistance = Math.hypot(mouseXInSvg - this.centerX, mouseYInSvg - this.centerY);
       const scaleFactor = currentDistance / (this.startDistance || 1);
       this.nodeData.setScale(this.startScale * scaleFactor);
@@ -662,6 +716,12 @@ export class NodeRenderer {
             
             if (this.element) {
               this.element.classList.remove('dragging', 'scaling');
+            }
+            
+            // Ensure node is properly selected after drag completion (only if it was actually dragged, not a click)
+            if (newState === 'selected' && selectCallback && distanceMoved >= 5 && !this.nodeData.isSelected) {
+              console.log(`✅ Actual drag completed for ${this.nodeData.id} (moved ${distanceMoved}px) - ensuring selection via callback`);
+              selectCallback(this);
             }
           }
           
@@ -746,15 +806,15 @@ export class NodeRenderer {
           
           if (handled) {
             console.log(`✅ Edge mode click handled by state machine for ${this.nodeData.id}`);
-            // State machine will handle the transition, but we still need to trigger the selection callback
-            // for the InteractionManager to complete the edge
-            debugEdgeCreation(`🎯 Edge target: ${this.nodeData.id} - calling selectCallback`);
-            selectCallback(this);
+            // Don't call selectCallback here - let the InteractionManager handle edge completion
+            // through the normal event flow to avoid selecting the target node
+            debugEdgeCreation(`🎯 Edge target: ${this.nodeData.id} - state machine handled, not calling selectCallback`);
             return;
           }
         }
         
-        // Fall back to direct selection callback
+        // For legacy fallback, still need to call selectCallback for edge completion
+        // but the InteractionManager should handle preventing target selection
         debugEdgeCreation(`🎯 Edge target (fallback): ${this.nodeData.id} - calling selectCallback`);
         selectCallback(this);
       }
@@ -792,11 +852,30 @@ export class NodeRenderer {
         this.clearInteractionStates();
         selectCallback(this);
       } else {
-        // This was a drag - just clear states and mark as no longer just created
-        this.clearInteractionStates();
-        this.nodeData.justCreated = false;
+        // This was a drag (not a click) - ensure node is selected after drag completion
+        if (distanceMoved >= 5 && !this.nodeData.isSelected) {
+          console.log(`Actual drag completed for node ${this.nodeData.id} (moved ${distanceMoved}px) - ensuring selection`);
+          this.clearInteractionStates();
+          this.nodeData.justCreated = false;
+          selectCallback(this);
+        } else {
+          // This was essentially a click with minimal movement or node is already selected - don't call selectCallback
+          console.log(`Minimal movement for node ${this.nodeData.id} (${distanceMoved}px) or already selected - not calling selectCallback`);
+          this.clearInteractionStates();
+          this.nodeData.justCreated = false;
+        }
       }
     }
+    
+    // Always remove mousemove listener when mouse up occurs
+    if (this.svgElement && this.mouseMoveHandler) {
+      this.svgElement.removeEventListener('mousemove', this.mouseMoveHandler);
+      console.log(`🧹 MOUSEMOVE CLEANUP: Removed mousemove listener for ${this.nodeData.id}`);
+    }
+    
+    // Additional cleanup - ensure node is not in dragging state
+    this.isDragging = false;
+    this.hasStartedDragging = false;
   }
 
   /**
@@ -892,9 +971,12 @@ export class NodeRenderer {
       this.onMouseLeave(e)
     );
     
-    svg.addEventListener('mousemove', (e) => 
-      this.onMouseMove(e, svg, getShiftDown, scheduleRedrawCallback, selectCallback, getMousePositionInViewBox)
-    );
+    // Store reference to mousemove handler so we can remove it later
+    this.mouseMoveHandler = (e) => 
+      this.onMouseMove(e, svg, getShiftDown, scheduleRedrawCallback, selectCallback, getMousePositionInViewBox);
+    
+    // Don't add mousemove listener globally - it will be added during mousedown if needed
+    // svg.addEventListener('mousemove', this.mouseMoveHandler);
     
     window.addEventListener('mouseup', (e) => 
       this.onMouseUp(e, selectCallback, isEdgeCreationMode, getMousePositionInViewBox, getJustCompletedEdge)

@@ -133,9 +133,14 @@ export class InteractionManager {
     if (e.key === 'Shift') {
       console.log(`⌨️ SHIFT KEY UP: was creating edge=${this.isCreatingEdge}, from=${this.edgeStartNode?.id || 'null'}`);
       this.shiftDown = false;
-      // Don't cancel edge creation on shift up - let it complete naturally
-      // Edge creation will be canceled when clicking on empty space or pressing escape
-      debugKeyboard('Shift released - edge creation continues until target selected');
+      
+      // Cancel edge creation if Shift key is released during edge creation
+      if (this.isCreatingEdge) {
+        console.log(`🚫 Canceling edge creation due to Shift key release`);
+        this.cancelEdgeCreation();
+      }
+      
+      debugKeyboard('Shift released - edge creation canceled if active');
     }
     if (e.key === 'Control') {
       this.ctrlDown = false;
@@ -243,8 +248,11 @@ export class InteractionManager {
     // PRIORITY: Handle edge completion first if we're creating an edge
     if (this.isCreatingEdge && this.edgeStartNode && node && node !== this.edgeStartNode) {
       debugEdgeCreation('🎯 COMPLETING EDGE:', this.edgeStartNode.id, '->', node.id);
+      console.log(`🎯 Edge completion: ${this.edgeStartNode.id} → ${node.id}, avoiding selection of target node ${node.id}`);
+      console.log(`🔍 Target node ${node.id} current state before edge completion:`, nodeStateManager?.getStateMachine(node.id)?.getCurrentState());
       this.completeEdgeCreation(this.edgeStartNode, node);
-      return;
+      console.log(`🔍 Target node ${node.id} current state after edge completion:`, nodeStateManager?.getStateMachine(node.id)?.getCurrentState());
+      return; // Return early - don't select the target node
     }
     
     // Prevent selection of the node that was just the target of an edge completion
@@ -253,6 +261,15 @@ export class InteractionManager {
       
       if (isSameNode) {
         debugInteraction('🚫 Ignoring selection of edge target node:', node.id);
+        return;
+      }
+    }
+    
+    // Check if node is in cooldown state and prevent selection
+    if (node && nodeStateManager) {
+      const currentState = nodeStateManager.getStateMachine(node.id)?.getCurrentState();
+      if (currentState === 'cooldown') {
+        console.log(`🚫 Ignoring selection of node ${node.id} in cooldown state`);
         return;
       }
     }
@@ -429,11 +446,21 @@ export class InteractionManager {
     // Clean up edge creation state
     this.cancelEdgeCreation();
     
-    // Clear any node selection after edge completion
-    if (this.selectedNode) {
-      this.selectedNode.deselect();
-      this.selectedNode = null;
+    // Clean up any outstanding mousemove listeners on the target node
+    if (toNode && toNode.svgElement && toNode.mouseMoveHandler) {
+      toNode.svgElement.removeEventListener('mousemove', toNode.mouseMoveHandler);
+      console.log(`🧹 Cleaned up mousemove listener for target node: ${toNode.id}`);
     }
+    
+    // Keep the origin node selected after edge completion
+    if (this.selectedNode && this.selectedNode !== fromNode) {
+      this.selectedNode.deselect();
+    }
+    this.selectedNode = fromNode;
+    fromNode.select();
+    
+    console.log(`✅ Edge creation completed: ${fromNode.id} -> ${toNode.id}, origin node ${fromNode.id} remains selected`);
+    console.log(`🔍 After edge completion - Origin ${fromNode.id} selected: ${fromNode.nodeData?.isSelected}, Target ${toNode.id} selected: ${toNode.nodeData?.isSelected}`);
     
     // Clear the flag after a longer delay to ensure subsequent mouse events are ignored
     setTimeout(() => {

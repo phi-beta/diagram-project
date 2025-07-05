@@ -183,7 +183,7 @@
         "onExit": ["removeEdgeTargetHighlight"]
       },
       "cooldown": {
-        "onEnter": ["removeHighlight"],
+        "onEnter": ["removeHighlight", "setTimeout:500"],
         "onExit": []
       }
     }
