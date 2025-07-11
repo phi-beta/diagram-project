@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOM Structure Debug - Context Menu</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .debug-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        #diagram {
+            width: 100%;
+            height: 400px;
+            border: 1px solid #ccc;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DOM Structure Debug - Context Menu</h1>
+        
+        <button onclick="debugDOMStructure()">Debug DOM Structure</button>
+        <button onclick="testNodeDetection()">Test Node Detection</button>
+        <button onclick="testEdgeDetection()">Test Edge Detection</button>
+        
+        <div id="debug-output" class="debug-info">Debug output will appear here...</div>
+        
+        <svg id="diagram" viewBox="0 0 800 400">
+            <!-- Diagram will be rendered here -->
+        </svg>
+    </div>
+
+    <script type="module" src="js/debug.js"></script>
+    <script type="module" src="js/renderer.js?v=076"></script>
+
+    <script>
+        let renderer;
+        
+        document.addEventListener('DOMContentLoaded', async function() {
+            const svg = document.getElementById('diagram');
+            
+            // Initialize renderer
+            renderer = new Renderer(svg);
+            
+            // Add some test nodes
+            await renderer.createNode(100, 100, 'Test Server', 'server');
+            await renderer.createNode(300, 100, 'Test User', 'user');
+            
+            // Add edge
+            setTimeout(async () => {
+                const nodeMap = renderer.getNodeMap();
+                const nodes = Array.from(nodeMap.values());
+                if (nodes.length >= 2) {
+                    await renderer.createEdge(nodes[0], nodes[1], 'test connection');
+                }
+            }, 500);
+        });
+        
+        function debugDOMStructure() {
+            const svg = document.getElementById('diagram');
+            const output = document.getElementById('debug-output');
+            
+            let debugText = 'DOM Structure Analysis:\n\n';
+            
+            // Find all g elements
+            const gElements = svg.querySelectorAll('g');
+            debugText += `Found ${gElements.length} <g> elements:\n`;
+            
+            gElements.forEach((g, index) => {
+                // Properly handle SVG className
+                const className = g.getAttribute('class') || '';
+                debugText += `  ${index + 1}. Tag: ${g.tagName}\n`;
+                debugText += `     Class: "${className}"\n`;
+                debugText += `     Data-node-id: ${g.getAttribute('data-node-id') || 'none'}\n`;
+                debugText += `     Children: ${g.children.length}\n`;
+                if (g.children.length > 0) {
+                    debugText += `     First child: ${g.children[0].tagName}\n`;
+                }
+                debugText += `\n`;
+            });
+            
+            // Find all path elements (edges)
+            const pathElements = svg.querySelectorAll('path');
+            debugText += `\nFound ${pathElements.length} <path> elements:\n`;
+            
+            pathElements.forEach((path, index) => {
+                // Properly handle SVG className
+                const className = path.getAttribute('class') || '';
+                debugText += `  ${index + 1}. Tag: ${path.tagName}\n`;
+                debugText += `     Class: "${className}"\n`;
+                debugText += `     Data-edge-id: ${path.getAttribute('data-edge-id') || 'none'}\n`;
+                debugText += `\n`;
+            });
+            
+            output.textContent = debugText;
+        }
+        
+        function testNodeDetection() {
+            const svg = document.getElementById('diagram');
+            const output = document.getElementById('debug-output');
+            
+            let debugText = 'Node Detection Test:\n\n';
+            
+            // Test .node selector
+            const nodeElements = svg.querySelectorAll('.node');
+            debugText += `Found ${nodeElements.length} elements with .node class:\n`;
+            
+            nodeElements.forEach((node, index) => {
+                debugText += `  ${index + 1}. ${node.tagName} - class: "${node.className}"\n`;
+            });
+            
+            // Test .server selector
+            const serverElements = svg.querySelectorAll('.server');
+            debugText += `\nFound ${serverElements.length} elements with .server class:\n`;
+            
+            serverElements.forEach((server, index) => {
+                debugText += `  ${index + 1}. ${server.tagName} - class: "${server.className}"\n`;
+            });
+            
+            // Test .user selector
+            const userElements = svg.querySelectorAll('.user');
+            debugText += `\nFound ${userElements.length} elements with .user class:\n`;
+            
+            userElements.forEach((user, index) => {
+                debugText += `  ${index + 1}. ${user.tagName} - class: "${user.className}"\n`;
+            });
+            
+            output.textContent = debugText;
+        }
+        
+        function testEdgeDetection() {
+            const svg = document.getElementById('diagram');
+            const output = document.getElementById('debug-output');
+            
+            let debugText = 'Edge Detection Test:\n\n';
+            
+            // Test .edge selector
+            const edgeElements = svg.querySelectorAll('.edge');
+            debugText += `Found ${edgeElements.length} elements with .edge class:\n`;
+            
+            edgeElements.forEach((edge, index) => {
+                debugText += `  ${index + 1}. ${edge.tagName} - class: "${edge.className}"\n`;
+            });
+            
+            // Test all path elements
+            const pathElements = svg.querySelectorAll('path');
+            debugText += `\nFound ${pathElements.length} <path> elements:\n`;
+            
+            pathElements.forEach((path, index) => {
+                debugText += `  ${index + 1}. class: "${path.className}"\n`;
+            });
+            
+            output.textContent = debugText;
+        }
+    </script>
+</body>
+</html>

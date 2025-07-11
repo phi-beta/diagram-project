@@ -1,6 +1,6 @@
 /**
  * Context Menu Manager - Handles right-click context menus
- * v001 - Initial implementation with SVG rendering
+ * v003 - Fixed context reset issue in show() method
  */
 
 export class ContextMenu {
@@ -52,14 +52,16 @@ export class ContextMenu {
    * @param {Element} targetElement - The element that was right-clicked
    */
   show(x, y, context, targetElement = null) {
+    // Remove existing menu if any - but don't reset context yet
+    if (this.menuGroup && this.menuGroup.parentNode) {
+      this.menuGroup.parentNode.removeChild(this.menuGroup);
+    }
+    this.menuGroup = null;
+    this.isVisible = false;
+    
+    // Set the new context
     this.currentContext = context;
     this.targetElement = targetElement;
-    
-    console.log(`🎯 ContextMenu.show: context=${context}, x=${x}, y=${y}`);
-    console.log(`🎯 Color for context '${context}':`, this.colors[context]);
-    
-    // Remove existing menu if any
-    this.hide();
     
     // Create menu group
     this.menuGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -108,7 +110,9 @@ export class ContextMenu {
     background.setAttribute('height', this.menuHeight);
     background.setAttribute('rx', this.cornerRadius);
     background.setAttribute('ry', this.cornerRadius);
-    background.setAttribute('fill', this.colors[this.currentContext] || this.colors.background);
+    
+    const fillColor = this.colors[this.currentContext] || this.colors.background;
+    background.setAttribute('fill', fillColor);
     background.setAttribute('stroke', this.colors.border);
     background.setAttribute('stroke-width', 1);
     background.setAttribute('class', `context-menu-bg context-menu-${this.currentContext}`);
@@ -130,8 +134,6 @@ export class ContextMenu {
     this.isVisible = false;
     this.currentContext = null;
     this.targetElement = null;
-    
-    console.log('Context menu hidden');
   }
   
   /**

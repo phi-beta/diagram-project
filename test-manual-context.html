@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Context Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        #diagram {
+            width: 100%;
+            height: 400px;
+            border: 2px solid #333;
+            background: white;
+        }
+        .test-buttons {
+            margin: 20px 0;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Manual Context Detection Test</h1>
+        
+        <div class="test-buttons">
+            <button onclick="testNodeContext()">Test Node Context</button>
+            <button onclick="testEdgeContext()">Test Edge Context</button>
+            <button onclick="testBackgroundContext()">Test Background Context</button>
+            <button onclick="showDOMStructure()">Show DOM Structure</button>
+        </div>
+        
+        <div id="results" class="result">
+            Click buttons above to test context detection...
+        </div>
+        
+        <svg id="diagram" viewBox="0 0 800 400">
+            <!-- Diagram content will be rendered here -->
+        </svg>
+    </div>
+
+    <script type="module" src="js/debug.js"></script>
+    <script type="module" src="js/renderer.js?v=076"></script>
+
+    <script>
+        let renderer;
+        let nodeElements = [];
+        let edgeElements = [];
+        
+        document.addEventListener('DOMContentLoaded', async function() {
+            const svg = document.getElementById('diagram');
+            
+            // Initialize renderer
+            renderer = new Renderer(svg);
+            
+            // Create test nodes
+            await renderer.createNode(150, 100, 'Test Server', 'server');
+            await renderer.createNode(400, 100, 'Test User', 'user');
+            
+            // Wait and create edge
+            setTimeout(async () => {
+                const nodeMap = renderer.getNodeMap();
+                const nodes = Array.from(nodeMap.values());
+                if (nodes.length >= 2) {
+                    await renderer.createEdge(nodes[0], nodes[1], 'test connection');
+                }
+                
+                // Cache DOM elements
+                nodeElements = Array.from(svg.querySelectorAll('.node'));
+                edgeElements = Array.from(svg.querySelectorAll('.edge'));
+                
+                updateResults('Ready for testing!');
+            }, 500);
+        });
+        
+        function updateResults(message) {
+            document.getElementById('results').innerHTML = message;
+        }
+        
+        function testNodeContext() {
+            if (nodeElements.length === 0) {
+                updateResults('No nodes found!');
+                return;
+            }
+            
+            const node = nodeElements[0];
+            const classes = node.getAttribute('class');
+            const hasNodeClass = classes && classes.includes('node');
+            
+            updateResults(`
+Node Test Results:
+- Found ${nodeElements.length} node elements
+- First node classes: "${classes}"
+- Has 'node' class: ${hasNodeClass}
+- Context detection would work: ${hasNodeClass ? 'YES' : 'NO'}
+            `);
+        }
+        
+        function testEdgeContext() {
+            if (edgeElements.length === 0) {
+                updateResults('No edges found!');
+                return;
+            }
+            
+            const edge = edgeElements[0];
+            const classes = edge.getAttribute('class');
+            const hasEdgeClass = classes && classes.includes('edge');
+            
+            updateResults(`
+Edge Test Results:
+- Found ${edgeElements.length} edge elements  
+- First edge classes: "${classes}"
+- Has 'edge' class: ${hasEdgeClass}
+- Context detection would work: ${hasEdgeClass ? 'YES' : 'NO'}
+            `);
+        }
+        
+        function testBackgroundContext() {
+            const svg = document.getElementById('diagram');
+            
+            // Simulate clicking on SVG background
+            const rect = svg.getBoundingClientRect();
+            const mockEvent = {
+                target: svg,
+                clientX: rect.left + 50,
+                clientY: rect.top + 50
+            };
+            
+            const nodeFound = mockEvent.target.closest('.node');
+            const edgeFound = mockEvent.target.closest('.edge');
+            
+            updateResults(`
+Background Test Results:
+- Target element: ${mockEvent.target.tagName}
+- Closest .node: ${nodeFound ? 'Found' : 'Not found'}
+- Closest .edge: ${edgeFound ? 'Found' : 'Not found'}
+- Would be detected as: ${nodeFound ? 'node' : edgeFound ? 'edge' : 'background'}
+            `);
+        }
+        
+        function showDOMStructure() {
+            const svg = document.getElementById('diagram');
+            const allElements = svg.querySelectorAll('*');
+            
+            let structure = 'DOM Structure:\n';
+            Array.from(allElements).forEach((el, i) => {
+                const classes = el.getAttribute('class') || '';
+                const dataNodeId = el.getAttribute('data-node-id') || '';
+                const dataEdgeId = el.getAttribute('data-edge-id') || '';
+                
+                structure += `${i+1}. ${el.tagName} - class: "${classes}"`;
+                if (dataNodeId) structure += ` [node-id: ${dataNodeId}]`;
+                if (dataEdgeId) structure += ` [edge-id: ${dataEdgeId}]`;
+                structure += '\n';
+            });
+            
+            updateResults(structure);
+        }
+    </script>
+</body>
+</html>

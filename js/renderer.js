@@ -1,12 +1,12 @@
-// Version 074 - Added context menu functionality
+// Version 080 - Fixed diagram loading issue
 import { Node } from './Node.js?v=062';
 import { Edge } from './Edge.js?v=009';
 import { ViewBoxManager } from './ViewBoxManager.js?v=002';
 import { DragManager } from './DragManager.js?v=051';
-import { InteractionManager } from './InteractionManager.js?v=059';
+import { InteractionManager } from './InteractionManager.js?v=061';
 import { generateGuid, clearGuidRegistry, initializeFromExisting } from './GuidManager.js';
 import { nodeStateManager } from './NodeStateManager.js?v=020';
-import { ContextMenu } from './ContextMenu.js?v=001';
+import { ContextMenu } from './ContextMenu.js?v=003';
 
 // Global variables for diagram state
 let nodeMap = new Map();
@@ -142,10 +142,16 @@ function redrawEdges() {
 }
 
 async function loadLayout() {
-  const layoutRes = await fetch('layout/layout.json');
-  layout = await layoutRes.json();
+  try {
+    const layoutRes = await fetch('layout/layout.json');
+    layout = await layoutRes.json();
 
-  svg = document.getElementById('diagram');
+    svg = document.getElementById('diagram');
+    
+    if (!svg) {
+      console.error('❌ SVG element not found!');
+      return;
+    }
   
   // Initialize managers
   viewBoxManager = new ViewBoxManager(svg);
@@ -250,6 +256,9 @@ async function loadLayout() {
     a.click();
     URL.revokeObjectURL(url);
   });
+  } catch (error) {
+    console.error('❌ Error in loadLayout:', error);
+  }
 }
 
 // Utility function to create and setup a node
@@ -257,7 +266,9 @@ async function createNode(nodeData) {
   console.log('Creating node with data:', nodeData);
   const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   // Set both the specific type class AND the general 'node' class
-  g.setAttribute('class', `node ${nodeData.class}`);
+  const className = `node ${nodeData.class}`;
+  g.setAttribute('class', className);
+  console.log('✅ Node created with class:', className);
   const scale = nodeData.scale ?? 1;
   g.setAttribute('transform', `translate(${nodeData.x}, ${nodeData.y}) scale(${scale})`);
 

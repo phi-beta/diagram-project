@@ -1,11 +1,11 @@
-// Version 059 - Fixed Shift key edge creation for selected nodes
+// Version 061 - Fixed SVG className handling for context detection
 /**
  * Interaction Manager - Handles user interactions with the diagram
  */
 import { debugInteraction, debugEdgeCreation, debugKeyboard, debugMouse } from './debug.js';
 import { nodeStateManager } from './NodeStateManager.js?v=019';
 import { diagramStateManager } from './DiagramStateManager.js?v=001';
-import { ContextMenu } from './ContextMenu.js?v=001';
+import { ContextMenu } from './ContextMenu.js?v=003';
 
 export class InteractionManager {
   constructor(svg, viewBoxManager, dragManager) {
@@ -361,24 +361,39 @@ export class InteractionManager {
     let context = 'background';
     let contextTarget = null;
     
-    // Debug target element
-    debugInteraction('Target element:', targetElement.tagName, targetElement.className);
+    // Helper function to get class name from SVG or HTML elements
+    const getElementClass = (element) => {
+      return element.getAttribute('class') || '';
+    };
+    
+    // Debug target element and its parents
+    console.log('🔍 Right-click target:', targetElement.tagName, getElementClass(targetElement));
+    console.log('🔍 Parent element:', targetElement.parentElement ? targetElement.parentElement.tagName : 'none', 
+               targetElement.parentElement ? getElementClass(targetElement.parentElement) : 'none');
+    console.log('🔍 Grandparent element:', targetElement.parentElement?.parentElement ? targetElement.parentElement.parentElement.tagName : 'none',
+               targetElement.parentElement?.parentElement ? getElementClass(targetElement.parentElement.parentElement) : 'none');
     
     // Check if right-clicked on a node
-    if (targetElement.closest('.node')) {
+    const nodeElement = targetElement.closest('.node');
+    console.log('🔍 Closest .node:', nodeElement);
+    if (nodeElement) {
       context = 'node';
-      contextTarget = targetElement.closest('.node');
-      debugInteraction('Context menu: Right-clicked on node:', contextTarget.getAttribute('data-node-id'));
+      contextTarget = nodeElement;
+      console.log('✅ FOUND NODE:', getElementClass(nodeElement));
     }
     // Check if right-clicked on an edge
-    else if (targetElement.closest('.edge')) {
-      context = 'edge';
-      contextTarget = targetElement.closest('.edge');
-      debugInteraction('Context menu: Right-clicked on edge:', contextTarget.getAttribute('data-edge-id'));
-    }
-    // Otherwise it's background
     else {
-      debugInteraction('Context menu: Right-clicked on background');
+      const edgeElement = targetElement.closest('.edge');
+      console.log('🔍 Closest .edge:', edgeElement);
+      if (edgeElement) {
+        context = 'edge';
+        contextTarget = edgeElement;
+        console.log('✅ FOUND EDGE:', getElementClass(edgeElement));
+      }
+      // Otherwise it's background
+      else {
+        console.log('❌ BACKGROUND - no node or edge found');
+      }
     }
     
     // Show context menu

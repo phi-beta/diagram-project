@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Context Menu Test - Simple</title>
+    <link rel="stylesheet" href="themes/default.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .instructions {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196f3;
+        }
+        .diagram-container {
+            border: 2px solid #333;
+            border-radius: 8px;
+            background: white;
+            overflow: hidden;
+            position: relative;
+        }
+        #svg {
+            width: 100%;
+            height: 500px;
+            display: block;
+        }
+        .color-legend {
+            display: flex;
+            gap: 20px;
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .color-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .color-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid #666;
+        }
+        .node-color { background-color: #bbdefb; }
+        .edge-color { background-color: #e1bee7; }
+        .background-color { background-color: #e0e0e0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Context Menu Test - Simple</h1>
+        
+        <div class="instructions">
+            <h3>Context Menu Testing Instructions:</h3>
+            <ul>
+                <li><strong>Right-click on a node</strong> - Should show light blue context menu</li>
+                <li><strong>Right-click on an edge</strong> - Should show light purple context menu</li>
+                <li><strong>Right-click on empty space</strong> - Should show gray context menu</li>
+                <li><strong>Left-click anywhere</strong> - Should hide the context menu</li>
+            </ul>
+        </div>
+
+        <div class="color-legend">
+            <div class="color-item">
+                <div class="color-box node-color"></div>
+                <span>Node Context (Blue)</span>
+            </div>
+            <div class="color-item">
+                <div class="color-box edge-color"></div>
+                <span>Edge Context (Purple)</span>
+            </div>
+            <div class="color-item">
+                <div class="color-box background-color"></div>
+                <span>Background Context (Gray)</span>
+            </div>
+        </div>
+
+        <div class="diagram-container">
+            <svg id="svg" viewBox="0 0 800 500">
+                <!-- Nodes will be created here -->
+            </svg>
+        </div>
+
+        <p><strong>Open the browser console to see debug output.</strong></p>
+    </div>
+
+    <script type="module" src="js/debug.js"></script>
+    <script type="module" src="js/renderer.js?v=076"></script>
+</body>
+</html>
