@@ -1,4 +1,4 @@
-// Version 061 - Fixed SVG className handling for context detection
+// Version 062 - Updated for improved edge click detection
 /**
  * Interaction Manager - Handles user interactions with the diagram
  */

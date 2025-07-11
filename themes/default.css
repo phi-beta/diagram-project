@@ -59,7 +59,9 @@ body {
 .access-link {
   stroke: black;
   stroke-width: 2;
-  filter: drop-shadow(0 0 2px #dfd3d3)
+  filter: drop-shadow(0 0 2px #dfd3d3);
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .connection {
@@ -67,7 +69,9 @@ body {
   stroke-width: 2;
   fill: none;
   marker-end: url(#arrow-end);
-  filter: drop-shadow(0 0 2px #dfd3d3)
+  filter: drop-shadow(0 0 2px #dfd3d3);
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* Arrow markers - these need to be defined in JavaScript but colors can be controlled here */

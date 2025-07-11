@@ -1,9 +1,9 @@
-// Version 080 - Fixed diagram loading issue
+// Version 082 - Updated for improved edge click detection
 import { Node } from './Node.js?v=062';
-import { Edge } from './Edge.js?v=009';
+import { Edge } from './Edge.js?v=011';
 import { ViewBoxManager } from './ViewBoxManager.js?v=002';
 import { DragManager } from './DragManager.js?v=051';
-import { InteractionManager } from './InteractionManager.js?v=061';
+import { InteractionManager } from './InteractionManager.js?v=062';
 import { generateGuid, clearGuidRegistry, initializeFromExisting } from './GuidManager.js';
 import { nodeStateManager } from './NodeStateManager.js?v=020';
 import { ContextMenu } from './ContextMenu.js?v=003';
@@ -112,7 +112,8 @@ function completeEdgeCreation(fromNode, toNode) {
   
   // Create the permanent edge
   const edgeElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  edgeElement.setAttribute('class', edgeData.class);
+  // Set both the specific type class AND the general 'edge' class
+  edgeElement.setAttribute('class', `edge ${edgeData.class}`);
   
   svg.appendChild(edgeElement);
   

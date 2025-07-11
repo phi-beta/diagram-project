@@ -1,3 +1,4 @@
+// Version 011 - Added wider invisible stroke for better edge click detection
 /**
  * Edge Classes - Separated Data Model and Rendering
  * 
@@ -131,9 +132,11 @@ export class EdgeData {
  * EdgeRenderer class - Manages SVG rendering and visual updates
  */
 export class EdgeRenderer {
-  constructor(edgeData, element) {
+  constructor(edgeData, element, visiblePath = null, clickPath = null) {
     this.edgeData = edgeData;
-    this.element = element;
+    this.element = element; // The group element
+    this.visiblePath = visiblePath || element; // The visible path
+    this.clickPath = clickPath; // The invisible wider path for click detection
   }
 
   // Update the visual path between two nodes
@@ -149,7 +152,15 @@ export class EdgeRenderer {
     const y1 = p1.y + dy * (p1.radius / distance);
     const x2 = p2.x - dx * (p2.radius / distance);
     const y2 = p2.y - dy * (p2.radius / distance);
-    this.element.setAttribute('d', `M ${x1} ${y1} L ${x2} ${y2}`);
+    
+    const pathData = `M ${x1} ${y1} L ${x2} ${y2}`;
+    
+    // Update both the visible path and the invisible click path
+    this.visiblePath.setAttribute('d', pathData);
+    if (this.clickPath) {
+      this.clickPath.setAttribute('d', pathData);
+    }
+    
     return true;
   }
 
@@ -200,19 +211,42 @@ export class EdgeRenderer {
 
   // Update visual style based on edge class
   updateStyle() {
-    // Set both the specific type class AND the general 'edge' class
+    // Set both the specific type class AND the general 'edge' class on the group
     this.element.setAttribute('class', `edge ${this.edgeData.class}`);
+    
+    // Apply CSS class to the visible path as well for proper styling
+    if (this.visiblePath && this.visiblePath !== this.element) {
+      this.visiblePath.setAttribute('class', this.edgeData.class);
+    }
   }
 
   // Static method to create an edge element and EdgeRenderer instance
   static createEdgeRenderer(edgeData, svg) {
+    // Create a group to hold both the visible path and invisible wider path
+    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    group.setAttribute('class', `edge ${edgeData.class}`);
+    group.setAttribute('data-edge-id', edgeData.id);
+    
+    // Create the invisible wider path for better click detection
+    const clickPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    clickPath.setAttribute('stroke', 'transparent');
+    clickPath.setAttribute('stroke-width', '12'); // Much wider for easier clicking
+    clickPath.setAttribute('fill', 'none');
+    clickPath.setAttribute('stroke-linecap', 'round');
+    clickPath.setAttribute('stroke-linejoin', 'round');
+    clickPath.setAttribute('pointer-events', 'stroke');
+    
+    // Create the visible path
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    // Set both the specific type class AND the general 'edge' class
-    path.setAttribute('class', `edge ${edgeData.class}`);
     path.setAttribute('marker-end', 'url(#arrow-end)');
-    path.setAttribute('data-edge-id', edgeData.id);
-    svg.appendChild(path);
-    return new EdgeRenderer(edgeData, path);
+    path.setAttribute('pointer-events', 'none'); // Don't interfere with click detection
+    
+    // Add both paths to the group
+    group.appendChild(clickPath);
+    group.appendChild(path);
+    svg.appendChild(group);
+    
+    return new EdgeRenderer(edgeData, group, path, clickPath);
   }
 
   // Static method to redraw all edge renderers
@@ -244,7 +278,26 @@ export class Edge {
   constructor(data, element) {
     console.warn('Edge class is deprecated. Use EdgeData and EdgeRenderer instead.');
     this.edgeData = new EdgeData(data);
-    this.renderer = new EdgeRenderer(this.edgeData, element);
+    
+    // Handle new group structure with multiple paths
+    let visiblePath = null;
+    let clickPath = null;
+    
+    if (element.tagName === 'g') {
+      // New structure with group containing multiple paths
+      const paths = element.querySelectorAll('path');
+      if (paths.length >= 2) {
+        clickPath = paths[0]; // First path is the invisible click path
+        visiblePath = paths[1]; // Second path is the visible path
+      } else if (paths.length === 1) {
+        visiblePath = paths[0]; // Fallback to single path
+      }
+    } else {
+      // Legacy structure with single path
+      visiblePath = element;
+    }
+    
+    this.renderer = new EdgeRenderer(this.edgeData, element, visiblePath, clickPath);
     
     // Proxy properties for backward compatibility
     this.from = this.edgeData.from;
@@ -258,55 +311,59 @@ export class Edge {
   updatePath(fromNode, toNode) {
     return this.renderer.updatePath(fromNode, toNode);
   }
-
-  connectsToNode(nodeId) {
-    return this.edgeData.connectsToNode(nodeId);
-  }
-
-  getOtherNodeId(nodeId) {
-    return this.edgeData.getOtherNodeId(nodeId);
-  }
-
-  remove() {
-    this.renderer.remove();
-  }
-
-  select() {
-    this.renderer.select();
-  }
-
-  deselect() {
-    this.renderer.deselect();
-  }
-
-  setHovering(isHovering) {
-    this.renderer.setHovering(isHovering);
-  }
-
-  setInteractionMode(mode) {
-    this.edgeData.setInteractionMode(mode);
-  }
-
-  clearInteractionModes() {
-    this.edgeData.clearInteractionModes();
-    this.renderer.clearVisualStates();
-  }
-
+  
   toData() {
     return this.edgeData.toData();
   }
-
-  destroy() {
-    return this.renderer.destroy();
+  
+  select() {
+    return this.renderer.select();
   }
-
+  
+  deselect() {
+    return this.renderer.deselect();
+  }
+  
+  setHovering(isHovering) {
+    return this.renderer.setHovering(isHovering);
+  }
+  
+  clearVisualStates() {
+    return this.renderer.clearVisualStates();
+  }
+  
+  updateStyle() {
+    return this.renderer.updateStyle();
+  }
+  
   // Static methods for backward compatibility
   static createEdge(edgeData, svg) {
+    // Create a group to hold both the visible path and invisible wider path
+    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    group.setAttribute('class', `edge ${edgeData.class}`);
+    group.setAttribute('data-edge-id', edgeData.id);
+    
+    // Create the invisible wider path for better click detection
+    const clickPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    clickPath.setAttribute('stroke', 'transparent');
+    clickPath.setAttribute('stroke-width', '12'); // Much wider for easier clicking
+    clickPath.setAttribute('fill', 'none');
+    clickPath.setAttribute('stroke-linecap', 'round');
+    clickPath.setAttribute('stroke-linejoin', 'round');
+    clickPath.setAttribute('pointer-events', 'stroke');
+    
+    // Create the visible path
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('class', edgeData.class);
     path.setAttribute('marker-end', 'url(#arrow-end)');
-    svg.appendChild(path);
-    return new Edge(edgeData, path);
+    path.setAttribute('pointer-events', 'none'); // Don't interfere with click detection
+    
+    // Add both paths to the group
+    group.appendChild(clickPath);
+    group.appendChild(path);
+    svg.appendChild(group);
+    
+    return new Edge(edgeData, group);
   }
 
   static redrawAllEdges(edgeList, nodeMap) {

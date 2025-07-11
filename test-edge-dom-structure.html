@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge DOM Structure Inspector</title>
+    <link rel="stylesheet" href="themes/default.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .side-by-side {
+            display: flex;
+            gap: 20px;
+        }
+        .left-panel {
+            flex: 1;
+        }
+        .right-panel {
+            flex: 1;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-y: auto;
+            max-height: 600px;
+        }
+        svg {
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+        }
+        .dom-tree {
+            white-space: pre-wrap;
+            line-height: 1.4;
+        }
+        .highlight {
+            background: #ffeb3b;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .debug-output {
+            background: #e8f5e8;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Edge DOM Structure Inspector</h1>
+        
+        <div class="side-by-side">
+            <div class="left-panel">
+                <h3>SVG Diagram</h3>
+                <svg id="main-svg" width="500" height="400" viewBox="0 0 500 400">
+                    <!-- Background -->
+                    <rect width="100%" height="100%" fill="#fafafa"/>
+                    
+                    <!-- Arrow marker -->
+                    <defs>
+                        <marker id="arrow-end" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+                        </marker>
+                    </defs>
+                    
+                    <!-- Test nodes -->
+                    <g class="node user-node" transform="translate(100, 100)">
+                        <circle r="30" fill="#4a90e2" stroke="#2c5282" stroke-width="2"/>
+                        <text x="0" y="5" text-anchor="middle" fill="white" font-size="12">A</text>
+                    </g>
+                    
+                    <g class="node server-node" transform="translate(400, 100)">
+                        <rect x="-30" y="-20" width="60" height="40" fill="#f4f4f4" stroke="#333" stroke-width="2"/>
+                        <text x="0" y="5" text-anchor="middle" fill="#333" font-size="12">B</text>
+                    </g>
+                    
+                    <g class="node user-node" transform="translate(250, 300)">
+                        <circle r="30" fill="#4a90e2" stroke="#2c5282" stroke-width="2"/>
+                        <text x="0" y="5" text-anchor="middle" fill="white" font-size="12">C</text>
+                    </g>
+                </svg>
+                
+                <div class="debug-output" id="debug-output">
+                    Right-click on edges to see context detection...
+                </div>
+            </div>
+            
+            <div class="right-panel">
+                <h3>DOM Structure</h3>
+                <div class="dom-tree" id="dom-tree">
+                    Loading...
+                </div>
+                
+                <h3>Edge Elements</h3>
+                <div class="dom-tree" id="edge-elements">
+                    Loading...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { Edge } from './js/Edge.js?v=011';
+        import { ContextMenu } from './js/ContextMenu.js?v=003';
+        
+        // Get SVG element
+        const svg = document.getElementById('main-svg');
+        
+        // Create context menu
+        const contextMenu = new ContextMenu(svg);
+        
+        // Create test edges using the improved Edge class
+        const edge1 = Edge.createEdge({
+            id: 'edge1',
+            from: 'a',
+            to: 'b',
+            class: 'connection'
+        }, svg);
+        
+        const edge2 = Edge.createEdge({
+            id: 'edge2',
+            from: 'b',
+            to: 'c',
+            class: 'access-link'
+        }, svg);
+        
+        // Set up edge paths manually for testing
+        if (edge1.element.querySelector('path:nth-child(1)') && edge1.element.querySelector('path:nth-child(2)')) {
+            edge1.element.querySelector('path:nth-child(1)').setAttribute('d', 'M 130 100 L 370 100'); // Click path
+            edge1.element.querySelector('path:nth-child(2)').setAttribute('d', 'M 130 100 L 370 100'); // Visible path
+        }
+        
+        if (edge2.element.querySelector('path:nth-child(1)') && edge2.element.querySelector('path:nth-child(2)')) {
+            edge2.element.querySelector('path:nth-child(1)').setAttribute('d', 'M 380 120 L 270 280'); // Click path
+            edge2.element.querySelector('path:nth-child(2)').setAttribute('d', 'M 380 120 L 270 280'); // Visible path
+        }
+        
+        // Function to inspect DOM structure
+        function inspectDOM() {
+            const domTree = document.getElementById('dom-tree');
+            const edgeElements = document.getElementById('edge-elements');
+            
+            // Show full SVG DOM structure
+            domTree.innerHTML = svg.outerHTML
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/class="edge[^"]*"/g, '<span class="highlight">$&</span>');
+            
+            // Show edge elements specifically
+            const edges = svg.querySelectorAll('.edge');
+            let edgeInfo = `Found ${edges.length} edge elements:\n\n`;
+            
+            edges.forEach((edge, index) => {
+                edgeInfo += `Edge ${index + 1}:\n`;
+                edgeInfo += `  Tag: ${edge.tagName}\n`;
+                edgeInfo += `  Class: ${edge.getAttribute('class')}\n`;
+                edgeInfo += `  ID: ${edge.getAttribute('data-edge-id')}\n`;
+                edgeInfo += `  Children: ${edge.children.length}\n`;
+                
+                Array.from(edge.children).forEach((child, childIndex) => {
+                    edgeInfo += `    Child ${childIndex + 1}: ${child.tagName}\n`;
+                    edgeInfo += `      Class: ${child.getAttribute('class') || 'none'}\n`;
+                    edgeInfo += `      Stroke: ${child.getAttribute('stroke') || 'none'}\n`;
+                    edgeInfo += `      Stroke-width: ${child.getAttribute('stroke-width') || 'none'}\n`;
+                    edgeInfo += `      Pointer-events: ${child.getAttribute('pointer-events') || 'auto'}\n`;
+                });
+                
+                edgeInfo += '\n';
+            });
+            
+            edgeElements.innerHTML = edgeInfo;
+        }
+        
+        // Add context menu handling
+        svg.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            
+            // Get mouse position relative to SVG
+            const rect = svg.getBoundingClientRect();
+            const clientX = e.clientX - rect.left;
+            const clientY = e.clientY - rect.top;
+            
+            // Get the current viewBox to handle zoom/pan
+            const viewBox = svg.viewBox.baseVal;
+            const svgWidth = rect.width;
+            const svgHeight = rect.height;
+            
+            // Calculate SVG coordinates considering viewBox transformation
+            const svgX = (clientX / svgWidth) * viewBox.width + viewBox.x;
+            const svgY = (clientY / svgHeight) * viewBox.height + viewBox.y;
+            
+            // Determine what was right-clicked
+            const targetElement = e.target;
+            let context = 'background';
+            let contextTarget = null;
+            
+            // Helper function to get class name from SVG or HTML elements
+            const getElementClass = (element) => {
+                return element.getAttribute('class') || '';
+            };
+            
+            // Check if right-clicked on a node
+            const nodeElement = targetElement.closest('.node');
+            if (nodeElement) {
+                context = 'node';
+                contextTarget = nodeElement;
+            }
+            // Check if right-clicked on an edge
+            else {
+                const edgeElement = targetElement.closest('.edge');
+                if (edgeElement) {
+                    context = 'edge';
+                    contextTarget = edgeElement;
+                }
+            }
+            
+            // Update debug info
+            document.getElementById('debug-output').innerHTML = `
+                <strong>Context Detection:</strong><br>
+                Target: ${targetElement.tagName} (class: "${getElementClass(targetElement)}")<br>
+                Parent: ${targetElement.parentElement ? targetElement.parentElement.tagName : 'none'} (class: "${targetElement.parentElement ? getElementClass(targetElement.parentElement) : 'none'}")<br>
+                Detected Context: <strong>${context.toUpperCase()}</strong><br>
+                Position: svg(${svgX.toFixed(1)}, ${svgY.toFixed(1)})
+            `;
+            
+            // Show context menu
+            contextMenu.show(svgX, svgY, context, contextTarget);
+        });
+        
+        // Hide context menu on left click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.context-menu')) {
+                contextMenu.hide();
+            }
+        });
+        
+        // Initial DOM inspection
+        setTimeout(inspectDOM, 100);
+        
+        console.log('🔍 Edge DOM Structure Inspector loaded');
+        console.log('Edge 1 element:', edge1.element);
+        console.log('Edge 2 element:', edge2.element);
+    </script>
+</body>
+</html>

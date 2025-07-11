@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Click Detection Test</title>
+    <link rel="stylesheet" href="themes/default.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .test-info {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .test-info h3 {
+            margin-top: 0;
+            color: #2c5282;
+        }
+        .test-info ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .test-info li {
+            margin: 5px 0;
+        }
+        svg {
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+        }
+        .debug-info {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .context-info {
+            background: #d1ecf1;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Edge Click Detection Test</h1>
+        
+        <div class="test-info">
+            <h3>Test Instructions:</h3>
+            <ul>
+                <li><strong>Right-click edges:</strong> Try right-clicking on different parts of the edges, including near the arrowheads</li>
+                <li><strong>Check click detection:</strong> The context menu should show "EDGE" context (purple background)</li>
+                <li><strong>Test thin areas:</strong> Right-click on thin parts of the lines - should still work</li>
+                <li><strong>Test arrowheads:</strong> Right-click near the arrowheads - should detect as edge</li>
+                <li><strong>Background test:</strong> Right-click on empty space - should show "BACKGROUND" context (gray background)</li>
+            </ul>
+        </div>
+        
+        <svg id="main-svg" width="1000" height="600" viewBox="0 0 1000 600">
+            <!-- Background -->
+            <rect width="100%" height="100%" fill="#fafafa"/>
+            
+            <!-- Grid pattern for visual reference -->
+            <defs>
+                <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                    <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#e0e0e0" stroke-width="1"/>
+                </pattern>
+                
+                <!-- Standard arrow marker -->
+                <marker id="arrow-end" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+                </marker>
+            </defs>
+            
+            <!-- Grid background -->
+            <rect width="100%" height="100%" fill="url(#grid)" />
+            
+            <!-- Test nodes -->
+            <g class="node user-node" transform="translate(200, 200)">
+                <circle r="40" fill="#4a90e2" stroke="#2c5282" stroke-width="2"/>
+                <text x="0" y="5" text-anchor="middle" fill="white" font-size="14">User 1</text>
+            </g>
+            
+            <g class="node server-node" transform="translate(600, 200)">
+                <rect x="-40" y="-30" width="80" height="60" fill="#f4f4f4" stroke="#333" stroke-width="2"/>
+                <text x="0" y="5" text-anchor="middle" fill="#333" font-size="14">Server</text>
+            </g>
+            
+            <g class="node user-node" transform="translate(400, 400)">
+                <circle r="40" fill="#4a90e2" stroke="#2c5282" stroke-width="2"/>
+                <text x="0" y="5" text-anchor="middle" fill="white" font-size="14">User 2</text>
+            </g>
+        </svg>
+        
+        <div class="debug-info" id="debug-info">
+            Debug info will appear here when you right-click...
+        </div>
+        
+        <div class="context-info" id="context-info">
+            Context detection info will appear here...
+        </div>
+    </div>
+
+    <script type="module">
+        import { Edge } from './js/Edge.js?v=011';
+        import { ContextMenu } from './js/ContextMenu.js?v=003';
+        
+        // Get SVG element
+        const svg = document.getElementById('main-svg');
+        
+        // Create context menu
+        const contextMenu = new ContextMenu(svg);
+        
+        // Create test edges using the improved Edge class
+        const edge1 = Edge.createEdge({
+            id: 'edge1',
+            from: 'user1',
+            to: 'server',
+            class: 'connection'
+        }, svg);
+        
+        const edge2 = Edge.createEdge({
+            id: 'edge2',
+            from: 'server',
+            to: 'user2',
+            class: 'access-link'
+        }, svg);
+        
+        // Set up edge paths manually for testing
+        edge1.element.querySelector('path:nth-child(1)').setAttribute('d', 'M 240 200 L 560 200'); // Click path
+        edge1.element.querySelector('path:nth-child(2)').setAttribute('d', 'M 240 200 L 560 200'); // Visible path
+        
+        edge2.element.querySelector('path:nth-child(1)').setAttribute('d', 'M 600 230 L 400 370'); // Click path
+        edge2.element.querySelector('path:nth-child(2)').setAttribute('d', 'M 600 230 L 400 370'); // Visible path
+        
+        // Add context menu handling
+        svg.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            
+            // Get mouse position relative to SVG
+            const rect = svg.getBoundingClientRect();
+            const clientX = e.clientX - rect.left;
+            const clientY = e.clientY - rect.top;
+            
+            // Get the current viewBox to handle zoom/pan
+            const viewBox = svg.viewBox.baseVal;
+            const svgWidth = rect.width;
+            const svgHeight = rect.height;
+            
+            // Calculate SVG coordinates considering viewBox transformation
+            const svgX = (clientX / svgWidth) * viewBox.width + viewBox.x;
+            const svgY = (clientY / svgHeight) * viewBox.height + viewBox.y;
+            
+            // Determine what was right-clicked
+            const targetElement = e.target;
+            let context = 'background';
+            let contextTarget = null;
+            
+            // Helper function to get class name from SVG or HTML elements
+            const getElementClass = (element) => {
+                return element.getAttribute('class') || '';
+            };
+            
+            // Update debug info
+            document.getElementById('debug-info').innerHTML = `
+                <strong>Click Debug Info:</strong><br>
+                Target: ${targetElement.tagName} (class: "${getElementClass(targetElement)}")<br>
+                Parent: ${targetElement.parentElement ? targetElement.parentElement.tagName : 'none'} (class: "${targetElement.parentElement ? getElementClass(targetElement.parentElement) : 'none'}")<br>
+                Position: client(${clientX.toFixed(1)}, ${clientY.toFixed(1)}) -> svg(${svgX.toFixed(1)}, ${svgY.toFixed(1)})
+            `;
+            
+            // Check if right-clicked on a node
+            const nodeElement = targetElement.closest('.node');
+            if (nodeElement) {
+                context = 'node';
+                contextTarget = nodeElement;
+            }
+            // Check if right-clicked on an edge
+            else {
+                const edgeElement = targetElement.closest('.edge');
+                if (edgeElement) {
+                    context = 'edge';
+                    contextTarget = edgeElement;
+                }
+            }
+            
+            // Update context info
+            document.getElementById('context-info').innerHTML = `
+                <strong>Context Detection:</strong><br>
+                Detected Context: <strong>${context.toUpperCase()}</strong><br>
+                Target Element: ${contextTarget ? contextTarget.tagName : 'none'}<br>
+                Target Classes: ${contextTarget ? getElementClass(contextTarget) : 'none'}
+            `;
+            
+            // Show context menu
+            contextMenu.show(svgX, svgY, context, contextTarget);
+        });
+        
+        // Hide context menu on left click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.context-menu')) {
+                contextMenu.hide();
+            }
+        });
+        
+        console.log('🎯 Edge Click Detection Test loaded');
+        console.log('Edge 1 element:', edge1.element);
+        console.log('Edge 2 element:', edge2.element);
+        console.log('Edge 1 paths:', edge1.element.querySelectorAll('path'));
+        console.log('Edge 2 paths:', edge2.element.querySelectorAll('path'));
+    </script>
+</body>
+</html>
