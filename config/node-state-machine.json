@@ -7,6 +7,9 @@
       "idle": {
         "description": "Node is not being interacted with"
       },
+      "mousePressed": {
+        "description": "Mouse button is pressed on node but not yet determined if click or drag"
+      },
       "selected": {
         "description": "Node is selected but not being manipulated"
       },
@@ -28,15 +31,17 @@
     },
     "transitions": {
       "idle": {
-        "select": "selected",
-        "startDrag": "dragging",
-        "startScale": "scaling",
+        "mousePress": "mousePressed",
         "becomeEdgeTarget": "edgeTarget"
+      },
+      "mousePressed": {
+        "mouseRelease": "selected",
+        "startDrag": "dragging",
+        "startScale": "scaling"
       },
       "selected": {
         "deselect": "idle",
-        "startDrag": "dragging",
-        "startScale": "scaling",
+        "mousePress": "mousePressed",
         "startEdgeCreation": "edgeSource",
         "becomeEdgeTarget": "edgeTarget"
       },
@@ -75,7 +80,7 @@
           {
             "state": "idle",
             "condition": "!inEdgeCreationMode",
-            "action": "startDrag"
+            "action": "mousePress"
           },
           {
             "state": "selected",
@@ -85,6 +90,15 @@
           {
             "state": "selected",
             "condition": "!inEdgeCreationMode",
+            "action": "mousePress"
+          }
+        ]
+      },
+      {
+        "event": "mouseDrag", 
+        "conditions": [
+          {
+            "state": "mousePressed",
             "action": "startDrag"
           }
         ]
@@ -92,6 +106,10 @@
       {
         "event": "mouseUp",
         "conditions": [
+          {
+            "state": "mousePressed",
+            "action": "mouseRelease"
+          },
           {
             "state": "dragging",
             "action": "finishDrag"
@@ -132,6 +150,15 @@
         ]
       },
       {
+        "event": "startEdgeCreation",
+        "conditions": [
+          {
+            "state": "selected",
+            "action": "startEdgeCreation"
+          }
+        ]
+      },
+      {
         "event": "escapeKey",
         "conditions": [
           {
@@ -159,7 +186,11 @@
     "description": "Visual changes for each state",
     "states": {
       "idle": {
-        "onEnter": ["removeHighlight"],
+        "onEnter": ["removeHighlight", "clearDragState"],
+        "onExit": []
+      },
+      "mousePressed": {
+        "onEnter": [],
         "onExit": []
       },
       "selected": {
@@ -179,11 +210,11 @@
         "onExit": ["removeEdgeSourceHighlight"]
       },
       "edgeTarget": {
-        "onEnter": ["addEdgeTargetHighlight"],
+        "onEnter": ["addEdgeTargetHighlight", "clearDragState"],
         "onExit": ["removeEdgeTargetHighlight"]
       },
       "cooldown": {
-        "onEnter": ["removeHighlight", "setTimeout:500"],
+        "onEnter": ["removeHighlight", "clearDragState", "setTimeout:500"],
         "onExit": []
       }
     }

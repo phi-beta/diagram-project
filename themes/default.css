@@ -125,3 +125,21 @@ svg, svg * {
   -webkit-user-select: none;
   user-select: none;
 }
+
+/* Context Menu Styles */
+.context-menu {
+  z-index: 1000;
+  pointer-events: all;
+}
+
+.context-menu-shadow {
+  opacity: 0.3;
+}
+
+.context-menu-bg {
+  transition: fill 0.2s ease;
+}
+
+.context-menu-bg:hover {
+  filter: brightness(0.95);
+}

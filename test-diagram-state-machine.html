@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Diagram State Machine</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { display: flex; gap: 20px; }
+        .diagram-section { flex: 1; }
+        .info-section { width: 400px; background: #f5f5f5; padding: 15px; border-radius: 5px; }
+        
+        /* Import diagram styles */
+        .node {
+            fill: #3498db;
+            stroke: #2980b9;
+            stroke-width: 2;
+            cursor: pointer;
+        }
+        
+        .node.selected {
+            fill: #e74c3c;
+            stroke: #c0392b;
+        }
+        
+        .node.dragging {
+            fill: #f39c12;
+            stroke: #e67e22;
+        }
+        
+        .node.scaling {
+            fill: #9b59b6;
+            stroke: #8e44ad;
+        }
+        
+        .node.edge-target-highlight {
+            fill: #2ecc71;
+            stroke: #27ae60;
+            stroke-width: 3;
+        }
+        
+        .node.edge-target-available {
+            opacity: 0.7;
+            stroke-dasharray: 3,3;
+        }
+        
+        .connection {
+            stroke: #34495e;
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrowhead);
+        }
+        
+        .temporary-edge {
+            stroke: #ff6b6b;
+            stroke-width: 2;
+            stroke-dasharray: 5,5;
+            fill: none;
+            pointer-events: none;
+        }
+        
+        .status { 
+            padding: 10px; 
+            margin: 5px 0; 
+            border-radius: 3px; 
+            font-weight: bold;
+        }
+        .status.idle { background: #d5f4e6; color: #2d7a2d; }
+        .status.edge-creation { background: #ffe5e5; color: #d63384; }
+        .status.multi-selection { background: #e5f3ff; color: #0066cc; }
+        
+        #log { 
+            height: 200px; 
+            overflow-y: auto; 
+            border: 1px solid #ddd; 
+            padding: 10px; 
+            font-family: monospace; 
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        
+        .controls button {
+            margin: 5px;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .controls button:hover {
+            opacity: 0.8;
+        }
+        
+        .controls .test { background: #3498db; color: white; }
+        .controls .clear { background: #95a5a6; color: white; }
+    </style>
+</head>
+<body>
+    <h1>Diagram State Machine Test</h1>
+    <p><strong>Test the new diagram-level state machine coordination</strong></p>
+    
+    <div class="container">
+        <div class="diagram-section">
+            <h3>Interactive Diagram</h3>
+            <svg id="diagram" width="600" height="400" style="border: 1px solid #ccc; background: #fff;">
+                <!-- Arrowhead marker -->
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                            refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#34495e" />
+                    </marker>
+                </defs>
+            </svg>
+            
+            <div class="controls">
+                <button class="test" onclick="testEdgeCreationFlow()">Test Edge Creation Flow</button>
+                <button class="test" onclick="testCancellationMethods()">Test Cancellation Methods</button>
+                <button class="test" onclick="testKeyboardShortcuts()">Test Keyboard Shortcuts</button>
+                <button class="clear" onclick="clearLog()">Clear Log</button>
+            </div>
+        </div>
+        
+        <div class="info-section">
+            <h3>Diagram State</h3>
+            <div id="diagramState" class="status idle">Idle</div>
+            
+            <h3>Node States</h3>
+            <div id="nodeStates"></div>
+            
+            <h3>Instructions</h3>
+            <ol>
+                <li><strong>Select Node:</strong> Click on any node</li>
+                <li><strong>Start Edge Creation:</strong> Hold Shift + move mouse away OR Shift + click different node</li>
+                <li><strong>Complete Edge:</strong> Click on target node</li>
+                <li><strong>Cancel Edge:</strong> Escape key, background click, or drag node</li>
+                <li><strong>Scale Node:</strong> Shift + drag selected node</li>
+            </ol>
+            
+            <h3>Debug Log</h3>
+            <div id="log"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { ViewBoxManager } from './js/ViewBoxManager.js?v=002';
+        import { DragManager } from './js/DragManager.js?v=051';
+        import { InteractionManager } from './js/InteractionManager.js?v=057';
+        import { Node } from './js/Node.js?v=060';
+        import { diagramStateManager } from './js/DiagramStateManager.js?v=001';
+        import { nodeStateManager } from './js/NodeStateManager.js?v=018';
+        
+        // Global variables
+        let svg = document.getElementById('diagram');
+        let viewBoxManager = new ViewBoxManager(svg, 600, 400);
+        let dragManager = new DragManager(viewBoxManager.coordinateSystem);
+        let interactionManager = new InteractionManager(svg, viewBoxManager, dragManager);
+        let nodes = [];
+        let edges = [];
+        
+        // Set up logging
+        const logDiv = document.getElementById('log');
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            logDiv.textContent += args.join(' ') + '\\n';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        };
+        
+        // Create test nodes
+        async function createTestNodes() {
+            log('🏗️ Creating test nodes...');
+            
+            const nodeData1 = {
+                id: 'server-1',
+                type: 'server',
+                title: 'Web Server',
+                x: 150,
+                y: 150,
+                scale: 1
+            };
+            
+            const nodeData2 = {
+                id: 'user-1', 
+                type: 'user',
+                title: 'User',
+                x: 450,
+                y: 150,
+                scale: 1
+            };
+            
+            const nodeData3 = {
+                id: 'db-1',
+                type: 'server', 
+                title: 'Database',
+                x: 300,
+                y: 300,
+                scale: 1
+            };
+            
+            for (const data of [nodeData1, nodeData2, nodeData3]) {
+                const node = await createNode(data);
+                nodes.push(node);
+            }
+            
+            log('✅ Test nodes created successfully');
+        }
+        
+        async function createNode(nodeData) {
+            const node = new Node(nodeData);
+            await node.initialize();
+            
+            // Render the node
+            const nodeElement = node.createElement(svg);
+            node.setElement(nodeElement);
+            
+            // Initialize state machine for the node
+            try {
+                await nodeStateManager.initializeNode(node.id, nodeElement, interactionManager);
+                log(`✅ State machine initialized for node: ${node.id}`);
+            } catch (error) {
+                console.warn(`⚠️ State machine initialization failed for node ${node.id}:`, error);
+            }
+            
+            // Setup interactions
+            node.makeDraggable(
+                svg,
+                () => interactionManager.shiftDown,
+                selectNode,
+                () => {},
+                () => interactionManager.getIsCreatingEdge(),
+                () => interactionManager.cancelEdgeCreation(),
+                (fromNode) => interactionManager.startEdgeCreation(fromNode),
+                (e) => viewBoxManager.screenToViewBox(e.clientX, e.clientY),
+                dragManager,
+                viewBoxManager.coordinateSystem,
+                () => interactionManager.justCompletedEdge
+            );
+            
+            return node;
+        }
+        
+        function selectNode(node) {
+            log(`🎯 selectNode called: ${node?.id}`);
+            interactionManager.selectNode(node);
+            updateStateDisplay();
+        }
+        
+        function completeEdgeCreation(fromNode, toNode) {
+            log(`🎯 Creating edge: ${fromNode.id} → ${toNode.id}`);
+            
+            // Create visual edge (simplified)
+            const edge = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            edge.setAttribute('class', 'connection');
+            
+            // Calculate path
+            const fromCenter = fromNode.getGlobalCenter();
+            const toCenter = toNode.getGlobalCenter();
+            const pathData = `M ${fromCenter.x} ${fromCenter.y} L ${toCenter.x} ${toCenter.y}`;
+            edge.setAttribute('d', pathData);
+            
+            svg.appendChild(edge);
+            edges.push({ from: fromNode.id, to: toNode.id, element: edge });
+            
+            log(`✅ Edge created successfully`);
+            updateStateDisplay();
+        }
+        
+        // Set up callbacks
+        interactionManager.setCallbacks(selectNode, completeEdgeCreation, () => {});
+        
+        function updateStateDisplay() {
+            // Update diagram state
+            const diagramState = diagramStateManager.getCurrentState();
+            const stateDiv = document.getElementById('diagramState');
+            stateDiv.textContent = diagramState.charAt(0).toUpperCase() + diagramState.slice(1);
+            stateDiv.className = `status ${diagramState}`;
+            
+            // Update node states
+            const nodeStatesDiv = document.getElementById('nodeStates');
+            nodeStatesDiv.innerHTML = '';
+            
+            nodes.forEach(node => {
+                const stateMachine = nodeStateManager.getStateMachine(node.id);
+                const state = stateMachine ? stateMachine.getCurrentState() : 'unknown';
+                const stateElement = document.createElement('div');
+                stateElement.textContent = `${node.id}: ${state}`;
+                stateElement.style.padding = '2px 5px';
+                stateElement.style.margin = '1px 0';
+                stateElement.style.fontSize = '12px';
+                stateElement.style.background = state === 'selected' ? '#ffe5e5' : 
+                                                state === 'edgeSource' ? '#ffcccc' :
+                                                state === 'edgeTarget' ? '#ccffcc' : '#f0f0f0';
+                nodeStatesDiv.appendChild(stateElement);
+            });
+        }
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            console.log(`[${timestamp}] ${message}`);
+        }
+        
+        // Test functions
+        window.testEdgeCreationFlow = function() {
+            log('🧪 Testing edge creation flow...');
+            log('1. Select first node');
+            selectNode(nodes[0]);
+            
+            setTimeout(() => {
+                log('2. Simulate Shift key down');
+                interactionManager.handleKeyDown({ key: 'Shift', repeat: false });
+                
+                setTimeout(() => {
+                    log('3. Simulate mouse move away from node');
+                    interactionManager.handleMouseMove({ 
+                        clientX: 300, 
+                        clientY: 200 
+                    });
+                    
+                    setTimeout(() => {
+                        log('4. Click target node to complete edge');
+                        selectNode(nodes[1]);
+                        
+                        setTimeout(() => {
+                            log('5. Release Shift key');
+                            interactionManager.handleKeyUp({ key: 'Shift' });
+                            log('✅ Edge creation flow test complete');
+                        }, 500);
+                    }, 1000);
+                }, 500);
+            }, 500);
+        };
+        
+        window.testCancellationMethods = function() {
+            log('🧪 Testing edge cancellation methods...');
+            
+            // Start edge creation
+            selectNode(nodes[0]);
+            interactionManager.handleKeyDown({ key: 'Shift', repeat: false });
+            interactionManager.handleMouseMove({ clientX: 300, clientY: 200 });
+            
+            setTimeout(() => {
+                log('Testing Escape key cancellation...');
+                interactionManager.handleKeyDown({ key: 'Escape', repeat: false });
+                log('✅ Escape cancellation test complete');
+            }, 1000);
+        };
+        
+        window.testKeyboardShortcuts = function() {
+            log('🧪 Testing keyboard shortcuts...');
+            
+            log('Testing Shift key edge creation...');
+            selectNode(nodes[0]);
+            interactionManager.handleKeyDown({ key: 'Shift', repeat: false });
+            
+            setTimeout(() => {
+                log('Testing Escape cancellation...');
+                interactionManager.handleKeyDown({ key: 'Escape', repeat: false });
+                
+                setTimeout(() => {
+                    log('✅ Keyboard shortcuts test complete');
+                }, 500);
+            }, 1000);
+        };
+        
+        window.clearLog = function() {
+            logDiv.textContent = '';
+        };
+        
+        // Initialize everything
+        async function initialize() {
+            log('🚀 Initializing diagram state machine test...');
+            
+            // Wait for DiagramStateManager initialization
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            await createTestNodes();
+            updateStateDisplay();
+            
+            // Set up periodic state updates
+            setInterval(updateStateDisplay, 1000);
+            
+            log('✅ Initialization complete - try the test buttons or interact manually!');
+        }
+        
+        // Start initialization
+        initialize().catch(error => {
+            console.error('❌ Initialization failed:', error);
+        });
+    </script>
+</body>
+</html>

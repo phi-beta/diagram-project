@@ -1,50 +1,213 @@
 /**
- * Node State Manager - Coordinates the three-layer architecture
- * v011 - Refactored to use separated layers: StateMachine, EventMapper, and VisualActions
+ * Node State Manager - Uses generic state management system
+ * v020 - Added Shift key edge creation handling for selected nodes
  * 
- * This class coordinates:
- * 1. Pure logical state machine (NodeStateMachine)
- * 2. Event mapping layer (NodeEventMapper) 
- * 3. Visual actions layer (NodeVisualActions)
- * 
- * It provides the bridge between technical events and logical state management.
+ * This class extends the generic StateManager to provide node-specific functionality:
+ * - Custom action handlers for node selection, dragging, and edge highlighting
+ * - Node-specific event handling and state callbacks
+ * - Integration with the InteractionManager and visual systems
  */
 
-import { NodeStateMachine } from './NodeStateMachine.js';
-import { NodeEventMapper } from './NodeEventMapper.js?v=003';
-import { NodeVisualActions } from './NodeVisualActions.js';
+import { StateManager } from './StateManager.js?v=001';
 import { debugInteraction, debugNodeEvents } from './debug.js';
 
 export class NodeStateManager {
   constructor() {
-    this.nodeStateMachines = new Map(); // nodeId -> NodeStateMachine
-    this.nodeEventMappers = new Map(); // nodeId -> NodeEventMapper
-    this.nodeVisualActions = new Map(); // nodeId -> NodeVisualActions
+    // Node-specific properties
     this.nodeElements = new Map(); // nodeId -> DOM element
     this.interactionManager = null;
+    this.nodeStateManagers = new Map(); // nodeId -> individual StateManager instances
     this.config = null;
-    this.eventMapper = null; // Shared event mapper instance
+    
+    // We'll create action handlers after initialization
+    this.customActionHandlers = new Map();
+    this.setupCustomActionHandlers();
   }
   
   /**
-   * Initialize the state manager with configuration
+   * Set up custom action handlers for node-specific operations
+   */
+  setupCustomActionHandlers() {
+    // Visual selection actions
+    this.customActionHandlers.set('selectNode', (context) => {
+      const { nodeId, nodeElement } = context;
+      if (nodeElement) {
+        nodeElement.classList.add('selected');
+        debugNodeEvents(`✅ Node ${nodeId} selected visually`);
+      }
+    });
+    
+    this.customActionHandlers.set('deselectNode', (context) => {
+      const { nodeId, nodeElement } = context;
+      if (nodeElement) {
+        nodeElement.classList.remove('selected');
+        debugNodeEvents(`❌ Node ${nodeId} deselected visually`);
+      }
+    });
+    
+    // Drag visual feedback
+    this.customActionHandlers.set('startDragFeedback', (context) => {
+      const { nodeId, nodeElement } = context;
+      if (nodeElement) {
+        nodeElement.classList.add('dragging');
+        debugNodeEvents(`🚀 Node ${nodeId} drag feedback started`);
+      }
+    });
+    
+    this.customActionHandlers.set('stopDragFeedback', (context) => {
+      const { nodeId, nodeElement } = context;
+      if (nodeElement) {
+        nodeElement.classList.remove('dragging');
+        debugNodeEvents(`⏹️ Node ${nodeId} drag feedback stopped`);
+      }
+    });
+    
+    // Edge highlighting for edge creation
+    this.customActionHandlers.set('highlightEdgeTarget', (context) => {
+      const { nodeId, nodeElement } = context;
+      if (nodeElement) {
+        nodeElement.classList.add('edge-target-highlight');
+        debugNodeEvents(`🔆 Node ${nodeId} highlighted as edge target`);
+      }
+    });
+    
+    this.customActionHandlers.set('unhighlightEdgeTarget', (context) => {
+      const { nodeId, nodeElement } = context;
+      if (nodeElement) {
+        nodeElement.classList.remove('edge-target-highlight');
+        debugNodeEvents(`💡 Node ${nodeId} edge target highlight removed`);
+      }
+    });
+    
+    // Timeout actions
+    this.customActionHandlers.set('startHoverTimeout', (context) => {
+      const { nodeId } = context;
+      const timeoutId = setTimeout(() => {
+        this.handleNodeEvent(nodeId, 'timeout', { type: 'hover' });
+      }, 1500); // 1.5 second hover timeout
+      
+      // Store timeout ID for potential cancellation
+      if (!context.timeouts) context.timeouts = {};
+      context.timeouts.hover = timeoutId;
+      debugNodeEvents(`⏰ Started hover timeout for node ${nodeId}`);
+    });
+    
+    this.customActionHandlers.set('cancelHoverTimeout', (context) => {
+      const { nodeId } = context;
+      if (context.timeouts && context.timeouts.hover) {
+        clearTimeout(context.timeouts.hover);
+        delete context.timeouts.hover;
+        debugNodeEvents(`❌ Cancelled hover timeout for node ${nodeId}`);
+      }
+    });
+    
+    // Action handlers that match the state machine configuration names
+    this.customActionHandlers.set('addHighlight', (context) => {
+      const { nodeId, nodeElement } = context;
+      if (nodeElement) {
+        nodeElement.classList.add('selected');
+        debugNodeEvents(`✅ Node ${nodeId} selected visually`);
+      }
+    });
+    
+    this.customActionHandlers.set('removeHighlight', (context) => {
+      const { nodeId, nodeElement } = context;
+      if (nodeElement) {
+        nodeElement.classList.remove('selected');
+        debugNodeEvents(`❌ Node ${nodeId} deselected visually`);
+      }
+    });
+    
+    this.customActionHandlers.set('addDragHighlight', (context) => {
+      const { nodeId, nodeElement } = context;
+      if (nodeElement) {
+        nodeElement.classList.add('dragging');
+        debugNodeEvents(`🚀 Node ${nodeId} drag feedback started`);
+      }
+    });
+    
+    this.customActionHandlers.set('removeDragHighlight', (context) => {
+      const { nodeId, nodeElement } = context;
+      if (nodeElement) {
+        nodeElement.classList.remove('dragging');
+        debugNodeEvents(`⏹️ Node ${nodeId} drag feedback stopped`);
+      }
+    });
+    
+    this.customActionHandlers.set('addEdgeTargetHighlight', (context) => {
+      const { nodeId, nodeElement } = context;
+      if (nodeElement) {
+        nodeElement.classList.add('edge-target-highlight');
+        debugNodeEvents(`🔆 Node ${nodeId} highlighted as edge target`);
+      }
+    });
+    
+    this.customActionHandlers.set('removeEdgeTargetHighlight', (context) => {
+      const { nodeId, nodeElement } = context;
+      if (nodeElement) {
+        nodeElement.classList.remove('edge-target-highlight');
+        debugNodeEvents(`💡 Node ${nodeId} edge target highlight removed`);
+      }
+    });
+    
+    this.customActionHandlers.set('addScaleHighlight', (context) => {
+      const { nodeId, nodeElement } = context;
+      if (nodeElement) {
+        nodeElement.classList.add('scaling');
+        debugNodeEvents(`📏 Node ${nodeId} scale feedback started`);
+      }
+    });
+    
+    this.customActionHandlers.set('removeScaleHighlight', (context) => {
+      const { nodeId, nodeElement } = context;
+      if (nodeElement) {
+        nodeElement.classList.remove('scaling');
+        debugNodeEvents(`📐 Node ${nodeId} scale feedback stopped`);
+      }
+    });
+    
+    this.customActionHandlers.set('addEdgeSourceHighlight', (context) => {
+      const { nodeId, nodeElement } = context;
+      if (nodeElement) {
+        nodeElement.classList.add('edge-source');
+        debugNodeEvents(`🎯 Node ${nodeId} marked as edge source`);
+      }
+    });
+    
+    this.customActionHandlers.set('removeEdgeSourceHighlight', (context) => {
+      const { nodeId, nodeElement } = context;
+      if (nodeElement) {
+        nodeElement.classList.remove('edge-source');
+        debugNodeEvents(`🎯 Node ${nodeId} edge source marking removed`);
+      }
+    });
+    
+    this.customActionHandlers.set('clearDragState', (context) => {
+      const { nodeId, nodeElement } = context;
+      if (nodeElement) {
+        nodeElement.classList.remove('dragging', 'scaling');
+        debugNodeEvents(`🧹 Node ${nodeId} drag state cleared`);
+      }
+    });
+  }
+  
+  /**
+   * Initialize the node state manager with configuration
    */
   async initialize(interactionManager, configPath = '/config/node-state-machine.json') {
     this.interactionManager = interactionManager;
     
     try {
-      console.log(`🔧 Loading NodeStateManager config from: ${configPath}`);
       const response = await fetch(configPath);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      this.config = await response.json();
+      const config = await response.json();
       
-      // Create shared event mapper
-      this.eventMapper = new NodeEventMapper(this.config.eventMapping);
+      // Store the configuration
+      this.config = config;
       
-      debugInteraction('📋 NodeStateManager initialized with separated layers');
-      console.log('📋 NodeStateManager initialized with config:', this.config);
+      debugInteraction('📋 NodeStateManager initialized with generic state management system');
       return true;
     } catch (error) {
       console.error('Failed to initialize NodeStateManager:', error);
@@ -55,66 +218,44 @@ export class NodeStateManager {
   /**
    * Register a node with the state manager
    */
-  async registerNode(nodeId, nodeObject) {
-    if (this.nodeStateMachines.has(nodeId)) {
+  async registerNode(nodeId, nodeElement) {
+    if (this.nodeStateManagers.has(nodeId)) {
       debugNodeEvents(`⚠️ Node ${nodeId} already registered`);
-      return this.nodeStateMachines.get(nodeId);
+      return this.nodeStateManagers.get(nodeId);
     }
     
-    // Debug check for config
-    if (!this.config) {
-      debugNodeEvents(`❌ No config available when registering node ${nodeId}`);
-      throw new Error(`NodeStateManager config is not initialized`);
+    // Store the node element
+    this.nodeElements.set(nodeId, nodeElement);
+    
+    // Create a state manager instance for this specific node
+    const nodeStateManager = new StateManager(nodeId, this.config, { nodeId, nodeElement }, 'NODE_STATE');
+    
+    // Copy our custom action handlers to the node's state manager
+    for (const [actionName, handler] of this.customActionHandlers.entries()) {
+      nodeStateManager.actionExecutor.registerActionHandler(actionName, handler);
     }
     
-    debugNodeEvents(`🔧 Creating separated layers for ${nodeId}`);
-    
-    // Create the three layers
-    
-    // 1. Pure logical state machine
-    const stateMachine = new NodeStateMachine(nodeId, this.config);
-    
-    // 2. Visual actions layer
-    const visualActions = new NodeVisualActions(this.config.visualActions, nodeObject);
-    
-    // Set up communication between layers
-    
-    // State machine notifies visual actions of state changes
-    stateMachine.addListener('stateChange', (data) => {
-      this.handleStateChange(nodeId, data);
-      visualActions.executeTransition(data.newState, data.oldState, data.trigger, data.context);
+    // Set up state change callbacks for this node
+    nodeStateManager.addEventListener('stateChange', (data) => {
+      this.handleNodeStateChange(nodeId, data.from, data.to, data.action, data.context);
     });
     
-    // Visual actions can trigger logical transitions (e.g., timeouts)
-    visualActions.onCallback('timeout', (data) => {
-      console.log(`⏰ Timeout callback for ${nodeId}, triggering timeout transition`);
-      stateMachine.transition('timeout', data);
-    });
+    // Store the node's state manager
+    this.nodeStateManagers.set(nodeId, nodeStateManager);
     
-    // Store all components
-    this.nodeStateMachines.set(nodeId, stateMachine);
-    this.nodeVisualActions.set(nodeId, visualActions);
-    this.nodeElements.set(nodeId, nodeObject);
-    
-    debugNodeEvents(`✅ Node ${nodeId} registered with separated layers`);
-    return stateMachine;
+    debugNodeEvents(`✅ Node ${nodeId} registered with generic state management system`);
+    return nodeStateManager;
   }
   
   /**
    * Unregister a node from the state manager
    */
   unregisterNode(nodeId) {
-    const stateMachine = this.nodeStateMachines.get(nodeId);
-    const visualActions = this.nodeVisualActions.get(nodeId);
+    const nodeStateManager = this.nodeStateManagers.get(nodeId);
     
-    if (stateMachine) {
-      stateMachine.destroy();
-      this.nodeStateMachines.delete(nodeId);
-    }
-    
-    if (visualActions) {
-      visualActions.destroy();
-      this.nodeVisualActions.delete(nodeId);
+    if (nodeStateManager) {
+      nodeStateManager.destroy();
+      this.nodeStateManagers.delete(nodeId);
     }
     
     this.nodeElements.delete(nodeId);
@@ -122,41 +263,36 @@ export class NodeStateManager {
   }
   
   /**
-   * Get the state machine for a specific node
+   * Get the state manager for a specific node
    */
   getStateMachine(nodeId) {
-    return this.nodeStateMachines.get(nodeId);
+    const nodeStateManager = this.nodeStateManagers.get(nodeId);
+    return nodeStateManager ? nodeStateManager.stateMachine : null;
   }
-
+  
   /**
-   * Handle a technical event and map it to logical actions
+   * Handle a node-specific event
    */
-  handleEvent(nodeId, eventType, eventData = {}) {
-    const stateMachine = this.nodeStateMachines.get(nodeId);
-    if (!stateMachine) {
-      debugNodeEvents(`⚠️ No state machine found for node: ${nodeId}`);
+  handleNodeEvent(nodeId, eventType, eventData = {}) {
+    const nodeStateManager = this.nodeStateManagers.get(nodeId);
+    const nodeElement = this.nodeElements.get(nodeId);
+    
+    if (!nodeStateManager) {
+      debugNodeEvents(`⚠️ No state manager found for node: ${nodeId}`);
       return false;
     }
     
-    if (!this.eventMapper) {
-      debugNodeEvents(`⚠️ No event mapper available`);
-      return false;
-    }
+    // Add node context to event data
+    const contextualEventData = {
+      ...eventData,
+      nodeId,
+      nodeElement,
+      interactionManager: this.interactionManager
+    };
     
-    const currentState = stateMachine.getCurrentState();
-    
-    // Use event mapper to determine logical action
-    const action = this.eventMapper.mapEventToAction(eventType, currentState, eventData);
-    
-    if (action) {
-      console.log(`🎯 Event mapping for ${nodeId}: ${eventType} (${currentState}) → ${action}`);
-      return stateMachine.transition(action, eventData);
-    }
-    
-    debugNodeEvents(`❌ No action mapped for event '${eventType}' in state '${currentState}'`);
-    return false;
+    return nodeStateManager.handleEvent(eventType, contextualEventData);
   }
-
+  
   /**
    * Handle mouse down event on a node
    */
@@ -167,7 +303,7 @@ export class NodeStateManager {
       ...context
     };
     
-    return this.handleEvent(nodeId, 'mouseDown', eventData);
+    return this.handleNodeEvent(nodeId, 'mouseDown', eventData);
   }
   
   /**
@@ -182,31 +318,48 @@ export class NodeStateManager {
       ...context
     };
     
-    // Debug logging for mouse up events
-    console.log(`🔍 NodeStateManager.handleNodeMouseUp for ${nodeId}:`, eventData);
-    
-    return this.handleEvent(nodeId, 'mouseUp', eventData);
+    return this.handleNodeEvent(nodeId, 'mouseUp', eventData);
   }
   
   /**
    * Handle edge creation start
    */
   handleEdgeCreationStart(sourceNodeId) {
-    return this.handleEvent(sourceNodeId, 'edgeCreationStarted');
+    return this.handleNodeEvent(sourceNodeId, 'edgeCreationStarted');
+  }
+  
+  /**
+   * Handle edge creation start via Shift key for selected nodes
+   */
+  handleShiftKeyEdgeCreation() {
+    let handled = false;
+    
+    // Find nodes in selected state and transition them to edgeSource
+    for (const [nodeId, nodeStateManager] of this.nodeStateManagers) {
+      const currentState = nodeStateManager.stateMachine.getCurrentState();
+      if (currentState === 'selected') {
+        console.log(`🚀 Transitioning selected node ${nodeId} to edgeSource via Shift key`);
+        if (this.handleNodeEvent(nodeId, 'startEdgeCreation')) {
+          handled = true;
+        }
+      }
+    }
+    
+    return handled;
   }
   
   /**
    * Handle edge target hover
    */
   handleEdgeTargetHover(targetNodeId) {
-    return this.handleEvent(targetNodeId, 'edgeTargetHover');
+    return this.handleNodeEvent(targetNodeId, 'edgeTargetHover');
   }
   
   /**
    * Handle edge target leave
    */
   handleEdgeTargetLeave(targetNodeId) {
-    return this.handleEvent(targetNodeId, 'edgeTargetLeave');
+    return this.handleNodeEvent(targetNodeId, 'edgeTargetLeave');
   }
   
   /**
@@ -217,11 +370,11 @@ export class NodeStateManager {
     let handled = false;
     
     if (sourceNodeId) {
-      handled = this.handleEvent(sourceNodeId, 'mouseUp', { inEdgeCreationMode: true }) || handled;
+      handled = this.handleNodeEvent(sourceNodeId, 'mouseUp', { inEdgeCreationMode: true }) || handled;
     }
     
     if (targetNodeId) {
-      handled = this.handleEvent(targetNodeId, 'mouseUp', { inEdgeCreationMode: true }) || handled;
+      handled = this.handleNodeEvent(targetNodeId, 'mouseUp', { inEdgeCreationMode: true }) || handled;
     }
     
     return handled;
@@ -233,8 +386,8 @@ export class NodeStateManager {
   handleEscapeKey() {
     let handled = false;
     
-    for (const [nodeId, stateMachine] of this.nodeStateMachines.entries()) {
-      if (this.handleEvent(nodeId, 'escapeKey')) {
+    for (const nodeId of this.nodeStateManagers.keys()) {
+      if (this.handleNodeEvent(nodeId, 'escapeKey')) {
         handled = true;
       }
     }
@@ -243,10 +396,10 @@ export class NodeStateManager {
   }
   
   /**
-   * Handle state change event from a state machine
+   * Handle state change for a specific node
    */
-  handleStateChange(nodeId, data) {
-    debugNodeEvents(`🔄 State change for ${nodeId}: ${data.oldState} → ${data.newState}`);
+  handleNodeStateChange(nodeId, oldState, newState, event, context) {
+    debugNodeEvents(`🔄 State change for ${nodeId}: ${oldState} → ${newState}`);
     
     const nodeObject = this.nodeElements.get(nodeId);
     if (!nodeObject) {
@@ -254,12 +407,9 @@ export class NodeStateManager {
       return;
     }
     
-    // Visual changes are now handled by NodeVisualActions
-    // This method can focus on coordination with other systems
-    
-    // Update InteractionManager state when needed (minimal coordination)
+    // Update InteractionManager state when needed
     if (this.interactionManager) {
-      switch (data.newState) {
+      switch (newState) {
         case 'selected':
           // Only update InteractionManager's selectedNode reference, don't call selectNode
           if (nodeObject && this.interactionManager.selectedNode !== nodeObject) {
@@ -268,7 +418,7 @@ export class NodeStateManager {
           }
           break;
         case 'idle':
-          if (data.oldState === 'selected' && this.interactionManager.selectedNode === nodeObject) {
+          if (oldState === 'selected' && this.interactionManager.selectedNode === nodeObject) {
             debugNodeEvents(`🚫 State machine clearing InteractionManager selectedNode: ${nodeId}`);
             this.interactionManager.selectedNode = null;
           }
@@ -282,8 +432,12 @@ export class NodeStateManager {
    */
   getDebugInfo() {
     const info = {};
-    for (const [nodeId, stateMachine] of this.nodeStateMachines) {
-      info[nodeId] = stateMachine.getDebugInfo();
+    for (const [nodeId, nodeStateManager] of this.nodeStateManagers) {
+      info[nodeId] = {
+        currentState: nodeStateManager.stateMachine.getCurrentState(),
+        history: nodeStateManager.stateMachine.getHistory(),
+        isValid: nodeStateManager.stateMachine.isValidTransition.bind(nodeStateManager.stateMachine)
+      };
     }
     return info;
   }
@@ -292,8 +446,8 @@ export class NodeStateManager {
    * Reset all nodes to initial state
    */
   resetAllNodes() {
-    for (const stateMachine of this.nodeStateMachines.values()) {
-      stateMachine.reset();
+    for (const nodeStateManager of this.nodeStateManagers.values()) {
+      nodeStateManager.stateMachine.reset();
     }
   }
   
@@ -301,20 +455,15 @@ export class NodeStateManager {
    * Destroy the state manager and clean up resources
    */
   destroy() {
-    for (const stateMachine of this.nodeStateMachines.values()) {
-      stateMachine.destroy();
+    for (const nodeStateManager of this.nodeStateManagers.values()) {
+      nodeStateManager.destroy();
     }
     
-    for (const visualActions of this.nodeVisualActions.values()) {
-      visualActions.destroy();
-    }
-    
-    this.nodeStateMachines.clear();
-    this.nodeVisualActions.clear();
+    this.nodeStateManagers.clear();
     this.nodeElements.clear();
     this.interactionManager = null;
     this.config = null;
-    this.eventMapper = null;
+    this.customActionHandlers.clear();
     
     debugInteraction('🗑️ NodeStateManager destroyed');
   }

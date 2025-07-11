@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final Validation Test - Diagram Editor</title>
+    <link rel="stylesheet" href="themes/default.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+        .test-panel {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-width: 300px;
+        }
+        .test-button {
+            margin: 2px;
+            padding: 5px 10px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .test-button:hover {
+            background: #005a9e;
+        }
+        .status {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        svg {
+            border: 1px solid #ddd;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-panel">
+        <h3>Final Validation Tests</h3>
+        <button class="test-button" onclick="testNodeSelection()">Test Node Selection</button>
+        <button class="test-button" onclick="testNodeDrag()">Test Node Drag</button>
+        <button class="test-button" onclick="testStateManagers()">Test State Managers</button>
+        <button class="test-button" onclick="runAllTests()">Run All Tests</button>
+        <div id="test-results"></div>
+    </div>
+
+    <svg id="svg" width="800" height="600"></svg>
+
+    <script type="module">
+        import { renderer } from './js/renderer.js?v=071';
+        import { nodeStateManager } from './js/NodeStateManager.js?v=019';
+        import { diagramStateManager } from './js/DiagramStateManager.js?v=001';
+
+        let testNodes = [];
+        let svg = document.getElementById('svg');
+
+        function addStatus(message, type = 'info') {
+            const resultsDiv = document.getElementById('test-results');
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            resultsDiv.appendChild(statusDiv);
+            
+            // Keep only last 10 messages
+            while (resultsDiv.children.length > 10) {
+                resultsDiv.removeChild(resultsDiv.firstChild);
+            }
+            
+            console.log(`[TEST] ${message}`);
+        }
+
+        // Initialize the renderer
+        async function initializeRenderer() {
+            try {
+                await renderer.initialize();
+                addStatus('Renderer initialized successfully', 'success');
+                
+                // Create test nodes
+                testNodes = [
+                    renderer.createNode({ x: 100, y: 100, label: 'Node 1', class: 'user' }),
+                    renderer.createNode({ x: 300, y: 200, label: 'Node 2', class: 'server' }),
+                    renderer.createNode({ x: 500, y: 150, label: 'Node 3', class: 'user' })
+                ];
+                
+                addStatus(`Created ${testNodes.length} test nodes`, 'success');
+                
+                // Wait a bit for state machines to initialize
+                setTimeout(() => {
+                    addStatus('Ready for testing!', 'success');
+                }, 500);
+                
+            } catch (error) {
+                addStatus(`Initialization failed: ${error.message}`, 'error');
+                console.error('Initialization error:', error);
+            }
+        }
+
+        // Test functions
+        window.testNodeSelection = function() {
+            addStatus('Testing node selection...', 'info');
+            
+            if (testNodes.length === 0) {
+                addStatus('No test nodes available', 'error');
+                return;
+            }
+            
+            const node = testNodes[0];
+            const nodeDom = document.querySelector(`g[data-node-id="${node.id}"]`);
+            
+            if (!nodeDom) {
+                addStatus('Could not find node DOM element', 'error');
+                return;
+            }
+            
+            // Simulate click
+            const event = new MouseEvent('mousedown', {
+                bubbles: true,
+                cancelable: true,
+                clientX: 100,
+                clientY: 100
+            });
+            
+            nodeDom.dispatchEvent(event);
+            
+            // Check if node is selected after a brief delay
+            setTimeout(() => {
+                const isSelected = nodeDom.classList.contains('selected');
+                if (isSelected) {
+                    addStatus('✅ Node selection test passed', 'success');
+                } else {
+                    addStatus('❌ Node selection test failed - no selected class', 'error');
+                }
+            }, 100);
+        };
+
+        window.testNodeDrag = function() {
+            addStatus('Testing node drag...', 'info');
+            
+            if (testNodes.length === 0) {
+                addStatus('No test nodes available', 'error');
+                return;
+            }
+            
+            const node = testNodes[1];
+            const nodeDom = document.querySelector(`g[data-node-id="${node.id}"]`);
+            
+            if (!nodeDom) {
+                addStatus('Could not find node DOM element', 'error');
+                return;
+            }
+            
+            // Get initial position
+            const initialTransform = nodeDom.getAttribute('transform');
+            
+            // Simulate mousedown
+            const mouseDown = new MouseEvent('mousedown', {
+                bubbles: true,
+                cancelable: true,
+                clientX: 300,
+                clientY: 200
+            });
+            nodeDom.dispatchEvent(mouseDown);
+            
+            // Simulate mousemove after short delay
+            setTimeout(() => {
+                const mouseMove = new MouseEvent('mousemove', {
+                    bubbles: true,
+                    cancelable: true,
+                    clientX: 350,
+                    clientY: 250
+                });
+                svg.dispatchEvent(mouseMove);
+                
+                // Simulate mouseup
+                setTimeout(() => {
+                    const mouseUp = new MouseEvent('mouseup', {
+                        bubbles: true,
+                        cancelable: true,
+                        clientX: 350,
+                        clientY: 250
+                    });
+                    svg.dispatchEvent(mouseUp);
+                    
+                    // Check if position changed
+                    setTimeout(() => {
+                        const finalTransform = nodeDom.getAttribute('transform');
+                        if (finalTransform !== initialTransform) {
+                            addStatus('✅ Node drag test passed - position changed', 'success');
+                        } else {
+                            addStatus('❌ Node drag test failed - no position change', 'error');
+                        }
+                    }, 100);
+                }, 50);
+            }, 50);
+        };
+
+        window.testStateManagers = function() {
+            addStatus('Testing state managers...', 'info');
+            
+            let passed = 0;
+            let failed = 0;
+            
+            // Test NodeStateManager
+            if (nodeStateManager && typeof nodeStateManager.initialize === 'function') {
+                addStatus('✅ NodeStateManager available and initialized', 'success');
+                passed++;
+            } else {
+                addStatus('❌ NodeStateManager missing or not initialized', 'error');
+                failed++;
+            }
+            
+            // Test DiagramStateManager
+            if (diagramStateManager && typeof diagramStateManager.initialize === 'function') {
+                addStatus('✅ DiagramStateManager available and initialized', 'success');
+                passed++;
+            } else {
+                addStatus('❌ DiagramStateManager missing or not initialized', 'error');
+                failed++;
+            }
+            
+            // Test node state machines
+            if (testNodes.length > 0) {
+                const node = testNodes[0];
+                const stateMachine = nodeStateManager.getStateMachine(node.id);
+                if (stateMachine && typeof stateMachine.getCurrentState === 'function') {
+                    const currentState = stateMachine.getCurrentState();
+                    addStatus(`✅ Node state machine working - state: ${currentState}`, 'success');
+                    passed++;
+                } else {
+                    addStatus('❌ Node state machine not working', 'error');
+                    failed++;
+                }
+            }
+            
+            addStatus(`State manager tests: ${passed} passed, ${failed} failed`, 
+                     failed === 0 ? 'success' : 'error');
+        };
+
+        window.runAllTests = function() {
+            addStatus('Running all tests...', 'info');
+            
+            // Clear previous results
+            document.getElementById('test-results').innerHTML = '';
+            
+            // Run tests in sequence
+            testStateManagers();
+            setTimeout(() => testNodeSelection(), 200);
+            setTimeout(() => testNodeDrag(), 400);
+            setTimeout(() => {
+                addStatus('All tests completed!', 'info');
+            }, 600);
+        };
+
+        // Initialize when page loads
+        initializeRenderer();
+    </script>
+</body>
+</html>

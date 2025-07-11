@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Refactored State Management System</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        
+        #test-container {
+            width: 600px;
+            height: 400px;
+            position: relative;
+            background: #2a2a2a;
+            border: 2px solid #444;
+            margin: 20px 0;
+        }
+        
+        .test-node {
+            width: 80px;
+            height: 60px;
+            background: #4a9eff;
+            border: 2px solid #fff;
+            border-radius: 8px;
+            position: absolute;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+        
+        .test-node.selected {
+            background: #ff6b6b;
+            border-color: #ffff00;
+            transform: scale(1.1);
+        }
+        
+        .test-node.dragging {
+            opacity: 0.8;
+            z-index: 100;
+        }
+        
+        .test-node.edge-target-highlight {
+            background: #50ff50;
+            border-color: #00ff00;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        
+        #log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            border: 1px solid #333;
+        }
+        
+        .controls {
+            margin: 10px 0;
+        }
+        
+        button {
+            padding: 8px 16px;
+            margin: 0 5px;
+            background: #444;
+            color: #fff;
+            border: 1px solid #666;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #555;
+        }
+        
+        .info {
+            background: #333;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Refactored State Management System Test</h1>
+    
+    <div class="info">
+        <h3>Testing the New Generic State Management Architecture:</h3>
+        <ul>
+            <li><strong>StateMachine.js</strong> - Pure finite state machine</li>
+            <li><strong>EventMapper.js</strong> - Event-to-action mapping</li>
+            <li><strong>ActionExecutor.js</strong> - Action handler execution</li>
+            <li><strong>StateManager.js</strong> - Generic orchestrator</li>
+            <li><strong>NodeStateManager.js</strong> - Node-specific implementation</li>
+        </ul>
+    </div>
+    
+    <div class="controls">
+        <button onclick="createTestNode()">Add Test Node</button>
+        <button onclick="resetAllStates()">Reset All States</button>
+        <button onclick="showDebugInfo()">Show Debug Info</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+    
+    <div id="test-container"></div>
+    
+    <div id="log"></div>
+
+    <script type="module">
+        import { nodeStateManager } from './js/NodeStateManager.js?v=012';
+        
+        let testNodes = [];
+        let nodeCounter = 0;
+        
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        // Make functions available globally
+        window.createTestNode = createTestNode;
+        window.resetAllStates = resetAllStates;
+        window.showDebugInfo = showDebugInfo;
+        window.clearLog = clearLog;
+        
+        async function initialize() {
+            try {
+                log('🔧 Initializing refactored NodeStateManager...');
+                
+                // Create a mock interaction manager
+                const mockInteractionManager = {
+                    selectedNode: null,
+                    handleNodeSelect: () => {},
+                    handleNodeDeselect: () => {}
+                };
+                
+                await nodeStateManager.initialize(mockInteractionManager);
+                log('✅ NodeStateManager initialized successfully');
+                
+                // Create some test nodes
+                for (let i = 0; i < 3; i++) {
+                    createTestNode();
+                }
+                
+                log('🎯 Test setup complete - try clicking nodes to test state management');
+            } catch (error) {
+                log(`❌ Initialization failed: ${error.message}`);
+                console.error('Initialization error:', error);
+            }
+        }
+        
+        async function createTestNode() {
+            const container = document.getElementById('test-container');
+            const nodeId = `test-node-${nodeCounter++}`;
+            
+            // Create visual element
+            const element = document.createElement('div');
+            element.className = 'test-node';
+            element.textContent = `Node ${nodeCounter}`;
+            element.style.left = `${Math.random() * 500}px`;
+            element.style.top = `${Math.random() * 320}px`;
+            
+            // Create node object (similar to real Node class)
+            const nodeObject = {
+                id: nodeId,
+                element: element,
+                nodeData: { id: nodeId }
+            };
+            
+            // Set up event handlers
+            element.addEventListener('mousedown', (e) => {
+                log(`🖱️ MouseDown on ${nodeId}`);
+                nodeStateManager.handleNodeMouseDown(nodeId, e);
+            });
+            
+            element.addEventListener('mouseup', (e) => {
+                log(`🖱️ MouseUp on ${nodeId}`);
+                nodeStateManager.handleNodeMouseUp(nodeId, e, { isClick: true });
+            });
+            
+            // Register with state manager
+            try {
+                await nodeStateManager.registerNode(nodeId, nodeObject);
+                log(`✅ Registered node ${nodeId} with state manager`);
+                
+                container.appendChild(element);
+                testNodes.push(nodeObject);
+                
+            } catch (error) {
+                log(`❌ Failed to register node ${nodeId}: ${error.message}`);
+                console.error('Node registration error:', error);
+            }
+        }
+        
+        function resetAllStates() {
+            log('🔄 Resetting all node states...');
+            nodeStateManager.resetAllNodes();
+            
+            // Clear visual states
+            testNodes.forEach(node => {
+                node.element.classList.remove('selected', 'dragging', 'edge-target-highlight');
+            });
+            
+            log('✅ All states reset');
+        }
+        
+        function showDebugInfo() {
+            log('🔍 Debug information:');
+            const debugInfo = nodeStateManager.getDebugInfo();
+            
+            for (const [nodeId, info] of Object.entries(debugInfo)) {
+                log(`  ${nodeId}: state=${info.currentState}, history=${info.history.length} transitions`);
+            }
+            
+            if (Object.keys(debugInfo).length === 0) {
+                log('  No nodes registered');
+            }
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        // Handle escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                log('🔑 Escape pressed - resetting states');
+                nodeStateManager.handleEscapeKey();
+            }
+        });
+        
+        // Initialize when page loads
+        initialize();
+    </script>
+</body>
+</html>

@@ -128,6 +128,9 @@ export class NodeVisualActions {
       case 'setCrosshairCursor':
         this.setCursor('crosshair');
         break;
+      case 'clearDragState':
+        this.clearDragState();
+        break;
       default:
         debugNodeEvents(`⚠️ Unknown visual action: ${action}`);
     }
@@ -250,6 +253,26 @@ export class NodeVisualActions {
     }
   }
   
+  /**
+   * Clear drag state from the node
+   */
+  clearDragState() {
+    const element = this.getNodeElement();
+    if (element && element.nodeRenderer) {
+      // Clear drag state from the node renderer
+      element.nodeRenderer.isDragging = false;
+      element.nodeRenderer.hasStartedDragging = false;
+      element.nodeRenderer.isScaling = false;
+      
+      // Also clean up DragManager state if needed
+      if (element.nodeRenderer.dragManager) {
+        element.nodeRenderer.dragManager.stopDrag(element.nodeRenderer);
+      }
+      
+      debugNodeEvents(`🧹 Cleared drag state for node`);
+    }
+  }
+
   /**
    * Clean up resources
    */

@@ -1,0 +1,135 @@
+{
+  "name": "DiagramStateMachine",
+  "version": "1.0.0",
+  "description": "Diagram-level state machine for coordinating global interactions like edge creation",
+  "stateMachine": {
+    "initialState": "idle",
+    "states": {
+      "idle": {
+        "description": "Default state - no diagram-wide interaction"
+      },
+      "edgeCreation": {
+        "description": "Edge creation mode - temporary edge follows cursor"
+      },
+      "multiSelection": {
+        "description": "Multi-selection mode - for future implementation"
+      }
+    },
+    "transitions": {
+      "idle": {
+        "startEdgeCreation": "edgeCreation",
+        "startMultiSelection": "multiSelection"
+      },
+      "edgeCreation": {
+        "completeEdge": "idle",
+        "cancelEdgeCreation": "idle"
+      },
+      "multiSelection": {
+        "finishSelection": "idle",
+        "cancelSelection": "idle"
+      }
+    }
+  },
+  "eventMapping": {
+    "description": "Maps diagram-level events to state transitions",
+    "rules": [
+      {
+        "event": "nodeSelectedForEdge",
+        "conditions": [
+          {
+            "state": "idle",
+            "condition": "shiftKeyDown && mouseMovedAwayFromNode",
+            "action": "startEdgeCreation"
+          },
+          {
+            "state": "idle", 
+            "condition": "shiftKeyDown && clickedDifferentNode",
+            "action": "startEdgeCreation"
+          }
+        ]
+      },
+      {
+        "event": "edgeTargetClicked",
+        "conditions": [
+          {
+            "state": "edgeCreation",
+            "condition": "validTarget",
+            "action": "completeEdge"
+          }
+        ]
+      },
+      {
+        "event": "escapeKey",
+        "conditions": [
+          {
+            "state": "edgeCreation",
+            "action": "cancelEdgeCreation"
+          },
+          {
+            "state": "multiSelection",
+            "action": "cancelSelection"
+          }
+        ]
+      },
+      {
+        "event": "backgroundClicked",
+        "conditions": [
+          {
+            "state": "edgeCreation",
+            "action": "cancelEdgeCreation"
+          },
+          {
+            "state": "multiSelection", 
+            "action": "cancelSelection"
+          }
+        ]
+      },
+      {
+        "event": "nodeStartedDragging",
+        "conditions": [
+          {
+            "state": "edgeCreation",
+            "condition": "!isSourceNode",
+            "action": "cancelEdgeCreation"
+          }
+        ]
+      },
+      {
+        "event": "shiftKeyReleased",
+        "conditions": [
+          {
+            "state": "edgeCreation",
+            "action": "cancelEdgeCreation"
+          }
+        ]
+      }
+    ]
+  },
+  "visualActions": {
+    "description": "Visual changes for diagram-level states",
+    "states": {
+      "idle": {
+        "onEnter": ["resetCursor", "removeTemporaryElements"],
+        "onExit": []
+      },
+      "edgeCreation": {
+        "onEnter": ["setCrosshairCursor", "createTemporaryEdge", "enableEdgeTargetHighlighting"],
+        "onExit": ["resetCursor", "removeTemporaryEdge", "disableEdgeTargetHighlighting"]
+      },
+      "multiSelection": {
+        "onEnter": ["setSelectionCursor", "enableSelectionBox"],
+        "onExit": ["resetCursor", "removeSelectionBox"]
+      }
+    }
+  },
+  "coordinationHandlers": {
+    "description": "Handlers for coordinating with other components",
+    "edgeCreation": {
+      "sourceNodeManager": "NodeStateManager",
+      "targetNodeManager": "NodeStateManager", 
+      "interactionManager": "InteractionManager",
+      "dragManager": "DragManager",
+      "viewBoxManager": "ViewBoxManager"
+    }
+  }
+}

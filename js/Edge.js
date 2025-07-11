@@ -200,13 +200,15 @@ export class EdgeRenderer {
 
   // Update visual style based on edge class
   updateStyle() {
-    this.element.setAttribute('class', this.edgeData.class);
+    // Set both the specific type class AND the general 'edge' class
+    this.element.setAttribute('class', `edge ${this.edgeData.class}`);
   }
 
   // Static method to create an edge element and EdgeRenderer instance
   static createEdgeRenderer(edgeData, svg) {
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('class', edgeData.class);
+    // Set both the specific type class AND the general 'edge' class
+    path.setAttribute('class', `edge ${edgeData.class}`);
     path.setAttribute('marker-end', 'url(#arrow-end)');
     path.setAttribute('data-edge-id', edgeData.id);
     svg.appendChild(path);

@@ -1,4 +1,4 @@
-// Version 055 - Fixed cursor behavior for consistent UX
+// Version 062 - Fixed cloned nodes selection by adding data-node-id attribute
 /**
  * Node Classes - Separated Data Model and Rendering
  * 
@@ -32,7 +32,7 @@
 
 import { generateGuid, ensureUniqueId, registerExistingId, unregisterId, isIdInUse } from './GuidManager.js';
 import { debugNodeEvents, debugEdgeCreation } from './debug.js';
-import { nodeStateManager } from './NodeStateManager.js?v=012';
+import { nodeStateManager } from './NodeStateManager.js?v=019';
 
 // Default node dimensions (used for fallback calculations)
 const DEFAULT_NODE_SIZE = 50;
@@ -177,7 +177,8 @@ export class NodeRenderer {
   static createNodeRenderer(nodeData, svg) {
     // Create SVG element for the node
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.setAttribute('class', nodeData.class);
+    // Set both the specific type class AND the general 'node' class
+    g.setAttribute('class', `node ${nodeData.class}`);
     g.innerHTML = nodeData.svg;
     svg.appendChild(g);
     
@@ -571,6 +572,53 @@ export class NodeRenderer {
   }
 
   onMouseMove(e, svg, getShiftDown, scheduleRedrawCallback, selectCallback, getMousePositionInViewBox) {
+    // Check if we're in mousePressed state and should transition to dragging
+    if (this.useStateMachine && this.stateMachine) {
+      const currentState = nodeStateManager.getStateMachine(this.nodeData.id)?.getCurrentState();
+      if (currentState === 'mousePressed') {
+        console.log(`🖱️ Mouse move detected in mousePressed state - triggering drag transition for ${this.nodeData.id}`);
+        const handled = nodeStateManager.handleNodeEvent(this.nodeData.id, 'mouseDrag', {
+          mousePos: getMousePositionInViewBox(e),
+          shiftKey: getShiftDown()
+        });
+        
+        if (handled) {
+          console.log(`✅ Drag transition handled by state machine for: ${this.nodeData.id}`);
+          // Set the dragging flag for legacy compatibility
+          this.isDragging = true;
+          
+          // Initialize drag operation since we're transitioning from mousePressed to dragging
+          const mousePos = getMousePositionInViewBox(e);
+          this.nodeData.setInteractionMode(getShiftDown() ? 'scale' : 'move');
+          this.isScaling = (this.nodeData.interactionMode === 'scale');
+          
+          if (this.isScaling) {
+            // Initialize scaling parameters
+            const center = this.coordinateSystem 
+              ? this.coordinateSystem.getNodeCenter(this.element, 'global')
+              : this.getGlobalCenter();
+            this.centerX = center.x;
+            this.centerY = center.y;
+            this.startDistance = Math.hypot(mousePos.x - this.centerX, mousePos.y - this.centerY);
+            this.startScale = this.nodeData.scale ?? 1;
+          } else {
+            // Initialize dragging parameters
+            if (this.dragManager) {
+              this.dragManager.startDrag(this, mousePos.x, mousePos.y);
+            } else {
+              this.dragStartMousePos = { x: mousePos.x, y: mousePos.y };
+              this.dragStartNodePos = { x: this.nodeData.x, y: this.nodeData.y };
+            }
+          }
+          
+          // Set grabbing cursor during drag
+          this.element.style.cursor = 'grabbing';
+          
+          // Now continue with normal drag logic
+        }
+      }
+    }
+    
     if (!this.isDragging) return;
     
     // Additional safety check: if this node is not selected and we're not actively dragging, ignore mouse move
@@ -683,7 +731,7 @@ export class NodeRenderer {
       console.log(`🔍 Current state of ${this.nodeData.id} before mouse up: ${currentState}`);
       
       // Let state machine handle specific state transitions
-      if (currentState === 'dragging' || currentState === 'scaling') {
+      if (currentState === 'dragging' || currentState === 'scaling' || currentState === 'mousePressed') {
         // Handle drag/scale completion
         const handled = nodeStateManager.handleNodeMouseUp(this.nodeData.id, e, {
           isClick: isClick,
@@ -700,6 +748,8 @@ export class NodeRenderer {
           
           // Sync legacy flags with state machine state
           const newState = nodeStateManager.getStateMachine(this.nodeData.id)?.getCurrentState();
+          const previousState = currentState; // Store previous state for logic
+          
           if (newState === 'selected' || newState === 'idle') {
             this.isDragging = false;
             this.isScaling = false;
@@ -718,10 +768,17 @@ export class NodeRenderer {
               this.element.classList.remove('dragging', 'scaling');
             }
             
-            // Ensure node is properly selected after drag completion (only if it was actually dragged, not a click)
-            if (newState === 'selected' && selectCallback && distanceMoved >= 5 && !this.nodeData.isSelected) {
-              console.log(`✅ Actual drag completed for ${this.nodeData.id} (moved ${distanceMoved}px) - ensuring selection via callback`);
-              selectCallback(this);
+            // Handle selection callback for different transition types
+            if (newState === 'selected' && selectCallback) {
+              if (previousState === 'mousePressed' && isClick) {
+                // Click-to-select: mousePressed → selected
+                console.log(`✅ Click-to-select completed for ${this.nodeData.id} - calling selectCallback`);
+                selectCallback(this);
+              } else if (previousState === 'dragging' && distanceMoved >= 5 && !this.nodeData.isSelected) {
+                // Drag completion: dragging → selected  
+                console.log(`✅ Actual drag completed for ${this.nodeData.id} (moved ${distanceMoved}px) - ensuring selection via callback`);
+                selectCallback(this);
+              }
             }
           }
           
@@ -730,7 +787,7 @@ export class NodeRenderer {
       } else if (currentState === 'selected' && isClick && distanceMoved < 5 && this.stateBeforeMouseDown === 'selected') {
         // Handle click on already selected node (deselect) - only if it was selected BEFORE mouseDown
         console.log(`🔄 Second click detected: stateBeforeMouseDown=${this.stateBeforeMouseDown}, currentState=${currentState}`);
-        const handled = nodeStateManager.handleEvent(this.nodeData.id, 'clickToDeselect', {
+        const handled = nodeStateManager.handleNodeEvent(this.nodeData.id, 'clickToDeselect', {
           isClick: isClick,
           timeDiff: timeDiff,
           distanceMoved: distanceMoved,
@@ -796,7 +853,7 @@ export class NodeRenderer {
           const currentState = nodeStateManager.getStateMachine(this.nodeData.id)?.getCurrentState();
           console.log(`🎯 Trying state machine for edge mode click on ${this.nodeData.id} in state ${currentState}`);
           
-          const handled = nodeStateManager.handleEvent(this.nodeData.id, 'nodeClickInEdgeMode', {
+          const handled = nodeStateManager.handleNodeEvent(this.nodeData.id, 'nodeClickInEdgeMode', {
             isClick: true,
             timeDiff: timeDiff,
             distanceMoved: distanceMoved,
@@ -884,7 +941,7 @@ export class NodeRenderer {
   async initializeStateMachine() {
     try {
       console.log(`🔧 Initializing state machine for node: ${this.nodeData.id}`);
-      this.stateMachine = await nodeStateManager.registerNode(this.nodeData.id, this);
+      this.stateMachine = await nodeStateManager.registerNode(this.nodeData.id, this.element);
       this.useStateMachine = true;
       debugNodeEvents(`✅ State machine initialized for node: ${this.nodeData.id}`);
       console.log(`✅ State machine initialized for node: ${this.nodeData.id}`);
@@ -1168,7 +1225,8 @@ export class Node {
     
     // Create a new SVG element for the cloned node
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.setAttribute('class', duplicatedNodeData.class);
+    // Set both the specific type class AND the general 'node' class
+    g.setAttribute('class', `node ${duplicatedNodeData.class}`);
     
     // Load and append the SVG content
     if (duplicatedNodeData.svg) {
@@ -1192,6 +1250,9 @@ export class Node {
     
     // Create new Node instance with the duplicated data and new element
     const clonedNode = new Node(duplicatedNodeData.toData(), g);
+    
+    // Add data attribute for easier testing and debugging (same as in createNode)
+    g.setAttribute('data-node-id', clonedNode.id);
     
     // Initialize state machine for the cloned node
     try {

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Testing Checklist - Diagram Editor</title>
+    <link rel="stylesheet" href="themes/default.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+        }
+        .test-panel {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .checklist-item {
+            margin: 8px 0;
+            padding: 8px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            background: #fafafa;
+        }
+        .checklist-item.completed {
+            background: #e8f5e8;
+            border-color: #4caf50;
+        }
+        .checklist-item h4 {
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+        .checklist-item p {
+            margin: 0;
+            font-size: 12px;
+            color: #666;
+        }
+        .checkbox {
+            margin-right: 8px;
+        }
+        .status {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        svg {
+            border: 1px solid #ddd;
+            background: white;
+        }
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-panel">
+        <h3>🧪 Manual Testing Checklist</h3>
+        
+        <div class="instructions">
+            <strong>Instructions:</strong> Check each item as you test it. Click the checkbox when the test passes.
+        </div>
+        
+        <div id="system-status"></div>
+        
+        <div class="checklist-item" id="test-1">
+            <h4><input type="checkbox" class="checkbox" onclick="markCompleted('test-1')"> 1. Node Selection</h4>
+            <p>Click on any node. It should be highlighted with a visual selection indicator.</p>
+        </div>
+        
+        <div class="checklist-item" id="test-2">
+            <h4><input type="checkbox" class="checkbox" onclick="markCompleted('test-2')"> 2. Node Deselection</h4>
+            <p>Click on the same selected node again. The selection should be removed.</p>
+        </div>
+        
+        <div class="checklist-item" id="test-3">
+            <h4><input type="checkbox" class="checkbox" onclick="markCompleted('test-3')"> 3. Node Dragging</h4>
+            <p>Click and drag a node. It should move smoothly and show drag feedback.</p>
+        </div>
+        
+        <div class="checklist-item" id="test-4">
+            <h4><input type="checkbox" class="checkbox" onclick="markCompleted('test-4')"> 4. Node Scaling</h4>
+            <p>Select a node, then hold Shift and drag. The node should scale up/down.</p>
+        </div>
+        
+        <div class="checklist-item" id="test-5">
+            <h4><input type="checkbox" class="checkbox" onclick="markCompleted('test-5')"> 5. Edge Creation</h4>
+            <p>Hold Ctrl and click on a node (source), then click another node (target). An edge should be created.</p>
+        </div>
+        
+        <div class="checklist-item" id="test-6">
+            <h4><input type="checkbox" class="checkbox" onclick="markCompleted('test-6')"> 6. Multiple Selection</h4>
+            <p>Hold Ctrl and click multiple nodes. They should all be selected simultaneously.</p>
+        </div>
+        
+        <div class="checklist-item" id="test-7">
+            <h4><input type="checkbox" class="checkbox" onclick="markCompleted('test-7')"> 7. Clear Selection</h4>
+            <p>Click on empty space. All node selections should be cleared.</p>
+        </div>
+        
+        <div class="checklist-item" id="test-8">
+            <h4><input type="checkbox" class="checkbox" onclick="markCompleted('test-8')"> 8. Console Errors</h4>
+            <p>Open browser dev tools. No errors should appear during normal operations.</p>
+        </div>
+        
+        <div class="checklist-item" id="test-9">
+            <h4><input type="checkbox" class="checkbox" onclick="markCompleted('test-9')"> 9. State Machine Integrity</h4>
+            <p>All actions should transition through proper states (check console logs for state changes).</p>
+        </div>
+        
+        <div class="checklist-item" id="test-10">
+            <h4><input type="checkbox" class="checkbox" onclick="markCompleted('test-10')"> 10. Visual Feedback</h4>
+            <p>All interactions should provide appropriate visual feedback (cursors, highlights, etc.).</p>
+        </div>
+        
+        <div id="completion-status" style="margin-top: 15px;"></div>
+    </div>
+
+    <svg id="svg" width="800" height="600"></svg>
+
+    <script type="module">
+        import { nodeStateManager } from './js/NodeStateManager.js?v=019';
+        import { diagramStateManager } from './js/DiagramStateManager.js?v=001';
+
+        let completedTests = 0;
+        const totalTests = 10;
+
+        // Show system initialization status
+        function showSystemStatus() {
+            const statusDiv = document.getElementById('system-status');
+            
+            let status = '<div class="status info">System Status:</div>';
+            
+            if (nodeStateManager) {
+                status += '<div class="status success">✅ NodeStateManager loaded</div>';
+            } else {
+                status += '<div class="status error">❌ NodeStateManager failed to load</div>';
+            }
+            
+            if (diagramStateManager) {
+                status += '<div class="status success">✅ DiagramStateManager loaded</div>';
+            } else {
+                status += '<div class="status error">❌ DiagramStateManager failed to load</div>';
+            }
+            
+            // Check for test nodes
+            const nodes = document.querySelectorAll('svg g[data-node-id]');
+            if (nodes.length > 0) {
+                status += `<div class="status success">✅ ${nodes.length} test nodes available</div>`;
+            } else {
+                status += '<div class="status error">❌ No test nodes found</div>';
+            }
+            
+            statusDiv.innerHTML = status;
+        }
+
+        window.markCompleted = function(testId) {
+            const testElement = document.getElementById(testId);
+            const checkbox = testElement.querySelector('input[type="checkbox"]');
+            
+            if (checkbox.checked) {
+                testElement.classList.add('completed');
+                completedTests++;
+            } else {
+                testElement.classList.remove('completed');
+                completedTests--;
+            }
+            
+            updateCompletionStatus();
+        };
+
+        function updateCompletionStatus() {
+            const completionDiv = document.getElementById('completion-status');
+            const percentage = Math.round((completedTests / totalTests) * 100);
+            
+            let statusClass = 'info';
+            if (percentage === 100) {
+                statusClass = 'success';
+            } else if (percentage >= 70) {
+                statusClass = 'info';
+            } else {
+                statusClass = 'error';
+            }
+            
+            completionDiv.innerHTML = `
+                <div class="status ${statusClass}">
+                    <strong>Progress: ${completedTests}/${totalTests} tests completed (${percentage}%)</strong>
+                    ${percentage === 100 ? '<br>🎉 All tests passed! The refactor is complete.' : ''}
+                </div>
+            `;
+        }
+
+        // Wait for page to load then show status
+        window.addEventListener('load', () => {
+            setTimeout(showSystemStatus, 1000); // Give modules time to load
+            updateCompletionStatus();
+        });
+    </script>
+    
+    <!-- Load the main renderer to create test nodes -->
+    <script type="module" src="js/renderer.js?v=071"></script>
+</body>
+</html>

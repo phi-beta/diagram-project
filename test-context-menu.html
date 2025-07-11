@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Context Menu Test - Diagram Editor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .instructions {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196f3;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        .instructions ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 8px 0;
+        }
+        .diagram-container {
+            border: 2px solid #333;
+            border-radius: 8px;
+            background: white;
+            overflow: hidden;
+            position: relative;
+        }
+        #diagram {
+            width: 100%;
+            height: 500px;
+            display: block;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+        .color-legend {
+            display: flex;
+            gap: 20px;
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .color-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .color-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid #666;
+        }
+        .node-color { background-color: #bbdefb; }
+        .edge-color { background-color: #e1bee7; }
+        .background-color { background-color: #e0e0e0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Context Menu Test - Diagram Editor</h1>
+        
+        <div class="instructions">
+            <h3>Context Menu Testing Instructions:</h3>
+            <ul>
+                <li><strong>Right-click on a node</strong> - Should show light blue context menu</li>
+                <li><strong>Right-click on an edge</strong> - Should show light purple context menu</li>
+                <li><strong>Right-click on background</strong> - Should show light gray context menu</li>
+                <li><strong>Left-click outside menu</strong> - Should close the context menu</li>
+            </ul>
+        </div>
+
+        <div class="color-legend">
+            <div class="color-item">
+                <div class="color-box node-color"></div>
+                <span>Node Context (Blue)</span>
+            </div>
+            <div class="color-item">
+                <div class="color-box edge-color"></div>
+                <span>Edge Context (Purple)</span>
+            </div>
+            <div class="color-item">
+                <div class="color-box background-color"></div>
+                <span>Background Context (Gray)</span>
+            </div>
+        </div>
+
+        <div class="diagram-container">
+            <svg id="diagram" viewBox="0 0 800 500">
+                <!-- Diagram will be rendered here -->
+            </svg>
+        </div>
+
+        <div class="status">
+            <strong>Status:</strong> Context menu system loaded. Try right-clicking on different elements!
+        </div>
+    </div>
+
+    <!-- Load the diagram editor -->
+    <script type="module" src="js/debug.js"></script>
+    <script type="module" src="js/renderer.js?v=074"></script>
+
+    <script>
+        // Initialize the diagram
+        document.addEventListener('DOMContentLoaded', function() {
+            const svg = document.getElementById('diagram');
+            
+            // Initialize renderer
+            window.renderer = new Renderer(svg);
+            
+            // Add some test nodes
+            const node1 = window.renderer.createNode(150, 100, 'Server 1', 'server');
+            const node2 = window.renderer.createNode(400, 100, 'User 1', 'user');
+            const node3 = window.renderer.createNode(650, 100, 'Server 2', 'server');
+            const node4 = window.renderer.createNode(300, 250, 'Database', 'server');
+            const node5 = window.renderer.createNode(500, 250, 'API', 'user');
+            
+            // Add some edges to test edge context menu
+            setTimeout(() => {
+                // Create edges between nodes
+                window.renderer.createEdge(node1, node2, 'connection');
+                window.renderer.createEdge(node2, node3, 'data flow');
+                window.renderer.createEdge(node1, node4, 'query');
+                window.renderer.createEdge(node4, node5, 'response');
+                window.renderer.createEdge(node5, node3, 'output');
+            }, 100);
+            
+            // Log context menu events
+            const originalShow = window.renderer.interactionManager.contextMenu.show;
+            window.renderer.interactionManager.contextMenu.show = function(x, y, context, target) {
+                console.log(`🎯 Context menu: ${context} at (${Math.round(x)}, ${Math.round(y)})`);
+                if (target) {
+                    const id = target.getAttribute('data-node-id') || target.getAttribute('data-edge-id');
+                    console.log(`   Target: ${id}`);
+                }
+                return originalShow.call(this, x, y, context, target);
+            };
+            
+            const originalHide = window.renderer.interactionManager.contextMenu.hide;
+            window.renderer.interactionManager.contextMenu.hide = function() {
+                console.log('🎯 Context menu: hidden');
+                return originalHide.call(this);
+            };
+        });
+    </script>
+</body>
+</html>

@@ -1,11 +1,12 @@
-// Version 060 - Fixed cursor behavior for consistent UX
-import { Node } from './Node.js?v=055';
+// Version 074 - Added context menu functionality
+import { Node } from './Node.js?v=062';
 import { Edge } from './Edge.js?v=009';
 import { ViewBoxManager } from './ViewBoxManager.js?v=002';
 import { DragManager } from './DragManager.js?v=051';
-import { InteractionManager } from './InteractionManager.js?v=055';
+import { InteractionManager } from './InteractionManager.js?v=059';
 import { generateGuid, clearGuidRegistry, initializeFromExisting } from './GuidManager.js';
-import { nodeStateManager } from './NodeStateManager.js?v=012';
+import { nodeStateManager } from './NodeStateManager.js?v=020';
+import { ContextMenu } from './ContextMenu.js?v=001';
 
 // Global variables for diagram state
 let nodeMap = new Map();
@@ -19,7 +20,6 @@ let dragManager = null;
 let interactionManager = null;
 
 function selectNode(node) {
-  console.log('🎯 selectNode called with:', node?.id || node);
   interactionManager.selectNode(node);
 }
 
@@ -148,18 +148,13 @@ async function loadLayout() {
   svg = document.getElementById('diagram');
   
   // Initialize managers
-  console.log('🏗️ Initializing managers...');
   viewBoxManager = new ViewBoxManager(svg);
-  console.log('✅ ViewBoxManager created');
   dragManager = new DragManager(viewBoxManager);
-  console.log('✅ DragManager created');
   interactionManager = new InteractionManager(svg, viewBoxManager, dragManager);
-  console.log('✅ InteractionManager created');
   
   // Initialize NodeStateManager
   try {
     await nodeStateManager.initialize(interactionManager, '/config/node-state-machine.json');
-    console.log('✅ NodeStateManager initialized');
   } catch (error) {
     console.warn('⚠️ NodeStateManager initialization failed, falling back to legacy behavior:', error);
   }
@@ -170,15 +165,6 @@ async function loadLayout() {
     completeEdgeCreation,
     scheduleRedrawEdges
   );
-  console.log('✅ InteractionManager callbacks set');
-  
-  // Test keyboard event detection
-  console.log('🔑 Testing InteractionManager keyboard detection...');
-  setTimeout(() => {
-    console.log('InteractionManager instance:', interactionManager);
-    console.log('InteractionManager.shiftDown:', interactionManager.shiftDown);
-    console.log('Please press Shift key now to test...');
-  }, 1000);
   
   // Add global escape key handler to reset stuck states
   document.addEventListener('keydown', (e) => {
@@ -270,7 +256,8 @@ async function loadLayout() {
 async function createNode(nodeData) {
   console.log('Creating node with data:', nodeData);
   const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-  g.setAttribute('class', nodeData.class);
+  // Set both the specific type class AND the general 'node' class
+  g.setAttribute('class', `node ${nodeData.class}`);
   const scale = nodeData.scale ?? 1;
   g.setAttribute('transform', `translate(${nodeData.x}, ${nodeData.y}) scale(${scale})`);
 
@@ -284,6 +271,10 @@ async function createNode(nodeData) {
 
   const node = new Node(nodeData, g);
   console.log(`Node created with original ID: ${nodeData.id}, final ID: ${node.id}`);
+  
+  // Add data attribute for easier testing and debugging
+  g.setAttribute('data-node-id', node.id);
+  
   nodeMap.set(node.id, node);
   
   // Initialize state machine for the node
@@ -560,3 +551,46 @@ function downloadPNG() {
 }
 
 window.onload = loadLayout;
+
+// Export renderer functions for testing
+export const renderer = {
+  initialize: async function() {
+    // Initialize all components
+    svg = document.getElementById('svg');
+    if (!svg) {
+      throw new Error('SVG element not found');
+    }
+    
+    // Initialize managers
+    viewBoxManager = new ViewBoxManager(svg);
+    dragManager = new DragManager();
+    interactionManager = new InteractionManager();
+    
+    await nodeStateManager.initialize(interactionManager);
+    
+    console.log('Renderer initialized for testing');
+  },
+  
+  createNode: async function(nodeData) {
+    if (!svg) {
+      throw new Error('Renderer not initialized');
+    }
+    
+    // Ensure node has required properties
+    const fullNodeData = {
+      id: nodeData.id || generateGuid('node'),
+      x: nodeData.x || 0,
+      y: nodeData.y || 0,
+      label: nodeData.label || 'Node',
+      class: nodeData.class || 'user',
+      svg: nodeData.svg || (nodeData.class === 'server' ? 'server.svg' : 'user.svg'),
+      scale: nodeData.scale || 1
+    };
+    
+    return await createNode(fullNodeData);
+  },
+  
+  getNodeMap: () => nodeMap,
+  getEdgeList: () => edgeList,
+  getSvg: () => svg
+};

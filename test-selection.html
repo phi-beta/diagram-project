@@ -61,7 +61,7 @@
   
   <script type="module">
     import { Node } from './js/Node.js?v=040';
-    import { nodeStateManager } from './js/NodeStateManager.js?v=011';
+    import { nodeStateManager } from './js/NodeStateManager.js?v=012';
     
     const svg = document.getElementById('diagram');
     const statusEl = document.getElementById('status');
@@ -178,7 +178,7 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         log('🔑 Escape pressed - resetting all states');
-        nodeStateManager.resetAllStates();
+        nodeStateManager.resetAllNodes();
         nodes.forEach(node => {
           node.element.classList.remove('selected');
         });
