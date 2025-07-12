@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EventMapper Test</title>
+</head>
+<body>
+    <h1>EventMapper Logical Condition Test</h1>
+    <div id="results"></div>
+
+    <script type="module">
+        import { EventMapper } from './js/EventMapper.js';
+
+        // Test the exact scenario from the edge creation
+        const config = {
+            eventMapping: {
+                rules: [
+                    {
+                        event: 'nodeSelectedForEdge',
+                        conditions: [
+                            {
+                                state: 'idle',
+                                condition: 'shiftKeyDown && mouseMovedAwayFromNode',
+                                action: 'startEdgeCreation'
+                            }
+                        ]
+                    }
+                ]
+            }
+        };
+
+        const testData = {
+            sourceNode: { id: 'server1' },
+            reason: 'mouseMoved',
+            shiftKeyDown: true,
+            mouseMovedAwayFromNode: true
+        };
+
+        console.log('🧪 Testing EventMapper with logical conditions...');
+        console.log('Test data:', testData);
+
+        const mapper = new EventMapper(config, 'TEST');
+        const result = mapper.mapEvent('nodeSelectedForEdge', 'idle', testData);
+
+        const resultsDiv = document.getElementById('results');
+        resultsDiv.innerHTML = `
+            <h2>Test Results</h2>
+            <p><strong>Expected:</strong> startEdgeCreation</p>
+            <p><strong>Actual:</strong> ${result}</p>
+            <p><strong>Status:</strong> ${result === 'startEdgeCreation' ? '✅ PASS' : '❌ FAIL'}</p>
+        `;
+
+        console.log('🔍 Result:', result);
+        console.log('✅ Test completed');
+    </script>
+</body>
+</html>

@@ -37,32 +37,39 @@
       "mousePressed": {
         "mouseRelease": "selected",
         "startDrag": "dragging",
-        "startScale": "scaling"
+        "startScale": "scaling",
+        "resetToIdle": "idle"
       },
       "selected": {
         "deselect": "idle",
         "mousePress": "mousePressed",
         "startEdgeCreation": "edgeSource",
-        "becomeEdgeTarget": "edgeTarget"
+        "becomeEdgeTarget": "edgeTarget",
+        "resetToIdle": "idle"
       },
       "dragging": {
         "finishDrag": "selected",
-        "cancelToIdle": "idle"
+        "cancelToIdle": "idle",
+        "resetToIdle": "idle"
       },
       "scaling": {
         "finishScale": "selected",
-        "cancelToIdle": "idle"
+        "cancelToIdle": "idle",
+        "resetToIdle": "idle"
       },
       "edgeSource": {
         "completeEdge": "selected",
-        "cancelEdgeCreation": "selected"
+        "cancelEdgeCreation": "selected",
+        "resetToIdle": "idle"
       },
       "edgeTarget": {
         "completeEdge": "cooldown",
-        "cancelEdgeTarget": "idle"
+        "cancelEdgeTarget": "idle",
+        "resetToIdle": "idle"
       },
       "cooldown": {
-        "timeout": "idle"
+        "timeout": "idle",
+        "resetToIdle": "idle"
       }
     }
   },
@@ -159,6 +166,15 @@
         ]
       },
       {
+        "event": "cancelEdgeCreation",
+        "conditions": [
+          {
+            "state": "edgeSource",
+            "action": "cancelEdgeCreation"
+          }
+        ]
+      },
+      {
         "event": "escapeKey",
         "conditions": [
           {
@@ -168,6 +184,30 @@
           {
             "state": "edgeTarget",
             "action": "cancelEdgeTarget"
+          },
+          {
+            "state": "selected",
+            "action": "resetToIdle"
+          },
+          {
+            "state": "mousePressed",
+            "action": "resetToIdle"
+          },
+          {
+            "state": "dragging",
+            "action": "resetToIdle"
+          },
+          {
+            "state": "scaling",
+            "action": "resetToIdle"
+          },
+          {
+            "state": "cooldown",
+            "action": "resetToIdle"
+          },
+          {
+            "state": "hover",
+            "action": "resetToIdle"
           }
         ]
       },

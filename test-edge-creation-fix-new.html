@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Cloned Node Edge Creation Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .instructions {
+            background-color: #e8f4f8;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
+        }
+        .instructions h2 {
+            margin-top: 0;
+            color: #1976D2;
+        }
+        .instructions ol {
+            margin-bottom: 0;
+        }
+        .instructions li {
+            margin-bottom: 5px;
+        }
+        .test-results {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            border-left: 4px solid #6c757d;
+        }
+        .test-results h2 {
+            margin-top: 0;
+            color: #495057;
+        }
+        #results {
+            white-space: pre-wrap;
+            font-family: monospace;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            border: 1px solid #dee2e6;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .diagram-container {
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            background-color: #fafafa;
+            margin: 20px 0;
+            position: relative;
+        }
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #1976D2;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Cloned Node Edge Creation Fix</h1>
+        
+        <div class="instructions">
+            <h2>🧪 Test Instructions</h2>
+            <ol>
+                <li>Click the "Load Diagram" button to initialize the diagram</li>
+                <li>Click the "Clone Node" button to create a cloned node</li>
+                <li>Click the "Test Edge Creation" button to test edge creation from the cloned node</li>
+                <li>The test will automatically verify that the cloned node can enter edge creation mode</li>
+                <li>Check the results section below for detailed test outcomes</li>
+            </ol>
+        </div>
+        
+        <div style="text-align: center; margin: 20px 0;">
+            <button id="loadDiagram">Load Diagram</button>
+            <button id="cloneNode" disabled>Clone Node</button>
+            <button id="testEdgeCreation" disabled>Test Edge Creation</button>
+            <button id="clearResults">Clear Results</button>
+        </div>
+        
+        <div class="diagram-container">
+            <svg id="diagram" width="800" height="400"></svg>
+        </div>
+        
+        <div class="test-results">
+            <h2>📊 Test Results</h2>
+            <div id="results">Click "Load Diagram" to begin testing...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        let diagram = null;
+        let clonedNode = null;
+        let nodeMap = null;
+        let interactionManager = null;
+        
+        const results = document.getElementById('results');
+        const loadDiagramBtn = document.getElementById('loadDiagram');
+        const cloneNodeBtn = document.getElementById('cloneNode');
+        const testEdgeCreationBtn = document.getElementById('testEdgeCreation');
+        const clearResultsBtn = document.getElementById('clearResults');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            results.textContent += logMessage;
+            results.scrollTop = results.scrollHeight;
+            
+            if (type === 'error') {
+                console.error(message);
+            } else if (type === 'warning') {
+                console.warn(message);
+            } else {
+                console.log(message);
+            }
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+            results.appendChild(statusDiv);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        async function loadDiagram() {
+            try {
+                log('🔄 Loading diagram...');
+                
+                // Import the renderer
+                const { initializeDiagram } = await import('./js/renderer.js?v=102');
+                
+                // Initialize diagram
+                diagram = await initializeDiagram('#diagram');
+                nodeMap = diagram.getNodeMap();
+                interactionManager = diagram.getInteractionManager();
+                
+                log('✅ Diagram loaded successfully');
+                showStatus('Diagram loaded successfully', 'success');
+                
+                // Enable clone button
+                cloneNodeBtn.disabled = false;
+                loadDiagramBtn.disabled = true;
+                
+            } catch (error) {
+                log(`❌ Error loading diagram: ${error.message}`, 'error');
+                showStatus(`Error loading diagram: ${error.message}`, 'error');
+            }
+        }
+
+        async function cloneNode() {
+            try {
+                log('🔄 Cloning node...');
+                
+                // Find the first node to clone
+                const firstNode = Array.from(nodeMap.values())[0];
+                if (!firstNode) {
+                    throw new Error('No nodes found to clone');
+                }
+                
+                log(`📋 Cloning node: ${firstNode.id}`);
+                
+                // Clone the node
+                const svg = document.getElementById('diagram');
+                clonedNode = await firstNode.clone(svg, diagram.getCoordinateSystem(), diagram.getDragManager());
+                
+                // Add to node map
+                nodeMap.set(clonedNode.id, clonedNode);
+                
+                log(`✅ Node cloned successfully: ${clonedNode.id}`);
+                showStatus(`Node cloned successfully: ${clonedNode.id}`, 'success');
+                
+                // Enable test button
+                testEdgeCreationBtn.disabled = false;
+                cloneNodeBtn.disabled = true;
+                
+            } catch (error) {
+                log(`❌ Error cloning node: ${error.message}`, 'error');
+                showStatus(`Error cloning node: ${error.message}`, 'error');
+            }
+        }
+
+        async function testEdgeCreation() {
+            try {
+                log('🔄 Testing edge creation from cloned node...');
+                
+                if (!clonedNode) {
+                    throw new Error('No cloned node available for testing');
+                }
+                
+                // Test 1: Check if cloned node has required methods
+                log('🧪 Test 1: Checking required methods...');
+                
+                const hasGetGlobalCenter = typeof clonedNode.getGlobalCenter === 'function';
+                const hasGetTransformedCenter = typeof clonedNode.getTransformedCenter === 'function';
+                const hasElement = !!clonedNode.element;
+                const hasCoordinateSystem = !!clonedNode.coordinateSystem;
+                const hasDragManager = !!clonedNode.dragManager;
+                
+                log(`  - getGlobalCenter: ${hasGetGlobalCenter ? '✅' : '❌'}`);
+                log(`  - getTransformedCenter: ${hasGetTransformedCenter ? '✅' : '❌'}`);
+                log(`  - element: ${hasElement ? '✅' : '❌'}`);
+                log(`  - coordinateSystem: ${hasCoordinateSystem ? '✅' : '❌'}`);
+                log(`  - dragManager: ${hasDragManager ? '✅' : '❌'}`);
+                
+                // Test 2: Try to call the methods
+                log('🧪 Test 2: Testing method calls...');
+                
+                let globalCenter = null;
+                let transformedCenter = null;
+                
+                if (hasGetGlobalCenter) {
+                    try {
+                        globalCenter = clonedNode.getGlobalCenter();
+                        log(`  - getGlobalCenter() returned: ${JSON.stringify(globalCenter)}`);
+                    } catch (error) {
+                        log(`  - getGlobalCenter() error: ${error.message}`, 'error');
+                    }
+                }
+                
+                if (hasGetTransformedCenter) {
+                    try {
+                        transformedCenter = clonedNode.getTransformedCenter();
+                        log(`  - getTransformedCenter() returned: ${JSON.stringify(transformedCenter)}`);
+                    } catch (error) {
+                        log(`  - getTransformedCenter() error: ${error.message}`, 'error');
+                    }
+                }
+                
+                // Test 3: Simulate edge creation
+                log('🧪 Test 3: Simulating edge creation...');
+                
+                try {
+                    // Try to start edge creation
+                    interactionManager.startEdgeCreation(clonedNode);
+                    log('  - startEdgeCreation() called successfully');
+                    
+                    // Check if edge creation mode is active
+                    const isCreatingEdge = interactionManager.getIsCreatingEdge();
+                    log(`  - isCreatingEdge: ${isCreatingEdge ? '✅' : '❌'}`);
+                    
+                    // Check if edgeStartNode is set correctly
+                    const edgeStartNode = interactionManager.edgeStartNode;
+                    const isNodeInstance = edgeStartNode && edgeStartNode.constructor.name === 'Node';
+                    log(`  - edgeStartNode is Node instance: ${isNodeInstance ? '✅' : '❌'}`);
+                    
+                    if (edgeStartNode) {
+                        log(`  - edgeStartNode ID: ${edgeStartNode.id || 'N/A'}`);
+                        log(`  - edgeStartNode type: ${edgeStartNode.constructor.name}`);
+                    }
+                    
+                    // Clean up
+                    interactionManager.cancelEdgeCreation();
+                    log('  - Edge creation cancelled');
+                    
+                } catch (error) {
+                    log(`  - Edge creation test error: ${error.message}`, 'error');
+                }
+                
+                // Summary
+                log('🎯 Test Summary:');
+                const allMethodsPresent = hasGetGlobalCenter && hasGetTransformedCenter && hasElement && hasCoordinateSystem && hasDragManager;
+                const methodsWork = globalCenter && transformedCenter;
+                
+                if (allMethodsPresent && methodsWork) {
+                    log('✅ All tests passed! Cloned node can enter edge creation mode.');
+                    showStatus('All tests passed! Cloned node can enter edge creation mode.', 'success');
+                } else if (allMethodsPresent) {
+                    log('⚠️ Methods are present but some may have issues.');
+                    showStatus('Methods are present but some may have issues.', 'warning');
+                } else {
+                    log('❌ Some required methods are missing.');
+                    showStatus('Some required methods are missing.', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Error testing edge creation: ${error.message}`, 'error');
+                showStatus(`Error testing edge creation: ${error.message}`, 'error');
+            }
+        }
+
+        function clearResults() {
+            results.textContent = 'Results cleared.\n';
+        }
+
+        // Event listeners
+        loadDiagramBtn.addEventListener('click', loadDiagram);
+        cloneNodeBtn.addEventListener('click', cloneNode);
+        testEdgeCreationBtn.addEventListener('click', testEdgeCreation);
+        clearResultsBtn.addEventListener('click', clearResults);
+    </script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-// Version 062 - Fixed cloned nodes selection by adding data-node-id attribute
+// Version 065 - Fixed drag completion callback to always update InteractionManager selectedNode
 /**
  * Node Classes - Separated Data Model and Rendering
  * 
@@ -32,7 +32,7 @@
 
 import { generateGuid, ensureUniqueId, registerExistingId, unregisterId, isIdInUse } from './GuidManager.js';
 import { debugNodeEvents, debugEdgeCreation } from './debug.js';
-import { nodeStateManager } from './NodeStateManager.js?v=019';
+import { nodeStateManager } from './NodeStateManager.js?v=025';
 
 // Default node dimensions (used for fallback calculations)
 const DEFAULT_NODE_SIZE = 50;
@@ -774,8 +774,9 @@ export class NodeRenderer {
                 // Click-to-select: mousePressed → selected
                 console.log(`✅ Click-to-select completed for ${this.nodeData.id} - calling selectCallback`);
                 selectCallback(this);
-              } else if (previousState === 'dragging' && distanceMoved >= 5 && !this.nodeData.isSelected) {
+              } else if (previousState === 'dragging' && distanceMoved >= 5) {
                 // Drag completion: dragging → selected  
+                // Always call selectCallback after drag to ensure InteractionManager has correct selectedNode
                 console.log(`✅ Actual drag completed for ${this.nodeData.id} (moved ${distanceMoved}px) - ensuring selection via callback`);
                 selectCallback(this);
               }
@@ -1219,7 +1220,7 @@ export class Node {
   }
 
   // Clone method for backward compatibility (used by renderer.js)
-  async clone(svg) {
+  async clone(svg, coordinateSystem = null, dragManager = null) {
     // Create a duplicate of the node data with new GUID
     const duplicatedNodeData = this.nodeData.duplicate();
     
@@ -1250,6 +1251,14 @@ export class Node {
     
     // Create new Node instance with the duplicated data and new element
     const clonedNode = new Node(duplicatedNodeData.toData(), g);
+    
+    // Copy external dependencies from original node if not explicitly provided
+    if (coordinateSystem || this.coordinateSystem) {
+      clonedNode.coordinateSystem = coordinateSystem || this.coordinateSystem;
+    }
+    if (dragManager || this.dragManager) {
+      clonedNode.dragManager = dragManager || this.dragManager;
+    }
     
     // Add data attribute for easier testing and debugging (same as in createNode)
     g.setAttribute('data-node-id', clonedNode.id);

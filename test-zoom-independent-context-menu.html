@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zoom-Independent Context Menu Test</title>
+    <link rel="stylesheet" href="themes/default.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .controls {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .controls h3 {
+            margin-top: 0;
+            color: #2c5282;
+        }
+        .zoom-controls {
+            margin: 10px 0;
+        }
+        .zoom-controls button {
+            margin: 0 5px;
+            padding: 8px 16px;
+            background: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .zoom-controls button:hover {
+            background: #357abd;
+        }
+        .zoom-info {
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        svg {
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 4px;
+        }
+        .test-info {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .test-info h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+        .test-info ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .test-info li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Zoom-Independent Context Menu Test</h1>
+        
+        <div class="controls">
+            <h3>Zoom Controls:</h3>
+            <div class="zoom-controls">
+                <button onclick="zoomIn()">🔍 Zoom In</button>
+                <button onclick="zoomOut()">🔍 Zoom Out</button>
+                <button onclick="resetZoom()">🔄 Reset Zoom</button>
+                <button onclick="panLeft()">⬅️ Pan Left</button>
+                <button onclick="panRight()">➡️ Pan Right</button>
+                <button onclick="panUp()">⬆️ Pan Up</button>
+                <button onclick="panDown()">⬇️ Pan Down</button>
+            </div>
+            <div class="zoom-info" id="zoom-info">
+                ViewBox: 0, 0, 1000, 600 (Zoom: 1.0x)
+            </div>
+        </div>
+        
+        <svg id="main-svg" width="1000" height="600" viewBox="0 0 1000 600">
+            <!-- Background -->
+            <rect width="100%" height="100%" fill="#fafafa"/>
+            
+            <!-- Grid pattern for visual reference -->
+            <defs>
+                <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
+                    <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#e0e0e0" stroke-width="1"/>
+                </pattern>
+                
+                <!-- Standard arrow marker -->
+                <marker id="arrow-end" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+                </marker>
+            </defs>
+            
+            <!-- Grid background -->
+            <rect width="100%" height="100%" fill="url(#grid)" />
+            
+            <!-- Test nodes at different positions -->
+            <g class="node user-node" transform="translate(200, 150)">
+                <circle r="50" fill="#4a90e2" stroke="#2c5282" stroke-width="2"/>
+                <text x="0" y="5" text-anchor="middle" fill="white" font-size="16">User A</text>
+            </g>
+            
+            <g class="node server-node" transform="translate(800, 150)">
+                <rect x="-50" y="-35" width="100" height="70" fill="#f4f4f4" stroke="#333" stroke-width="2"/>
+                <text x="0" y="5" text-anchor="middle" fill="#333" font-size="16">Server</text>
+            </g>
+            
+            <g class="node user-node" transform="translate(200, 450)">
+                <circle r="50" fill="#4a90e2" stroke="#2c5282" stroke-width="2"/>
+                <text x="0" y="5" text-anchor="middle" fill="white" font-size="16">User B</text>
+            </g>
+            
+            <g class="node server-node" transform="translate(800, 450)">
+                <rect x="-50" y="-35" width="100" height="70" fill="#f4f4f4" stroke="#333" stroke-width="2"/>
+                <text x="0" y="5" text-anchor="middle" fill="#333" font-size="16">Database</text>
+            </g>
+            
+            <g class="node user-node" transform="translate(500, 300)">
+                <circle r="50" fill="#4a90e2" stroke="#2c5282" stroke-width="2"/>
+                <text x="0" y="5" text-anchor="middle" fill="white" font-size="16">Center</text>
+            </g>
+        </svg>
+        
+        <div class="test-info">
+            <h3>Test Instructions:</h3>
+            <ul>
+                <li><strong>Zoom Test:</strong> Use the zoom controls to zoom in and out, then right-click on nodes, edges, and background</li>
+                <li><strong>Context Menu Size:</strong> The context menu should maintain the same size regardless of zoom level</li>
+                <li><strong>Drop Shadow:</strong> The context menu should have a prominent drop shadow indicating it's an overlay</li>
+                <li><strong>Pan Test:</strong> Use the pan controls to move the diagram, then test right-clicking</li>
+                <li><strong>Screen Position:</strong> The context menu should appear at the exact screen position you clicked</li>
+                <li><strong>Color Coding:</strong> Node = Blue, Edge = Purple, Background = Gray</li>
+            </ul>
+        </div>
+    </div>
+
+    <script type="module">
+        import { Edge } from './js/Edge.js?v=011';
+        import { ContextMenu } from './js/ContextMenu.js?v=005';
+        
+        // Get SVG element
+        const svg = document.getElementById('main-svg');
+        
+        // Create context menu
+        const contextMenu = new ContextMenu(svg);
+        
+        // Create test edges using the improved Edge class
+        const edges = [
+            Edge.createEdge({ id: 'edge1', from: 'userA', to: 'server', class: 'connection' }, svg),
+            Edge.createEdge({ id: 'edge2', from: 'server', to: 'userB', class: 'access-link' }, svg),
+            Edge.createEdge({ id: 'edge3', from: 'userB', to: 'database', class: 'connection' }, svg),
+            Edge.createEdge({ id: 'edge4', from: 'center', to: 'server', class: 'access-link' }, svg),
+            Edge.createEdge({ id: 'edge5', from: 'center', to: 'database', class: 'connection' }, svg)
+        ];
+        
+        // Set up edge paths manually for testing
+        const edgePaths = [
+            'M 250 150 L 750 150',  // User A to Server
+            'M 800 185 L 250 415',  // Server to User B
+            'M 250 450 L 750 450',  // User B to Database
+            'M 550 300 L 750 185',  // Center to Server
+            'M 550 300 L 750 415'   // Center to Database
+        ];
+        
+        edges.forEach((edge, index) => {
+            const clickPath = edge.element.querySelector('path:nth-child(1)');
+            const visiblePath = edge.element.querySelector('path:nth-child(2)');
+            if (clickPath && visiblePath) {
+                clickPath.setAttribute('d', edgePaths[index]);
+                visiblePath.setAttribute('d', edgePaths[index]);
+            }
+        });
+        
+        // Zoom and pan functions
+        let currentZoom = 1.0;
+        let currentPanX = 0;
+        let currentPanY = 0;
+        
+        function updateViewBox() {
+            const width = 1000 / currentZoom;
+            const height = 600 / currentZoom;
+            const x = currentPanX - width / 2;
+            const y = currentPanY - height / 2;
+            
+            svg.setAttribute('viewBox', `${x} ${y} ${width} ${height}`);
+            
+            // Update zoom info
+            document.getElementById('zoom-info').textContent = 
+                `ViewBox: ${x.toFixed(0)}, ${y.toFixed(0)}, ${width.toFixed(0)}, ${height.toFixed(0)} (Zoom: ${currentZoom.toFixed(1)}x)`;
+        }
+        
+        window.zoomIn = function() {
+            currentZoom *= 1.5;
+            updateViewBox();
+        };
+        
+        window.zoomOut = function() {
+            currentZoom /= 1.5;
+            updateViewBox();
+        };
+        
+        window.resetZoom = function() {
+            currentZoom = 1.0;
+            currentPanX = 500;
+            currentPanY = 300;
+            updateViewBox();
+        };
+        
+        window.panLeft = function() {
+            currentPanX -= 100;
+            updateViewBox();
+        };
+        
+        window.panRight = function() {
+            currentPanX += 100;
+            updateViewBox();
+        };
+        
+        window.panUp = function() {
+            currentPanY -= 100;
+            updateViewBox();
+        };
+        
+        window.panDown = function() {
+            currentPanY += 100;
+            updateViewBox();
+        };
+        
+        // Initialize viewBox
+        currentPanX = 500;
+        currentPanY = 300;
+        updateViewBox();
+        
+        // Add context menu handling
+        svg.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            
+            // Get mouse position relative to SVG
+            const rect = svg.getBoundingClientRect();
+            const clientX = e.clientX - rect.left;
+            const clientY = e.clientY - rect.top;
+            
+            // Get the current viewBox to handle zoom/pan
+            const viewBox = svg.viewBox.baseVal;
+            const svgWidth = rect.width;
+            const svgHeight = rect.height;
+            
+            // Calculate SVG coordinates considering viewBox transformation
+            const svgX = (clientX / svgWidth) * viewBox.width + viewBox.x;
+            const svgY = (clientY / svgHeight) * viewBox.height + viewBox.y;
+            
+            // Determine what was right-clicked
+            const targetElement = e.target;
+            let context = 'background';
+            let contextTarget = null;
+            
+            // Helper function to get class name from SVG or HTML elements
+            const getElementClass = (element) => {
+                return element.getAttribute('class') || '';
+            };
+            
+            // Check if right-clicked on a node
+            const nodeElement = targetElement.closest('.node');
+            if (nodeElement) {
+                context = 'node';
+                contextTarget = nodeElement;
+            }
+            // Check if right-clicked on an edge
+            else {
+                const edgeElement = targetElement.closest('.edge');
+                if (edgeElement) {
+                    context = 'edge';
+                    contextTarget = edgeElement;
+                }
+            }
+            
+            // Show context menu
+            contextMenu.show(svgX, svgY, context, contextTarget);
+            
+            console.log(`Context menu shown at svg(${svgX.toFixed(1)}, ${svgY.toFixed(1)}) for context: ${context}`);
+        });
+        
+        // Hide context menu on left click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.context-menu')) {
+                contextMenu.hide();
+            }
+        });
+        
+        console.log('🔍 Zoom-Independent Context Menu Test loaded');
+    </script>
+</body>
+</html>

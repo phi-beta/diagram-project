@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>State Machine Initialization Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .log {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .warning { color: #ffc107; }
+        .info { color: #17a2b8; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.waiting { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <h1>State Machine Initialization Test</h1>
+    
+    <div class="status waiting" id="status">Waiting for test to start...</div>
+    
+    <button onclick="testInitialization()">Test NodeStateManager Initialization</button>
+    <button onclick="testConfigLoad()">Test Config Load</button>
+    <button onclick="clearLog()">Clear Log</button>
+    
+    <div class="log" id="log">Test log will appear here...</div>
+
+    <script type="module">
+        import { nodeStateManager } from './js/NodeStateManager.js?v=021';
+        
+        const log = document.getElementById('log');
+        const status = document.getElementById('status');
+        
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${timestamp}] ${message}`;
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+            
+            // Update status
+            if (type === 'error') {
+                status.className = 'status error';
+                status.textContent = 'Error occurred - check log';
+            } else if (type === 'success') {
+                status.className = 'status success';
+                status.textContent = 'Test completed successfully';
+            }
+        }
+        
+        // Override console methods to capture logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        console.log = function(...args) {
+            addLog(args.join(' '), 'info');
+            originalLog.apply(console, args);
+        };
+        
+        console.error = function(...args) {
+            addLog(args.join(' '), 'error');
+            originalError.apply(console, args);
+        };
+        
+        console.warn = function(...args) {
+            addLog(args.join(' '), 'warning');
+            originalWarn.apply(console, args);
+        };
+        
+        window.testInitialization = async function() {
+            addLog('=== Starting NodeStateManager Initialization Test ===', 'info');
+            
+            try {
+                // Check initial state
+                addLog(`Initial config state: ${nodeStateManager.config ? 'Available' : 'NULL'}`, 'info');
+                
+                // Test initialization
+                addLog('Calling nodeStateManager.initialize()...', 'info');
+                const result = await nodeStateManager.initialize(null, 'config/node-state-machine.json');
+                addLog(`Initialize returned: ${result}`, 'info');
+                addLog(`Post-init config state: ${nodeStateManager.config ? 'Available' : 'NULL'}`, 'info');
+                
+                if (nodeStateManager.config) {
+                    addLog('✅ NodeStateManager initialization completed', 'success');
+                    addLog(`Config has stateMachine: ${!!nodeStateManager.config.stateMachine}`, 'info');
+                    addLog(`Config has eventMapping: ${!!nodeStateManager.config.eventMapping}`, 'info');
+                } else {
+                    addLog('❌ Config is still null after initialization', 'error');
+                }
+                
+                // Test node registration
+                const mockElement = document.createElement('div');
+                const testNodeId = 'test-node-1';
+                
+                addLog(`Testing node registration for ${testNodeId}...`, 'info');
+                const nodeResult = await nodeStateManager.registerNode(testNodeId, mockElement);
+                
+                if (nodeResult) {
+                    addLog('✅ Node registration successful', 'success');
+                    addLog(`Node state manager created: ${nodeResult.constructor.name}`, 'info');
+                    addLog(`Current state: ${nodeResult.getCurrentState()}`, 'info');
+                } else {
+                    addLog('❌ Node registration failed', 'error');
+                }
+                
+            } catch (error) {
+                addLog(`❌ Test failed: ${error.message}`, 'error');
+                addLog(`Error stack: ${error.stack}`, 'error');
+            }
+        };
+        
+        window.testConfigLoad = async function() {
+            addLog('=== Testing Config Load ===', 'info');
+            
+            try {
+                const response = await fetch('config/node-state-machine.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const config = await response.json();
+                
+                addLog('✅ Config loaded successfully', 'success');
+                addLog(`Config has stateMachine: ${!!config.stateMachine}`, 'info');
+                addLog(`Config has eventMapping: ${!!config.eventMapping}`, 'info');
+                
+                if (config.stateMachine) {
+                    addLog(`StateMachine initial state: ${config.stateMachine.initialState}`, 'info');
+                    addLog(`StateMachine states count: ${Object.keys(config.stateMachine.states).length}`, 'info');
+                }
+                
+                if (config.eventMapping) {
+                    addLog(`EventMapping rules count: ${config.eventMapping.rules.length}`, 'info');
+                }
+                
+            } catch (error) {
+                addLog(`❌ Config load failed: ${error.message}`, 'error');
+            }
+        };
+        
+        window.clearLog = function() {
+            log.innerHTML = 'Log cleared.';
+            status.className = 'status waiting';
+            status.textContent = 'Ready for next test...';
+        };
+        
+        addLog('Test page loaded. Click buttons to run tests.', 'info');
+    </script>
+</body>
+</html>

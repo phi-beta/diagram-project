@@ -1,22 +1,26 @@
-// Version 062 - Updated for improved edge click detection
+// Version 078 - Updated resetAllStates to use LayerManager, added LayerManager to DiagramStateManager
 /**
  * Interaction Manager - Handles user interactions with the diagram
  */
 import { debugInteraction, debugEdgeCreation, debugKeyboard, debugMouse } from './debug.js';
-import { nodeStateManager } from './NodeStateManager.js?v=019';
-import { diagramStateManager } from './DiagramStateManager.js?v=001';
-import { ContextMenu } from './ContextMenu.js?v=003';
+import { nodeStateManager } from './NodeStateManager.js?v=021';
+import { diagramStateManager } from './DiagramStateManager.js?v=010';
+import { ContextMenu } from './ContextMenu.js?v=008';
 
 export class InteractionManager {
-  constructor(svg, viewBoxManager, dragManager) {
+  constructor(svg, viewBoxManager, dragManager, nodeMap, layerManager = null) {
     debugInteraction('🚀 InteractionManager constructor called');
     debugInteraction('  svg:', svg);
     debugInteraction('  viewBoxManager:', viewBoxManager);
     debugInteraction('  dragManager:', dragManager);
+    debugInteraction('  nodeMap:', nodeMap);
+    debugInteraction('  layerManager:', layerManager);
     
     this.svg = svg;
     this.viewBoxManager = viewBoxManager;
     this.dragManager = dragManager;
+    this.layerManager = layerManager;
+    this.nodeMap = nodeMap;
     this.coordinateSystem = viewBoxManager.coordinateSystem;
     
     // State management
@@ -61,7 +65,8 @@ export class InteractionManager {
         nodeStateManager: nodeStateManager,
         dragManager: this.dragManager,
         viewBoxManager: this.viewBoxManager,
-        svg: this.svg
+        svg: this.svg,
+        layerManager: this.layerManager
       });
       
       if (initialized) {
@@ -103,6 +108,16 @@ export class InteractionManager {
     this.svg.addEventListener('mousedown', (e) => this.handleMouseDown(e));
     this.svg.addEventListener('contextmenu', (e) => this.handleContextMenu(e));
     document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+    
+    // Add comprehensive context menu prevention
+    document.addEventListener('contextmenu', (e) => {
+      // Always prevent context menu when the SVG context menu is visible
+      if (this.contextMenu && this.contextMenu.isVisible) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+      }
+    });
     
     debugInteraction('✅ Mouse event listeners attached');
     
@@ -167,18 +182,11 @@ export class InteractionManager {
       this.ctrlDown = true;
     }
     if (e.key === 'Escape') {
-      debugEdgeCreation('Escape pressed - canceling edge creation');
+      console.log('🚨 ESC KEY PRESSED - Resetting all states to default');
+      debugEdgeCreation('Escape pressed - resetting all states');
       
-      // Try to use DiagramStateManager first
-      if (diagramStateManager.getCurrentState() !== 'unknown') {
-        const handled = diagramStateManager.handleEscapeKey();
-        if (handled) {
-          return;
-        }
-      }
-      
-      // Fall back to legacy cancellation
-      this.cancelEdgeCreation();
+      // Reset all interaction states
+      this.resetAllStates();
     }
     
     // Note: Ctrl+D for duplication is handled by the main renderer
@@ -223,6 +231,13 @@ export class InteractionManager {
     
     // If we didn't click on a node, this is a background click - deselect all
     if (!clickedNode) {
+      // Check if any node is currently being dragged - if so, ignore the background click
+      // This prevents drag completion from triggering background clicks
+      if (this.dragManager.isAnyNodeDragging()) {
+        console.log('🖱️ Background click ignored - node is being dragged');
+        return;
+      }
+      
       console.log('🖱️ Background click detected - deselecting all nodes');
       this.deselectAllNodes();
       
@@ -300,6 +315,11 @@ export class InteractionManager {
       this.updateTemporaryEdge();
     }
     
+    // Update DiagramStateManager temporary edge if in edge creation mode
+    if (diagramStateManager.isInEdgeCreationMode()) {
+      diagramStateManager.updateTemporaryEdge(e.clientX, e.clientY);
+    }
+    
     // Handle panning
     this.viewBoxManager.updatePanning(e.clientX, e.clientY);
   }
@@ -338,6 +358,8 @@ export class InteractionManager {
    */
   handleContextMenu(e) {
     e.preventDefault(); // Prevent default browser context menu
+    e.stopPropagation(); // Stop event bubbling
+    e.stopImmediatePropagation(); // Stop any other listeners
     
     // Get mouse position relative to SVG
     const rect = this.svg.getBoundingClientRect();
@@ -400,6 +422,9 @@ export class InteractionManager {
     this.contextMenu.show(svgX, svgY, context, contextTarget);
     
     debugInteraction(`Context menu shown at (${svgX}, ${svgY}) for context: ${context}`);
+    
+    // Return false to further prevent default behavior
+    return false;
   }
   
   /**
@@ -541,8 +566,14 @@ export class InteractionManager {
     this.temporaryEdge.setAttribute('stroke-dasharray', '5,5');
     this.temporaryEdge.setAttribute('fill', 'none');
     this.temporaryEdge.setAttribute('pointer-events', 'none');
+    this.temporaryEdge.setAttribute('marker-end', 'url(#arrowhead)'); // Add arrowhead
     
-    this.svg.appendChild(this.temporaryEdge);
+    // Add to temp layer if LayerManager is available, otherwise fallback to SVG root
+    if (this.layerManager) {
+      this.layerManager.addToLayer('temp', this.temporaryEdge);
+    } else {
+      this.svg.appendChild(this.temporaryEdge);
+    }
     
     console.log('🎯 TEMPORARY EDGE CREATED:', this.temporaryEdge);
     
@@ -599,10 +630,29 @@ export class InteractionManager {
     
     // Get the start node's center and radius - handle both Node and NodeRenderer
     let startCenter;
-    if (typeof this.edgeStartNode.getGlobalCenter === 'function') {
-      startCenter = this.edgeStartNode.getGlobalCenter();
-    } else if (typeof this.edgeStartNode.getTransformedCenter === 'function') {
-      startCenter = this.edgeStartNode.getTransformedCenter();
+    let actualStartNode = this.edgeStartNode;
+    
+    // If edgeStartNode is a DOM element, convert it to a Node instance
+    if (this.edgeStartNode && this.edgeStartNode.nodeType === Node.ELEMENT_NODE) {
+      const nodeId = this.edgeStartNode.getAttribute('data-node-id');
+      if (nodeId && this.nodeMap) {
+        actualStartNode = this.nodeMap.get(nodeId);
+        if (actualStartNode) {
+          console.log(`🔄 Converted DOM element to Node instance for ${nodeId}`);
+        } else {
+          console.error(`❌ Could not find Node instance for DOM element ${nodeId}`);
+          return;
+        }
+      } else {
+        console.error('❌ DOM element does not have data-node-id attribute:', this.edgeStartNode);
+        return;
+      }
+    }
+    
+    if (typeof actualStartNode.getGlobalCenter === 'function') {
+      startCenter = actualStartNode.getGlobalCenter();
+    } else if (typeof actualStartNode.getTransformedCenter === 'function') {
+      startCenter = actualStartNode.getTransformedCenter();
     } else {
       console.error('edgeStartNode does not have getGlobalCenter or getTransformedCenter method:', this.edgeStartNode);
       return;
@@ -925,5 +975,103 @@ export class InteractionManager {
   duplicateSelectedNode() {
     // This should be handled by the external duplication function
     // The keyboard event handler will call duplicateSelectedNode directly from renderer
+  }
+
+  /**
+   * Reset all interaction states to default (triggered by ESC key)
+   */
+  resetAllStates() {
+    console.log('🔄 RESET ALL STATES: Resetting all interaction states to default');
+    
+    // 1. Cancel any ongoing edge creation
+    if (this.isCreatingEdge) {
+      console.log('🚫 Canceling edge creation');
+      this.cancelEdgeCreation();
+    }
+    
+    // 2. Stop all drag operations
+    if (this.dragManager && this.dragManager.isAnyNodeDragging()) {
+      console.log('🛑 Stopping all drag operations');
+      this.dragManager.clearAllDragStates();
+    }
+    
+    // 3. Reset keyboard modifier states
+    this.shiftDown = false;
+    this.ctrlDown = false;
+    console.log('⌨️ Reset keyboard modifier states');
+    
+    // 4. Reset cursor to default
+    if (this.svg) {
+      this.svg.style.cursor = 'default';
+      console.log('🖱️ Reset cursor to default');
+    }
+    
+    // 5. Clear any edge completion flags
+    this.justCompletedEdge = false;
+    this.lastEdgeTargetNode = null;
+    
+    // 6. Clear any cooldown states
+    if (this._edgeCancelCooldown) {
+      clearTimeout(this._edgeCancelCooldown);
+      this._edgeCancelCooldown = null;
+      console.log('⏰ Cleared edge cancellation cooldown');
+    }
+    
+    // 7. Try to reset all node states via NodeStateManager
+    if (nodeStateManager) {
+      try {
+        // Reset all nodes to idle state
+        this.nodeMap.forEach((node, nodeId) => {
+          const stateMachine = nodeStateManager.getStateMachine(nodeId);
+          if (stateMachine) {
+            const currentState = stateMachine.getCurrentState();
+            if (currentState !== 'idle') {
+              console.log(`🔄 Resetting node ${nodeId} from ${currentState} to idle`);
+              // Try to handle escape key event for each node
+              nodeStateManager.handleNodeEvent(nodeId, 'escapeKey', {});
+            }
+          }
+        });
+      } catch (error) {
+        console.warn('⚠️ Error resetting node states:', error);
+      }
+    }
+    
+    // 8. Try to reset DiagramStateManager
+    if (diagramStateManager && diagramStateManager.getCurrentState() !== 'idle') {
+      try {
+        console.log('🔄 Resetting DiagramStateManager to idle');
+        diagramStateManager.handleEscapeKey();
+      } catch (error) {
+        console.warn('⚠️ Error resetting diagram state:', error);
+      }
+    }
+    
+    // 9. Clear any temporary elements
+    if (this.temporaryEdge) {
+      this.temporaryEdge.remove();
+      this.temporaryEdge = null;
+      console.log('🗑️ Removed temporary edge');
+    }
+    
+    // 10. Clear temp layer and remove any temporary visual elements
+    if (this.layerManager) {
+      const tempLayerCleared = this.layerManager.clearLayer('temp');
+      if (tempLayerCleared) {
+        console.log('🗑️ Cleared temp layer via LayerManager');
+      }
+    }
+    
+    // Fallback: Remove any remaining temporary visual elements
+    const tempElements = this.svg.querySelectorAll('.temporary-edge, .temporary-element');
+    tempElements.forEach(element => element.remove());
+    if (tempElements.length > 0) {
+      console.log(`🗑️ Removed ${tempElements.length} additional temporary elements`);
+    }
+    
+    // 11. Deselect all nodes (keeping this last to avoid interfering with state resets)
+    this.deselectAllNodes();
+    
+    console.log('✅ All states reset to default');
   }
 }

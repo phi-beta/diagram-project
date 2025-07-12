@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Edge Creation Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .pass { background-color: #d4edda; color: #155724; }
+        .fail { background-color: #f8d7da; color: #721c24; }
+        .test-button {
+            padding: 10px 20px;
+            margin: 5px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .test-button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Edge Creation Fix Test</h1>
+        <p>This test verifies that the EventMapper now properly handles compound conditions with logical operators.</p>
+        
+        <div>
+            <button class="test-button" onclick="testLogicalConditions()">Test Logical Conditions</button>
+            <button class="test-button" onclick="testEdgeCreationConditions()">Test Edge Creation Conditions</button>
+        </div>
+        
+        <div id="test-results"></div>
+        
+        <hr>
+        
+        <h2>🎯 Manual Test Instructions</h2>
+        <ol>
+            <li>Go to <a href="/" target="_blank">main diagram</a></li>
+            <li>Click on the server node to select it</li>
+            <li>Hold Shift and move the mouse away from the node</li>
+            <li>You should see edge creation mode activate (crosshair cursor, temporary edge)</li>
+            <li>Click on the user node to complete the edge</li>
+        </ol>
+        
+        <div id="manual-test-log" style="background: #f8f9fa; padding: 10px; margin-top: 10px; border-radius: 4px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px;">
+            <strong>Console Log:</strong><br>
+            <div id="log-content"></div>
+        </div>
+    </div>
+    
+    <script type="module">
+        // Import the EventMapper to test it
+        import { EventMapper } from './js/EventMapper.js';
+        
+        window.testLogicalConditions = function() {
+            const results = document.getElementById('test-results');
+            results.innerHTML = '';
+            
+            // Test data
+            const testData = {
+                shiftKeyDown: true,
+                mouseMovedAwayFromNode: true,
+                clickedDifferentNode: false,
+                validTarget: true
+            };
+            
+            // Test config
+            const config = {
+                eventMapping: {
+                    rules: [
+                        {
+                            event: 'nodeSelectedForEdge',
+                            conditions: [
+                                {
+                                    state: 'idle',
+                                    condition: 'shiftKeyDown && mouseMovedAwayFromNode',
+                                    action: 'startEdgeCreation'
+                                },
+                                {
+                                    state: 'idle',
+                                    condition: 'shiftKeyDown && clickedDifferentNode',
+                                    action: 'startEdgeCreation'
+                                }
+                            ]
+                        }
+                    ]
+                }
+            };
+            
+            const mapper = new EventMapper(config, 'TEST');
+            
+            // Test 1: shiftKeyDown && mouseMovedAwayFromNode (should pass)
+            const test1 = mapper.mapEvent('nodeSelectedForEdge', 'idle', testData);
+            results.innerHTML += `<div class="test-result ${test1 === 'startEdgeCreation' ? 'pass' : 'fail'}">
+                Test 1: shiftKeyDown && mouseMovedAwayFromNode = ${test1 === 'startEdgeCreation' ? 'PASS' : 'FAIL'} (${test1})
+            </div>`;
+            
+            // Test 2: shiftKeyDown && clickedDifferentNode (should fail)
+            const test2Data = { ...testData, mouseMovedAwayFromNode: false, clickedDifferentNode: true };
+            const test2 = mapper.mapEvent('nodeSelectedForEdge', 'idle', test2Data);
+            results.innerHTML += `<div class="test-result ${test2 === 'startEdgeCreation' ? 'pass' : 'fail'}">
+                Test 2: shiftKeyDown && clickedDifferentNode = ${test2 === 'startEdgeCreation' ? 'PASS' : 'FAIL'} (${test2})
+            </div>`;
+            
+            // Test 3: Missing shiftKeyDown (should fail)
+            const test3Data = { ...testData, shiftKeyDown: false };
+            const test3 = mapper.mapEvent('nodeSelectedForEdge', 'idle', test3Data);
+            results.innerHTML += `<div class="test-result ${test3 === null ? 'pass' : 'fail'}">
+                Test 3: Missing shiftKeyDown = ${test3 === null ? 'PASS' : 'FAIL'} (${test3})
+            </div>`;
+        };
+        
+        window.testEdgeCreationConditions = function() {
+            const results = document.getElementById('test-results');
+            results.innerHTML = '';
+            
+            // Test exactly what the DiagramStateManager sends
+            const eventData = {
+                sourceNode: { id: 'server1' },
+                reason: 'mouseMoved',
+                shiftKeyDown: true,
+                mouseMovedAwayFromNode: true
+            };
+            
+            const config = {
+                eventMapping: {
+                    rules: [
+                        {
+                            event: 'nodeSelectedForEdge',
+                            conditions: [
+                                {
+                                    state: 'idle',
+                                    condition: 'shiftKeyDown && mouseMovedAwayFromNode',
+                                    action: 'startEdgeCreation'
+                                }
+                            ]
+                        }
+                    ]
+                }
+            };
+            
+            const mapper = new EventMapper(config, 'EDGE_TEST');
+            const result = mapper.mapEvent('nodeSelectedForEdge', 'idle', eventData);
+            
+            results.innerHTML += `<div class="test-result ${result === 'startEdgeCreation' ? 'pass' : 'fail'}">
+                Edge Creation Test: ${result === 'startEdgeCreation' ? 'PASS' : 'FAIL'} (${result})
+                <br>Event Data: ${JSON.stringify(eventData, null, 2)}
+            </div>`;
+        };
+        
+        // Capture console logs for debugging
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const logContent = document.getElementById('log-content');
+            if (logContent) {
+                logContent.innerHTML += args.join(' ') + '<br>';
+                logContent.scrollTop = logContent.scrollHeight;
+            }
+        };
+    </script>
+</body>
+</html>

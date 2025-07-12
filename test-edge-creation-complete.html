@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Creation Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .status { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        .warning { background-color: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <h1>🎯 Edge Creation Functionality Test</h1>
+    
+    <div class="status info">
+        <strong>Test Instructions:</strong>
+        <ol>
+            <li>Go to the <a href="/" target="_blank">main diagram</a></li>
+            <li>Click on the server node to select it (should show selection highlight)</li>
+            <li>Hold down the Shift key</li>
+            <li>Move the mouse away from the selected node</li>
+            <li>You should see:
+                <ul>
+                    <li>✅ Cursor changes to crosshair</li>
+                    <li>✅ Temporary dashed blue edge follows the mouse</li>
+                    <li>✅ Other nodes show highlighting when hovered</li>
+                </ul>
+            </li>
+            <li>Click on the user node to complete the edge</li>
+            <li>A permanent edge should be created between the nodes</li>
+        </ol>
+    </div>
+    
+    <div class="status success">
+        <strong>✅ Edge Creation Fix Applied:</strong>
+        <ul>
+            <li>EventMapper now supports logical operators (&&, ||)</li>
+            <li>DiagramStateManager custom actions registered with ActionExecutor</li>
+            <li>Temporary edge creation and visual feedback implemented</li>
+            <li>Edge target highlighting enabled</li>
+            <li>Proper Node object to DOM element conversion</li>
+        </ul>
+    </div>
+    
+    <div class="status warning">
+        <strong>⚠️ Troubleshooting:</strong>
+        <ul>
+            <li>If edge creation doesn't start, check browser console for errors</li>
+            <li>Make sure to hold Shift AFTER selecting a node</li>
+            <li>The mouse must move away from the selected node to trigger edge creation</li>
+            <li>Release Shift key to cancel edge creation</li>
+        </ul>
+    </div>
+
+    <script>
+        // Enable debug mode for edge creation testing
+        window.DEBUG_MODE = true;
+        window.DEBUG_CONFIG = {
+            INTERACTION: true,
+            EDGE_CREATION: true,
+            NODE_EVENTS: true,
+            DRAG_MANAGER: true,
+            RENDERER: true,
+            KEYBOARD: true,
+            MOUSE: true
+        };
+        
+        // Capture and display console messages
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            
+            // Show ALL console logs for debugging
+            const message = args.join(' ');
+            const logDiv = document.createElement('div');
+            logDiv.style.fontSize = '11px';
+            logDiv.style.fontFamily = 'monospace';
+            logDiv.style.background = message.includes('❌') ? '#ffe6e6' : 
+                                    message.includes('✅') ? '#e6ffe6' : 
+                                    message.includes('🔧') ? '#e6f3ff' : '#f8f9fa';
+            logDiv.style.padding = '2px 5px';
+            logDiv.style.margin = '1px 0';
+            logDiv.style.borderLeft = '3px solid ' + 
+                                    (message.includes('❌') ? '#ff0000' : 
+                                     message.includes('✅') ? '#00aa00' : 
+                                     message.includes('🔧') ? '#007bff' : '#666');
+            logDiv.textContent = message;
+            document.body.appendChild(logDiv);
+            
+            // Auto-scroll to bottom
+            window.scrollTo(0, document.body.scrollHeight);
+        };
+    </script>
+</body>
+</html>

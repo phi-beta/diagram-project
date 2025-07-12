@@ -1,12 +1,14 @@
-// Version 082 - Updated for improved edge click detection
-import { Node } from './Node.js?v=062';
+// Version 110 - Added LayerManager to DiagramStateManager initialization
+import { Node } from './Node.js?v=065';
 import { Edge } from './Edge.js?v=011';
 import { ViewBoxManager } from './ViewBoxManager.js?v=002';
 import { DragManager } from './DragManager.js?v=051';
-import { InteractionManager } from './InteractionManager.js?v=062';
+import { InteractionManager } from './InteractionManager.js?v=077';
+import { LayerManager } from './LayerManager.js?v=001';
 import { generateGuid, clearGuidRegistry, initializeFromExisting } from './GuidManager.js';
-import { nodeStateManager } from './NodeStateManager.js?v=020';
-import { ContextMenu } from './ContextMenu.js?v=003';
+import { nodeStateManager } from './NodeStateManager.js?v=025';
+import { ContextMenu } from './ContextMenu.js?v=008';
+import { DiagramStateManager, diagramStateManager } from './DiagramStateManager.js?v=010';
 
 // Global variables for diagram state
 let nodeMap = new Map();
@@ -17,7 +19,10 @@ let layout = null;
 // Managers
 let viewBoxManager = null;
 let dragManager = null;
+let layerManager = null;
 let interactionManager = null;
+// Use singleton instance instead of creating new one
+// let diagramStateManager = null;
 
 function selectNode(node) {
   interactionManager.selectNode(node);
@@ -38,11 +43,25 @@ async function duplicateSelectedNode() {
     // Check if selectedNode is a Node instance or find it in nodeMap
     let nodeToClone = selectedNode;
     
-    // If selectedNode is not a Node instance (e.g., NodeRenderer), find the corresponding Node
+    // If selectedNode is not a Node instance (e.g., SVG element), find the corresponding Node
     if (!selectedNode.clone) {
       console.log('Selected node does not have clone method, searching in nodeMap');
-      // Try to find the node in nodeMap by ID
-      const nodeId = selectedNode.id || selectedNode.nodeData?.id;
+      
+      // Try to get the node ID from different possible sources
+      let nodeId = selectedNode.id || selectedNode.nodeData?.id;
+      
+      // If it's an SVG element, get the ID from the data-node-id attribute
+      if (!nodeId && selectedNode.getAttribute) {
+        nodeId = selectedNode.getAttribute('data-node-id');
+        console.log('Got node ID from data-node-id attribute:', nodeId);
+      }
+      
+      // If it's a Node instance with nodeData
+      if (!nodeId && selectedNode.nodeData) {
+        nodeId = selectedNode.nodeData.id;
+        console.log('Got node ID from nodeData:', nodeId);
+      }
+      
       console.log('Looking for node ID:', nodeId);
       
       if (nodeId && nodeMap.has(nodeId)) {
@@ -51,12 +70,18 @@ async function duplicateSelectedNode() {
       } else {
         console.error('Could not find node to clone in nodeMap');
         console.log('Available nodes in nodeMap:', Array.from(nodeMap.keys()));
+        console.log('Selected node details:', {
+          type: selectedNode.constructor.name,
+          id: selectedNode.id,
+          dataNodeId: selectedNode.getAttribute ? selectedNode.getAttribute('data-node-id') : 'N/A',
+          nodeData: selectedNode.nodeData
+        });
         return;
       }
     }
     
     // Use the node's clone method to create a duplicate
-    const clonedNode = await nodeToClone.clone(svg);
+    const clonedNode = await nodeToClone.clone(svg, viewBoxManager.coordinateSystem, dragManager);
     
     // Add to node map
     nodeMap.set(clonedNode.id, clonedNode);
@@ -115,7 +140,8 @@ function completeEdgeCreation(fromNode, toNode) {
   // Set both the specific type class AND the general 'edge' class
   edgeElement.setAttribute('class', `edge ${edgeData.class}`);
   
-  svg.appendChild(edgeElement);
+  // Add to edges layer instead of directly to SVG
+  layerManager.addToLayer('edges', edgeElement);
   
   const edge = new Edge(edgeData, edgeElement);
   edgeList.push(edge);
@@ -157,14 +183,42 @@ async function loadLayout() {
   // Initialize managers
   viewBoxManager = new ViewBoxManager(svg);
   dragManager = new DragManager(viewBoxManager);
-  interactionManager = new InteractionManager(svg, viewBoxManager, dragManager);
+  layerManager = new LayerManager(svg);
+  interactionManager = new InteractionManager(svg, viewBoxManager, dragManager, nodeMap, layerManager);
   
   // Initialize NodeStateManager
+  console.log('🔧 About to initialize NodeStateManager...');
   try {
-    await nodeStateManager.initialize(interactionManager, '/config/node-state-machine.json');
+    console.log('🔧 Calling nodeStateManager.initialize()...');
+    await nodeStateManager.initialize(interactionManager, 'config/node-state-machine.json');
+    console.log('✅ NodeStateManager initialized successfully');
+    console.log('🔧 NodeStateManager config check:', nodeStateManager.config ? 'Config loaded' : 'Config is null');
   } catch (error) {
+    console.error('❌ NodeStateManager initialization failed:', error);
     console.warn('⚠️ NodeStateManager initialization failed, falling back to legacy behavior:', error);
   }
+  console.log('🔧 NodeStateManager initialization complete, proceeding...');
+  
+  // Initialize DiagramStateManager (singleton)
+  console.log('🔧 About to initialize DiagramStateManager (singleton)...');
+  try {
+    const diagramComponents = {
+      interactionManager,
+      nodeStateManager,
+      dragManager,
+      viewBoxManager,
+      svg,
+      nodeMap,
+      layerManager
+    };
+    console.log('🔧 Calling diagramStateManager.initialize()...');
+    await diagramStateManager.initialize(diagramComponents);
+    console.log('✅ DiagramStateManager initialized successfully');
+  } catch (error) {
+    console.error('❌ DiagramStateManager initialization failed:', error);
+    console.warn('⚠️ DiagramStateManager initialization failed, falling back to legacy behavior:', error);
+  }
+  console.log('🔧 DiagramStateManager initialization complete, proceeding...');
   
   // Set up callbacks
   interactionManager.setCallbacks(
@@ -279,10 +333,13 @@ async function createNode(nodeData) {
   const svgNode = parser.parseFromString(svgText, 'image/svg+xml').documentElement;
 
   g.appendChild(svgNode);
-  svg.appendChild(g);
+  // Add to nodes layer instead of directly to SVG
+  layerManager.addToLayer('nodes', g);
 
   const node = new Node(nodeData, g);
   console.log(`Node created with original ID: ${nodeData.id}, final ID: ${node.id}`);
+  console.log(`🔧 About to initialize state machine for node ${node.id}...`);
+  console.log(`🔧 NodeStateManager config status:`, nodeStateManager.config ? 'Available' : 'NULL');
   
   // Add data attribute for easier testing and debugging
   g.setAttribute('data-node-id', node.id);
@@ -578,7 +635,7 @@ export const renderer = {
     dragManager = new DragManager();
     interactionManager = new InteractionManager();
     
-    await nodeStateManager.initialize(interactionManager);
+    await nodeStateManager.initialize(interactionManager, 'config/node-state-machine.json');
     
     console.log('Renderer initialized for testing');
   },

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Creation Class Test</title>
+    <link rel="stylesheet" href="themes/default.css?v=006">
+    <style>
+        .test-container { padding: 20px; }
+        .test-node { 
+            width: 60px; 
+            height: 60px; 
+            background: #e3f2fd; 
+            border: 2px solid #1976d2; 
+            border-radius: 50%; 
+            margin: 10px; 
+            display: inline-block; 
+            cursor: pointer;
+            text-align: center;
+            line-height: 56px;
+            font-weight: bold;
+        }
+        .class-info { 
+            margin: 20px 0; 
+            padding: 10px; 
+            background: #f5f5f5; 
+            border-radius: 5px; 
+            font-family: monospace;
+        }
+        .btn { 
+            padding: 8px 16px; 
+            margin: 5px; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 14px;
+        }
+        .btn-selected { background: #007acc; color: white; }
+        .btn-edge-source { background: #ff6b6b; color: white; }
+        .btn-both { background: #9c27b0; color: white; }
+        .btn-clear { background: #6c757d; color: white; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Edge Creation Class Test</h1>
+        
+        <div class="test-node" id="testNode">A</div>
+        
+        <div class="class-info">
+            <strong>Current classes:</strong> <span id="classDisplay">none</span>
+        </div>
+        
+        <div>
+            <button class="btn btn-selected" onclick="setClass('selected')">Set Selected (Blue)</button>
+            <button class="btn btn-edge-source" onclick="setClass('edge-source')">Set Edge Source (Orange)</button>
+            <button class="btn btn-both" onclick="setClass('selected edge-source')">Set Both (Test Conflict)</button>
+            <button class="btn btn-clear" onclick="setClass('')">Clear All</button>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <h3>Expected Behavior:</h3>
+            <ul>
+                <li><strong>Selected:</strong> Blue outline (#007acc)</li>
+                <li><strong>Edge Source:</strong> Orange outline (#ff6b6b)</li>
+                <li><strong>Both:</strong> Should show orange (edge-source takes priority)</li>
+            </ul>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <h3>State Machine Flow:</h3>
+            <ol>
+                <li><strong>selected</strong> → <strong>edgeSource</strong>: Remove blue, add orange</li>
+                <li><strong>edgeSource</strong> → <strong>selected</strong>: Remove orange, add blue</li>
+            </ol>
+        </div>
+    </div>
+    
+    <script>
+        const node = document.getElementById('testNode');
+        const classDisplay = document.getElementById('classDisplay');
+        
+        function setClass(className) {
+            node.className = 'test-node ' + className;
+            updateDisplay();
+        }
+        
+        function updateDisplay() {
+            const classes = Array.from(node.classList).filter(c => c !== 'test-node');
+            classDisplay.textContent = classes.length > 0 ? classes.join(' ') : 'none';
+        }
+        
+        // Initial display
+        updateDisplay();
+        
+        // Monitor class changes
+        const observer = new MutationObserver(updateDisplay);
+        observer.observe(node, { attributes: true, attributeFilter: ['class'] });
+    </script>
+</body>
+</html>

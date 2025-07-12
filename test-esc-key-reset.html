@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test ESC Key Reset</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .instructions {
+            background-color: #e8f4f8;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
+        }
+        .test-step {
+            margin: 10px 0;
+            padding: 8px 12px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border-left: 3px solid #28a745;
+        }
+        .expected-result {
+            background-color: #fff3cd;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 3px solid #ffc107;
+            margin: 10px 0;
+        }
+        .escape-key {
+            background-color: #dc3545;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        svg {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fafafa;
+            display: block;
+            margin: 20px auto;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0 10px;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .status {
+            text-align: center;
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .state-display {
+            text-align: center;
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        .state-item {
+            margin: 5px 0;
+            padding: 5px;
+            background-color: white;
+            border-radius: 3px;
+            border: 1px solid #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 ESC Key Reset Test</h1>
+        
+        <div class="instructions">
+            <h3>🎯 Test Objective:</h3>
+            <p>This test verifies that pressing the <span class="escape-key">ESC</span> key resets all interaction states to their default values, providing a reliable way to get out of any problematic state.</p>
+        </div>
+
+        <div class="test-step">
+            <strong>Scenario 1 - Edge Creation Reset:</strong>
+            <ol>
+                <li>Select a node (click on it)</li>
+                <li>Hold Shift to start edge creation</li>
+                <li>Press <span class="escape-key">ESC</span></li>
+                <li>Verify: Edge creation is cancelled, cursor returns to default, no node selected</li>
+            </ol>
+        </div>
+
+        <div class="test-step">
+            <strong>Scenario 2 - Drag Reset:</strong>
+            <ol>
+                <li>Start dragging a node (don't release)</li>
+                <li>Press <span class="escape-key">ESC</span></li>
+                <li>Verify: Drag operation stops, node returns to original position, cursor resets</li>
+            </ol>
+        </div>
+
+        <div class="test-step">
+            <strong>Scenario 3 - Multiple State Reset:</strong>
+            <ol>
+                <li>Select a node</li>
+                <li>Start edge creation (Shift)</li>
+                <li>Move mouse around</li>
+                <li>Press <span class="escape-key">ESC</span></li>
+                <li>Verify: All states reset, no edge creation, no selection</li>
+            </ol>
+        </div>
+
+        <div class="expected-result">
+            <strong>Expected Result:</strong> In all scenarios, pressing <span class="escape-key">ESC</span> should completely reset the diagram to its default state, clearing all selections, cancelling all operations, and resetting all visual indicators.
+        </div>
+
+        <div class="state-display">
+            <h4>🔍 Current State Monitor:</h4>
+            <div class="state-item">Selected Node: <span id="selectedNode">None</span></div>
+            <div class="state-item">Edge Creation: <span id="edgeCreation">No</span></div>
+            <div class="state-item">Dragging: <span id="dragging">No</span></div>
+            <div class="state-item">Shift Key: <span id="shiftKey">No</span></div>
+            <div class="state-item">Cursor: <span id="cursor">Default</span></div>
+        </div>
+
+        <div class="controls">
+            <button onclick="simulateEdgeCreation()">🎯 Start Edge Creation</button>
+            <button onclick="simulateDrag()">🖱️ Start Drag</button>
+            <button onclick="resetAll()">🔄 Manual Reset</button>
+            <button onclick="clearAll()">🗑️ Clear All</button>
+        </div>
+
+        <div id="status" class="status info">
+            Ready to test ESC key reset functionality
+        </div>
+
+        <svg id="diagram" width="800" height="600" viewBox="0 0 800 600">
+            <!-- Background -->
+            <rect width="100%" height="100%" fill="#f8f9fa"/>
+            
+            <!-- Grid pattern -->
+            <defs>
+                <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                    <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e0e0e0" stroke-width="1"/>
+                </pattern>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+                </marker>
+            </defs>
+            
+            <!-- Grid background -->
+            <rect width="100%" height="100%" fill="url(#grid)"/>
+        </svg>
+    </div>
+
+    <script type="module">
+        import { Node } from './js/Node.js?v=065';
+        import { ViewBoxManager } from './js/ViewBoxManager.js?v=002';
+        import { DragManager } from './js/DragManager.js?v=051';
+        import { InteractionManager } from './js/InteractionManager.js?v=077';
+        import { nodeStateManager } from './js/NodeStateManager.js?v=025';
+        import { diagramStateManager } from './js/DiagramStateManager.js?v=009';
+
+        // Test variables
+        let svg, nodeMap, viewBoxManager, dragManager, interactionManager;
+        let testNodes = [];
+
+        // Initialize test environment
+        async function initializeTest() {
+            svg = document.getElementById('diagram');
+            nodeMap = new Map();
+            
+            // Initialize managers
+            viewBoxManager = new ViewBoxManager(svg);
+            dragManager = new DragManager();
+            interactionManager = new InteractionManager(svg, viewBoxManager, dragManager, nodeMap);
+            
+            // Initialize state managers
+            await nodeStateManager.initialize();
+            await diagramStateManager.initialize({
+                interactionManager: interactionManager,
+                nodeStateManager: nodeStateManager,
+                dragManager: dragManager,
+                viewBoxManager: viewBoxManager,
+                svg: svg
+            });
+            
+            // Set up interaction manager callbacks
+            interactionManager.setCallbacks(
+                (node) => {
+                    console.log('Node selected:', node?.id);
+                    updateStateDisplay();
+                },
+                (from, to) => {
+                    console.log('Edge created:', from?.id, '->', to?.id);
+                    updateStateDisplay();
+                },
+                () => {
+                    console.log('Redraw requested');
+                    updateStateDisplay();
+                }
+            );
+            
+            // Set up state monitoring
+            setInterval(updateStateDisplay, 100);
+            
+            updateStatus('Test environment initialized', 'info');
+        }
+
+        // Create test nodes
+        async function createTestNodes() {
+            const nodeConfigs = [
+                { id: 'test-node-1', x: 200, y: 200, svg: 'server.svg', label: 'Server 1', class: 'server-node' },
+                { id: 'test-node-2', x: 400, y: 200, svg: 'user.svg', label: 'User 1', class: 'user-node' },
+                { id: 'test-node-3', x: 600, y: 200, svg: 'database.svg', label: 'Database', class: 'database-node' }
+            ];
+
+            for (const config of nodeConfigs) {
+                const node = await createTestNode(config);
+                testNodes.push(node);
+            }
+            
+            updateStatus('Test nodes created', 'success');
+        }
+
+        // Create a test node
+        async function createTestNode(nodeData) {
+            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            g.setAttribute('class', `node ${nodeData.class}`);
+            g.setAttribute('data-node-id', nodeData.id);
+            g.setAttribute('transform', `translate(${nodeData.x}, ${nodeData.y})`);
+            
+            // Create a simple placeholder (since we might not have the SVG files)
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rect.setAttribute('width', '60');
+            rect.setAttribute('height', '60');
+            rect.setAttribute('x', '-30');
+            rect.setAttribute('y', '-30');
+            rect.setAttribute('fill', '#007bff');
+            rect.setAttribute('rx', '5');
+            g.appendChild(rect);
+            
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('y', '5');
+            text.setAttribute('fill', 'white');
+            text.setAttribute('font-size', '10');
+            text.textContent = nodeData.label;
+            g.appendChild(text);
+            
+            svg.appendChild(g);
+            
+            const node = new Node(nodeData, g);
+            nodeMap.set(node.id, node);
+            
+            // Initialize state machine
+            await node.initializeStateMachine();
+            
+            // Make draggable
+            node.makeDraggable(
+                svg,
+                () => interactionManager.shiftDown,
+                (node) => interactionManager.selectNode(node),
+                () => console.log('Schedule redraw'),
+                () => interactionManager.getIsCreatingEdge(),
+                () => interactionManager.cancelEdgeCreation(),
+                (fromNode) => interactionManager.startEdgeCreation(fromNode),
+                (e) => viewBoxManager.screenToViewBox(e.clientX, e.clientY),
+                dragManager,
+                viewBoxManager.coordinateSystem,
+                () => interactionManager.justCompletedEdge
+            );
+            
+            return node;
+        }
+
+        // Update state display
+        function updateStateDisplay() {
+            document.getElementById('selectedNode').textContent = 
+                interactionManager.selectedNode?.id || 'None';
+            document.getElementById('edgeCreation').textContent = 
+                interactionManager.isCreatingEdge ? 'Yes' : 'No';
+            document.getElementById('dragging').textContent = 
+                dragManager.isAnyNodeDragging() ? 'Yes' : 'No';
+            document.getElementById('shiftKey').textContent = 
+                interactionManager.shiftDown ? 'Yes' : 'No';
+            document.getElementById('cursor').textContent = 
+                svg.style.cursor || 'default';
+        }
+
+        // Test functions
+        function simulateEdgeCreation() {
+            if (testNodes.length > 0) {
+                interactionManager.selectNode(testNodes[0]);
+                setTimeout(() => {
+                    interactionManager.shiftDown = true;
+                    interactionManager.startEdgeCreation(testNodes[0]);
+                    updateStatus('Edge creation started - Press ESC to reset', 'info');
+                }, 100);
+            }
+        }
+
+        function simulateDrag() {
+            if (testNodes.length > 0) {
+                interactionManager.selectNode(testNodes[0]);
+                dragManager.startDrag(testNodes[0]);
+                updateStatus('Drag started - Press ESC to reset', 'info');
+            }
+        }
+
+        function resetAll() {
+            interactionManager.resetAllStates();
+            updateStatus('All states manually reset', 'success');
+        }
+
+        function clearAll() {
+            const nodes = svg.querySelectorAll('.node');
+            nodes.forEach(node => node.remove());
+            nodeMap.clear();
+            testNodes = [];
+            updateStatus('All nodes cleared', 'info');
+        }
+
+        // Helper functions
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        // Make functions global for button onclick
+        window.simulateEdgeCreation = simulateEdgeCreation;
+        window.simulateDrag = simulateDrag;
+        window.resetAll = resetAll;
+        window.clearAll = clearAll;
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initializeTest();
+            await createTestNodes();
+            updateStateDisplay();
+        });
+
+        // Add ESC key listener for testing
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                updateStatus('🚨 ESC key pressed - resetting all states', 'success');
+                setTimeout(() => {
+                    updateStatus('All states reset via ESC key', 'success');
+                }, 100);
+            }
+        });
+    </script>
+</body>
+</html>

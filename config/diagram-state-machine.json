@@ -22,11 +22,13 @@
       },
       "edgeCreation": {
         "completeEdge": "idle",
-        "cancelEdgeCreation": "idle"
+        "cancelEdgeCreation": "idle",
+        "resetToIdle": "idle"
       },
       "multiSelection": {
         "finishSelection": "idle",
-        "cancelSelection": "idle"
+        "cancelSelection": "idle",
+        "resetToIdle": "idle"
       }
     }
   },

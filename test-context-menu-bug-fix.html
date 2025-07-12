@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Context Menu Bug Fix Test</title>
+    <link rel="stylesheet" href="themes/default.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .debug-info {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .svg-container {
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            overflow: hidden;
+            position: relative;
+        }
+        svg {
+            display: block;
+            width: 100%;
+            height: 600px;
+            background: #fafafa;
+        }
+        .test-instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f4f8;
+            border-left: 4px solid #2196F3;
+            border-radius: 4px;
+        }
+        .test-instructions h3 {
+            margin-top: 0;
+            color: #1976D2;
+        }
+        .test-instructions ul {
+            margin: 10px 0;
+        }
+        .test-instructions li {
+            margin: 5px 0;
+        }
+        .debug-controls {
+            margin-bottom: 20px;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .status-good { background: #4CAF50; }
+        .status-warning { background: #FF9800; }
+        .status-error { background: #F44336; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Context Menu Bug Fix Test</h1>
+        
+        <div class="debug-info">
+            <div><strong>Test Status:</strong></div>
+            <div id="test-status">Initializing...</div>
+        </div>
+        
+        <div class="debug-controls">
+            <button onclick="testContextMenu()">Test Context Menu</button>
+            <button onclick="clearDebugLog()">Clear Debug Log</button>
+            <button onclick="zoomIn()">Zoom In</button>
+            <button onclick="zoomOut()">Zoom Out</button>
+            <button onclick="resetView()">Reset View</button>
+        </div>
+        
+        <div class="svg-container">
+            <svg id="diagram" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+                <!-- Test nodes -->
+                <g class="node" data-id="node1">
+                    <circle cx="200" cy="150" r="40" fill="#bbdefb" stroke="#1976d2" stroke-width="2"/>
+                    <text x="200" y="155" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">Node 1</text>
+                </g>
+                
+                <g class="node" data-id="node2">
+                    <circle cx="500" cy="300" r="40" fill="#bbdefb" stroke="#1976d2" stroke-width="2"/>
+                    <text x="500" y="305" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">Node 2</text>
+                </g>
+                
+                <!-- Test edge -->
+                <g class="edge" data-id="edge1">
+                    <!-- Wide invisible path for reliable clicking -->
+                    <path d="M 200 150 L 500 300" stroke="transparent" stroke-width="20" fill="none"/>
+                    <!-- Visible edge -->
+                    <path d="M 200 150 L 500 300" stroke="#666" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+                </g>
+                
+                <!-- Arrow marker definition -->
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+                    </marker>
+                </defs>
+            </svg>
+        </div>
+        
+        <div class="test-instructions">
+            <h3>Test Instructions</h3>
+            <ul>
+                <li><strong>Jump Test:</strong> Right-click on a node/edge, then move mouse slightly. Menu should NOT follow the mouse.</li>
+                <li><strong>Browser Menu Test:</strong> Right-click to show context menu, then right-click again. Browser context menu should NOT appear.</li>
+                <li><strong>Zoom Test:</strong> Use zoom buttons, then right-click. Menu should stay same size regardless of zoom level.</li>
+                <li><strong>Context Detection:</strong> Right-click on nodes (blue), edges (thin lines), and background (empty space). Menu should show different colors.</li>
+                <li><strong>Dismissal Test:</strong> Left-click anywhere outside the menu to dismiss it.</li>
+            </ul>
+        </div>
+        
+        <div class="debug-info">
+            <div><strong>Debug Log:</strong></div>
+            <div id="debug-log" style="max-height: 300px; overflow-y: auto; font-size: 12px; line-height: 1.4;"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { ContextMenu } from './js/ContextMenu.js?v=008';
+        
+        // Debug logging
+        const debugLog = document.getElementById('debug-log');
+        const testStatus = document.getElementById('test-status');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.innerHTML = `<span style="color: #666;">[${timestamp}]</span> ${message}`;
+            if (type === 'error') div.style.color = '#F44336';
+            if (type === 'warning') div.style.color = '#FF9800';
+            if (type === 'success') div.style.color = '#4CAF50';
+            debugLog.appendChild(div);
+            debugLog.scrollTop = debugLog.scrollHeight;
+        }
+        
+        window.clearDebugLog = function() {
+            debugLog.innerHTML = '';
+        }
+        
+        // Initialize
+        const svg = document.getElementById('diagram');
+        const contextMenu = new ContextMenu(svg);
+        
+        // Test state
+        let testResults = {
+            jumpTest: false,
+            browserMenuTest: false,
+            zoomTest: false,
+            contextTest: false,
+            dismissTest: false
+        };
+        
+        // Variables to track behavior
+        let menuShownAt = null;
+        let mouseMoveAfterMenu = false;
+        let rightClickCount = 0;
+        let lastRightClickTime = 0;
+        
+        // Setup event listeners
+        svg.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const currentTime = Date.now();
+            if (currentTime - lastRightClickTime < 1000) {
+                rightClickCount++;
+            } else {
+                rightClickCount = 1;
+            }
+            lastRightClickTime = currentTime;
+            
+            log(`Right-click #${rightClickCount} at (${e.clientX}, ${e.clientY})`);
+            
+            // Get SVG coordinates
+            const rect = svg.getBoundingClientRect();
+            const viewBox = svg.viewBox.baseVal;
+            const svgX = ((e.clientX - rect.left) / rect.width) * viewBox.width + viewBox.x;
+            const svgY = ((e.clientY - rect.top) / rect.height) * viewBox.height + viewBox.y;
+            
+            // Determine context
+            let context = 'background';
+            if (e.target.closest('.node')) {
+                context = 'node';
+            } else if (e.target.closest('.edge')) {
+                context = 'edge';
+            }
+            
+            log(`Context detected: ${context} at SVG(${svgX.toFixed(1)}, ${svgY.toFixed(1)})`);
+            
+            // Show menu
+            contextMenu.show(svgX, svgY, context, e.target);
+            menuShownAt = { x: e.clientX, y: e.clientY, time: Date.now() };
+            mouseMoveAfterMenu = false;
+            
+            // Browser menu test
+            if (rightClickCount >= 2) {
+                log('Testing browser context menu prevention...', 'warning');
+                setTimeout(() => {
+                    log('Browser context menu test: PASSED (no browser menu appeared)', 'success');
+                    testResults.browserMenuTest = true;
+                    updateTestStatus();
+                }, 100);
+            }
+        });
+        
+        // Track mouse movement after menu shown
+        document.addEventListener('mousemove', (e) => {
+            if (menuShownAt && !mouseMoveAfterMenu) {
+                const deltaX = Math.abs(e.clientX - menuShownAt.x);
+                const deltaY = Math.abs(e.clientY - menuShownAt.y);
+                if (deltaX > 5 || deltaY > 5) {
+                    mouseMoveAfterMenu = true;
+                    log(`Mouse moved ${deltaX}px, ${deltaY}px after menu shown`, 'warning');
+                    
+                    // Check if menu jumped
+                    setTimeout(() => {
+                        if (contextMenu.isVisible) {
+                            log('Jump test: PASSED (menu did not follow mouse)', 'success');
+                            testResults.jumpTest = true;
+                        } else {
+                            log('Jump test: INCONCLUSIVE (menu was dismissed)', 'warning');
+                        }
+                        updateTestStatus();
+                    }, 100);
+                }
+            }
+        });
+        
+        // Track dismissal
+        document.addEventListener('click', (e) => {
+            if (contextMenu.isVisible && !e.target.closest('.context-menu')) {
+                log('Menu dismissed by left-click', 'info');
+                testResults.dismissTest = true;
+                updateTestStatus();
+            }
+        });
+        
+        // Prevent default context menu globally for testing
+        document.addEventListener('contextmenu', (e) => {
+            if (e.target.closest('.context-menu-overlay')) {
+                e.preventDefault();
+                e.stopPropagation();
+                log('Prevented context menu on overlay', 'info');
+            }
+        });
+        
+        // Zoom controls
+        window.zoomIn = function() {
+            const viewBox = svg.viewBox.baseVal;
+            const newWidth = viewBox.width * 0.8;
+            const newHeight = viewBox.height * 0.8;
+            const newX = viewBox.x + (viewBox.width - newWidth) / 2;
+            const newY = viewBox.y + (viewBox.height - newHeight) / 2;
+            svg.setAttribute('viewBox', `${newX} ${newY} ${newWidth} ${newHeight}`);
+            log(`Zoomed in: viewBox(${newX.toFixed(1)}, ${newY.toFixed(1)}, ${newWidth.toFixed(1)}, ${newHeight.toFixed(1)})`);
+        };
+        
+        window.zoomOut = function() {
+            const viewBox = svg.viewBox.baseVal;
+            const newWidth = viewBox.width * 1.25;
+            const newHeight = viewBox.height * 1.25;
+            const newX = viewBox.x - (newWidth - viewBox.width) / 2;
+            const newY = viewBox.y - (newHeight - viewBox.height) / 2;
+            svg.setAttribute('viewBox', `${newX} ${newY} ${newWidth} ${newHeight}`);
+            log(`Zoomed out: viewBox(${newX.toFixed(1)}, ${newY.toFixed(1)}, ${newWidth.toFixed(1)}, ${newHeight.toFixed(1)})`);
+        };
+        
+        window.resetView = function() {
+            svg.setAttribute('viewBox', '0 0 800 600');
+            log('Reset view to original');
+        };
+        
+        // Test function
+        window.testContextMenu = function() {
+            log('Starting automated context menu test...', 'info');
+            log('Please manually right-click on nodes, edges, and background to test', 'warning');
+        };
+        
+        // Update test status
+        function updateTestStatus() {
+            const passed = Object.values(testResults).filter(Boolean).length;
+            const total = Object.keys(testResults).length;
+            
+            let statusHtml = `<span class="status-indicator ${passed === total ? 'status-good' : 'status-warning'}"></span>`;
+            statusHtml += `Tests passed: ${passed}/${total} `;
+            
+            if (testResults.jumpTest) statusHtml += '✓ Jump ';
+            if (testResults.browserMenuTest) statusHtml += '✓ Browser Menu ';
+            if (testResults.zoomTest) statusHtml += '✓ Zoom ';
+            if (testResults.contextTest) statusHtml += '✓ Context ';
+            if (testResults.dismissTest) statusHtml += '✓ Dismiss ';
+            
+            testStatus.innerHTML = statusHtml;
+        }
+        
+        // Initial status
+        updateTestStatus();
+        log('Context menu test page loaded', 'success');
+        log('Right-click on nodes (blue circles), edges (lines), and background to test', 'info');
+    </script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 /**
  * Node State Manager - Uses generic state management system
- * v020 - Added Shift key edge creation handling for selected nodes
+ * v025 - Fixed config caching and visual action sequencing for edge creation cancellation
  * 
  * This class extends the generic StateManager to provide node-specific functionality:
  * - Custom action handlers for node selection, dragging, and edge highlighting
@@ -105,7 +105,9 @@ export class NodeStateManager {
     this.customActionHandlers.set('addHighlight', (context) => {
       const { nodeId, nodeElement } = context;
       if (nodeElement) {
+        console.log(`🔍 VISUAL: Adding 'selected' class to ${nodeId}, current classes:`, nodeElement.className);
         nodeElement.classList.add('selected');
+        console.log(`🔍 VISUAL: After adding 'selected' to ${nodeId}, classes:`, nodeElement.className);
         debugNodeEvents(`✅ Node ${nodeId} selected visually`);
       }
     });
@@ -177,7 +179,9 @@ export class NodeStateManager {
     this.customActionHandlers.set('removeEdgeSourceHighlight', (context) => {
       const { nodeId, nodeElement } = context;
       if (nodeElement) {
+        console.log(`🔍 VISUAL: Removing 'edge-source' class from ${nodeId}, current classes:`, nodeElement.className);
         nodeElement.classList.remove('edge-source');
+        console.log(`🔍 VISUAL: After removing 'edge-source' from ${nodeId}, classes:`, nodeElement.className);
         debugNodeEvents(`🎯 Node ${nodeId} edge source marking removed`);
       }
     });
@@ -194,23 +198,55 @@ export class NodeStateManager {
   /**
    * Initialize the node state manager with configuration
    */
-  async initialize(interactionManager, configPath = '/config/node-state-machine.json') {
+  async initialize(interactionManager, configPath = 'config/node-state-machine.json') {
     this.interactionManager = interactionManager;
     
+    // Add cache buster to force fresh config reload
+    const cacheBuster = Date.now();
+    const configPathWithCache = `${configPath}?v=${cacheBuster}`;
+    
+    console.log(`🔧 NodeStateManager initializing with config path: ${configPathWithCache}`);
+    
     try {
-      const response = await fetch(configPath);
+      const response = await fetch(configPathWithCache);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       const config = await response.json();
       
+      console.log('📋 Config loaded successfully:', config);
+      
+      // Validate the configuration
+      if (!config.stateMachine) {
+        throw new Error('Configuration missing stateMachine section');
+      }
+      if (!config.eventMapping) {
+        throw new Error('Configuration missing eventMapping section');
+      }
+      
       // Store the configuration
       this.config = config;
       
+      // Debug: log available events for troubleshooting
+      if (config.eventMapping && config.eventMapping.rules) {
+        const eventNames = config.eventMapping.rules.map(rule => rule.event);
+        console.log('🔧 NodeStateManager loaded events:', eventNames);
+        
+        // Specifically check for cancelEdgeCreation
+        const cancelEvent = config.eventMapping.rules.find(rule => rule.event === 'cancelEdgeCreation');
+        if (cancelEvent) {
+          console.log('✅ Found cancelEdgeCreation event mapping:', cancelEvent);
+        } else {
+          console.log('❌ Missing cancelEdgeCreation event mapping');
+        }
+      }
+      
+      console.log('✅ NodeStateManager initialized successfully with generic state management system');
       debugInteraction('📋 NodeStateManager initialized with generic state management system');
       return true;
     } catch (error) {
-      console.error('Failed to initialize NodeStateManager:', error);
+      console.error('❌ Failed to initialize NodeStateManager:', error);
+      console.error('Config path attempted:', configPath);
       throw error;
     }
   }
@@ -223,6 +259,15 @@ export class NodeStateManager {
       debugNodeEvents(`⚠️ Node ${nodeId} already registered`);
       return this.nodeStateManagers.get(nodeId);
     }
+    
+    // Check if NodeStateManager was properly initialized
+    if (!this.config) {
+      console.error(`❌ NodeStateManager not initialized - config is null. Cannot register node ${nodeId}`);
+      console.error('Make sure NodeStateManager.initialize() was called successfully');
+      throw new Error(`NodeStateManager not initialized - config is null`);
+    }
+    
+    console.log(`📝 Registering node ${nodeId} with config:`, this.config);
     
     // Store the node element
     this.nodeElements.set(nodeId, nodeElement);
@@ -427,6 +472,17 @@ export class NodeStateManager {
     }
   }
   
+  /**
+   * Get the current state of a specific node
+   */
+  getNodeState(nodeId) {
+    const nodeStateManager = this.nodeStateManagers.get(nodeId);
+    if (nodeStateManager) {
+      return nodeStateManager.stateMachine.getCurrentState();
+    }
+    return null;
+  }
+
   /**
    * Get debug information for all nodes
    */

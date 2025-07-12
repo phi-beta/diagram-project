@@ -37,10 +37,102 @@ export class EventMapper {
    * Default condition evaluator - handles basic conditions
    */
   defaultConditionEvaluator(condition, eventData) {
+    // Handle logical operators (&&, ||)
+    if (condition.includes('&&') || condition.includes('||')) {
+      return this.evaluateLogicalCondition(condition, eventData);
+    }
+    
     // Handle negation
     if (condition.startsWith('!')) {
       const innerCondition = condition.substring(1);
       return !this.evaluateCondition(innerCondition, eventData);
+    }
+    
+    // Handle direct property access
+    if (eventData.hasOwnProperty(condition)) {
+      return !!eventData[condition];
+    }
+    
+    // Handle dot notation (e.g., "user.isAdmin")
+    if (condition.includes('.')) {
+      const parts = condition.split('.');
+      let value = eventData;
+      for (const part of parts) {
+        if (value && value.hasOwnProperty(part)) {
+          value = value[part];
+        } else {
+          return false;
+        }
+      }
+      return !!value;
+    }
+    
+    // Handle comparison operators (e.g., "count > 5")
+    const comparisonMatch = condition.match(/^(.+?)\s*(===|!==|==|!=|>=|<=|>|<)\s*(.+)$/);
+    if (comparisonMatch) {
+      const [, left, operator, right] = comparisonMatch;
+      const leftValue = this.resolveValue(left.trim(), eventData);
+      const rightValue = this.resolveValue(right.trim(), eventData);
+      
+      switch (operator) {
+        case '===': return leftValue === rightValue;
+        case '!==': return leftValue !== rightValue;
+        case '==': return leftValue == rightValue;
+        case '!=': return leftValue != rightValue;
+        case '>=': return leftValue >= rightValue;
+        case '<=': return leftValue <= rightValue;
+        case '>': return leftValue > rightValue;
+        case '<': return leftValue < rightValue;
+        default: return false;
+      }
+    }
+    
+    return false;
+  }
+  
+  /**
+   * Evaluate logical conditions with && and || operators
+   */
+  evaluateLogicalCondition(condition, eventData) {
+    this.debug(`🔍 Evaluating logical condition: '${condition}' with data:`, eventData);
+    
+    // Split on || first (lowest precedence)
+    const orParts = condition.split('||').map(part => part.trim());
+    this.debug(`🔍 OR parts: ${orParts.join(' || ')}`);
+    
+    for (const orPart of orParts) {
+      // Split on && (higher precedence)
+      const andParts = orPart.split('&&').map(part => part.trim());
+      this.debug(`🔍 AND parts: ${andParts.join(' && ')}`);
+      
+      // All AND parts must be true
+      const andResult = andParts.every(andPart => {
+        const result = this.evaluateSingleCondition(andPart, eventData);
+        this.debug(`🔍 Evaluating '${andPart}' = ${result}`);
+        return result;
+      });
+      
+      this.debug(`🔍 AND result for '${orPart}': ${andResult}`);
+      
+      // If any OR part is true, return true
+      if (andResult) {
+        this.debug(`✅ Logical condition passed: '${condition}'`);
+        return true;
+      }
+    }
+    
+    this.debug(`❌ Logical condition failed: '${condition}'`);
+    return false;
+  }
+  
+  /**
+   * Evaluate a single condition (no logical operators)
+   */
+  evaluateSingleCondition(condition, eventData) {
+    // Handle negation
+    if (condition.startsWith('!')) {
+      const innerCondition = condition.substring(1);
+      return !this.evaluateSingleCondition(innerCondition, eventData);
     }
     
     // Handle direct property access
@@ -151,6 +243,14 @@ export class EventMapper {
   mapEvent(eventName, currentState, eventData = {}) {
     this.debug(`🎯 Mapping event '${eventName}' in state '${currentState}'`);
     
+    // Special debug for cancelEdgeCreation
+    if (eventName === 'cancelEdgeCreation') {
+      console.log('🔍 EXPLICIT DEBUG - cancelEdgeCreation event mapping');
+      console.log('🔍 Config:', this.config);
+      console.log('🔍 EventMapping rules:', this.config.eventMapping?.rules);
+      console.log('🔍 Rules for cancelEdgeCreation:', this.config.eventMapping?.rules?.filter(rule => rule.event === 'cancelEdgeCreation'));
+    }
+    
     // Find rules for this event
     const eventRules = this.config.eventMapping?.rules?.filter(rule => rule.event === eventName) || [];
     
@@ -184,7 +284,8 @@ export class EventMapper {
         
         // Evaluate the condition
         const conditionResult = this.evaluateCondition(conditionRule.condition, eventData);
-        this.debug(`🔍 Evaluating condition '${conditionRule.condition}' with eventData:`, eventData, 'result=' + conditionResult);
+        this.debug(`🔍 Evaluating condition '${conditionRule.condition}' with eventData:`, eventData);
+        this.debug(`🔍 Condition result: ${conditionResult}`);
         
         if (conditionResult) {
           this.debug(`✅ Condition matched - selecting action '${conditionRule.action}'`);
