@@ -1,10 +1,11 @@
-// Version 110 - Added LayerManager to DiagramStateManager initialization
+// Version 112 - Updated GridManager to v002 for background rectangle management
 import { Node } from './Node.js?v=065';
 import { Edge } from './Edge.js?v=011';
 import { ViewBoxManager } from './ViewBoxManager.js?v=002';
 import { DragManager } from './DragManager.js?v=051';
-import { InteractionManager } from './InteractionManager.js?v=077';
+import { InteractionManager } from './InteractionManager.js?v=079';
 import { LayerManager } from './LayerManager.js?v=001';
+import { GridManager } from './GridManager.js?v=002';
 import { generateGuid, clearGuidRegistry, initializeFromExisting } from './GuidManager.js';
 import { nodeStateManager } from './NodeStateManager.js?v=025';
 import { ContextMenu } from './ContextMenu.js?v=008';
@@ -20,6 +21,7 @@ let layout = null;
 let viewBoxManager = null;
 let dragManager = null;
 let layerManager = null;
+let gridManager = null;
 let interactionManager = null;
 // Use singleton instance instead of creating new one
 // let diagramStateManager = null;
@@ -184,7 +186,17 @@ async function loadLayout() {
   viewBoxManager = new ViewBoxManager(svg);
   dragManager = new DragManager(viewBoxManager);
   layerManager = new LayerManager(svg);
+  gridManager = new GridManager(svg, layerManager);
   interactionManager = new InteractionManager(svg, viewBoxManager, dragManager, nodeMap, layerManager);
+  
+  // Connect GridManager to ViewBoxManager for automatic grid updates
+  viewBoxManager.onViewBoxChange((oldViewBox, newViewBox) => {
+    gridManager.updateGrid(newViewBox.x, newViewBox.y, newViewBox.width, newViewBox.height);
+  });
+  
+  // Initialize grid with current viewBox
+  const currentViewBox = viewBoxManager.getCurrentViewBox();
+  gridManager.updateGrid(currentViewBox.x, currentViewBox.y, currentViewBox.width, currentViewBox.height);
   
   // Initialize NodeStateManager
   console.log('🔧 About to initialize NodeStateManager...');

@@ -1,6 +1,6 @@
 /**
  * Context Menu Manager - Handles right-click context menus
- * v008 - Fixed positioning issue (menu appearing in top-left instead of at mouse position)
+ * v009 - Fixed zoom/pan blocking when context menu is displayed
  */
 
 export class ContextMenu {
@@ -55,18 +55,27 @@ export class ContextMenu {
     
     // PREVENT mouse events that could cause movement but allow positioning
     this.overlayContainer.addEventListener('mousemove', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
+      // Only stop propagation if the mouse is over the actual menu, not the overlay
+      if (this.isClickInsideMenu(e)) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
     });
     
     this.overlayContainer.addEventListener('mouseenter', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
+      // Only stop propagation if entering the actual menu
+      if (this.isClickInsideMenu(e)) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
     });
     
     this.overlayContainer.addEventListener('mouseleave', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
+      // Only stop propagation if leaving the actual menu
+      if (this.isClickInsideMenu(e)) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
     });
     
     // Add drop shadow filter definition
@@ -162,7 +171,9 @@ export class ContextMenu {
     
     // Add menu to overlay container
     this.overlayContainer.appendChild(this.menuGroup);
-    this.overlayContainer.style.pointerEvents = 'auto'; // Enable clicks on menu
+    // Keep overlay pointer events as 'none' to allow zoom/pan, but enable on menu group
+    this.overlayContainer.style.pointerEvents = 'none';
+    this.menuGroup.style.pointerEvents = 'auto'; // Only enable clicks on the actual menu
     this.isVisible = true;
     
     // Force the menu to stay at the fixed position - prevent any mouse following
@@ -258,21 +269,17 @@ export class ContextMenu {
       background.style.filter = 'brightness(1)';
     });
     
-    // Prevent ALL mouse events from propagating and causing issues
+    // Only prevent mouse events that would interfere with menu interaction
     background.addEventListener('mousemove', (e) => {
       e.stopPropagation();
       e.preventDefault();
     });
     
-    // Prevent any other mouse events that could cause issues
-    background.addEventListener('mousedown', (e) => {
+    // Allow click events to work normally on the menu
+    background.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
-    });
-    
-    background.addEventListener('mouseup', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
+      // Handle menu item clicks here if needed
     });
     
     group.appendChild(background);

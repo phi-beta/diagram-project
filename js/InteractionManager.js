@@ -1,11 +1,11 @@
-// Version 078 - Updated resetAllStates to use LayerManager, added LayerManager to DiagramStateManager
+// Version 079 - Updated ContextMenu import to v009
 /**
  * Interaction Manager - Handles user interactions with the diagram
  */
 import { debugInteraction, debugEdgeCreation, debugKeyboard, debugMouse } from './debug.js';
 import { nodeStateManager } from './NodeStateManager.js?v=021';
 import { diagramStateManager } from './DiagramStateManager.js?v=010';
-import { ContextMenu } from './ContextMenu.js?v=008';
+import { ContextMenu } from './ContextMenu.js?v=009';
 
 export class InteractionManager {
   constructor(svg, viewBoxManager, dragManager, nodeMap, layerManager = null) {

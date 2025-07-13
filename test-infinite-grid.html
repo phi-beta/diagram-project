@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinite Grid Test</title>
+    <link rel="stylesheet" href="themes/default.css?v=039">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #333;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .controls {
+            padding: 20px;
+            background: #f9f9f9;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .controls h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        
+        .control-group {
+            display: inline-block;
+            margin: 10px 20px 10px 0;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .control-group input, .control-group select {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        
+        .control-group button {
+            padding: 8px 16px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .control-group button:hover {
+            background: #1976D2;
+        }
+        
+        .instructions {
+            padding: 20px;
+            background: #e8f4f8;
+            border-left: 4px solid #2196F3;
+            margin: 20px;
+        }
+        
+        .instructions h3 {
+            margin-top: 0;
+            color: #1976D2;
+        }
+        
+        .expected {
+            background: #e8f5e8;
+            border-left: 4px solid #4CAF50;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .expected h4 {
+            margin-top: 0;
+            color: #2E7D32;
+        }
+        
+        .svg-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            border: 2px solid #ddd;
+            overflow: hidden;
+        }
+        
+        svg {
+            width: 100%;
+            height: 100%;
+            background: #fafafa;
+        }
+        
+        .status {
+            padding: 20px;
+            background: #f0f0f0;
+            border-top: 1px solid #ddd;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .status-item {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="header">
+            <h1>Infinite Grid Test</h1>
+            <p>Testing dynamic grid that adapts to viewport changes</p>
+        </div>
+        
+        <div class="controls">
+            <h3>Grid Controls</h3>
+            <div class="control-group">
+                <label for="gridSize">Grid Size:</label>
+                <input type="number" id="gridSize" value="20" min="5" max="100" step="5">
+            </div>
+            <div class="control-group">
+                <label for="gridColor">Grid Color:</label>
+                <input type="color" id="gridColor" value="#e0e0e0">
+            </div>
+            <div class="control-group">
+                <label for="backgroundColor">Background Color:</label>
+                <input type="color" id="backgroundColor" value="#fafafa">
+            </div>
+            <div class="control-group">
+                <label for="gridOpacity">Grid Opacity:</label>
+                <input type="range" id="gridOpacity" min="0" max="1" step="0.1" value="0.5">
+                <span id="opacityValue">0.5</span>
+            </div>
+            <div class="control-group">
+                <label for="gridVisible">Grid Visible:</label>
+                <input type="checkbox" id="gridVisible" checked>
+            </div>
+            <div class="control-group">
+                <button id="resetView">Reset View</button>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h3>Test Instructions</h3>
+            <ol>
+                <li><strong>Zoom Out:</strong> Use mouse wheel to zoom out and see new areas</li>
+                <li><strong>Pan Around:</strong> Use Ctrl+drag or middle-click to pan to different areas</li>
+                <li><strong>Check Grid Coverage:</strong> Grid should appear in all visible areas</li>
+                <li><strong>Adjust Settings:</strong> Use controls above to modify grid appearance</li>
+                <li><strong>Reset View:</strong> Click Reset View to return to original position</li>
+            </ol>
+            
+            <div class="expected">
+                <h4>Expected Behavior:</h4>
+                <ul>
+                    <li>✅ Grid should appear in all visible areas, even when zoomed out</li>
+                    <li>✅ Grid should follow pan operations and cover newly visible areas</li>
+                    <li>✅ Grid should maintain consistent spacing regardless of zoom level</li>
+                    <li>✅ Grid controls should update grid appearance in real-time</li>
+                    <li>✅ Grid should be infinite (no edges or boundaries)</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="svg-container">
+            <svg id="diagram" viewBox="0 0 800 500">
+                <!-- Background layer -->
+                <g id="background-layer">
+                    <!-- Grid will be dynamically created by GridManager -->
+                </g>
+                
+                <!-- Edges layer -->
+                <g id="edges-layer"></g>
+                
+                <!-- Nodes layer -->
+                <g id="nodes-layer">
+                    <!-- Test node at center -->
+                    <g class="node test-node" transform="translate(400, 250)">
+                        <circle cx="0" cy="0" r="30" fill="#4CAF50" stroke="#2E7D32" stroke-width="2"/>
+                        <text x="0" y="5" text-anchor="middle" fill="white" font-weight="bold">Origin</text>
+                    </g>
+                    
+                    <!-- Test nodes at various positions -->
+                    <g class="node test-node" transform="translate(100, 100)">
+                        <circle cx="0" cy="0" r="20" fill="#2196F3" stroke="#1976D2" stroke-width="2"/>
+                        <text x="0" y="5" text-anchor="middle" fill="white" font-size="12">A</text>
+                    </g>
+                    
+                    <g class="node test-node" transform="translate(700, 100)">
+                        <circle cx="0" cy="0" r="20" fill="#FF9800" stroke="#F57C00" stroke-width="2"/>
+                        <text x="0" y="5" text-anchor="middle" fill="white" font-size="12">B</text>
+                    </g>
+                    
+                    <g class="node test-node" transform="translate(100, 400)">
+                        <circle cx="0" cy="0" r="20" fill="#9C27B0" stroke="#7B1FA2" stroke-width="2"/>
+                        <text x="0" y="5" text-anchor="middle" fill="white" font-size="12">C</text>
+                    </g>
+                    
+                    <g class="node test-node" transform="translate(700, 400)">
+                        <circle cx="0" cy="0" r="20" fill="#F44336" stroke="#D32F2F" stroke-width="2"/>
+                        <text x="0" y="5" text-anchor="middle" fill="white" font-size="12">D</text>
+                    </g>
+                </g>
+                
+                <!-- Temp layer -->
+                <g id="temp-layer"></g>
+                
+                <!-- UI layer -->
+                <g id="ui-layer"></g>
+                
+                <!-- Debug layer -->
+                <g id="debug-layer"></g>
+            </svg>
+        </div>
+        
+        <div class="status">
+            <div class="status-item">Current ViewBox: <span id="currentViewBox">0, 0, 800, 500</span></div>
+            <div class="status-item">Zoom Level: <span id="zoomLevel">100%</span></div>
+            <div class="status-item">Grid Size: <span id="currentGridSize">20px</span></div>
+            <div class="status-item">Background Color: <span id="currentBackgroundColor">#fafafa</span></div>
+            <div class="status-item">Grid Coverage: <span id="gridCoverage">Calculating...</span></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { ViewBoxManager } from './js/ViewBoxManager.js?v=021';
+        import { InteractionManager } from './js/InteractionManager.js?v=079';
+        import { LayerManager } from './js/LayerManager.js?v=001';
+        import { GridManager } from './js/GridManager.js?v=002';
+        
+        // Initialize the diagram
+        const svg = document.getElementById('diagram');
+        const viewBoxManager = new ViewBoxManager(svg);
+        const layerManager = new LayerManager(svg);
+        const gridManager = new GridManager(svg, layerManager);
+        
+        // Create a simple node map for testing
+        const nodeMap = new Map();
+        
+        // Mock drag manager for testing
+        const mockDragManager = {
+            isAnyNodeDragging: () => false,
+            clearAllDragStates: () => {},
+            setupNodeDrag: () => {}
+        };
+        
+        // Initialize interaction manager
+        const interactionManager = new InteractionManager(
+            svg, 
+            viewBoxManager, 
+            mockDragManager, 
+            nodeMap, 
+            layerManager
+        );
+        
+        // Connect GridManager to ViewBoxManager for automatic grid updates
+        viewBoxManager.onViewBoxChange((oldViewBox, newViewBox) => {
+            gridManager.updateGrid(newViewBox.x, newViewBox.y, newViewBox.width, newViewBox.height);
+            updateStatus();
+        });
+        
+        // Initialize grid with current viewBox
+        const currentViewBox = viewBoxManager.getCurrentViewBox();
+        gridManager.updateGrid(currentViewBox.x, currentViewBox.y, currentViewBox.width, currentViewBox.height);
+        
+        // Update status display
+        function updateStatus() {
+            const viewBox = viewBoxManager.getCurrentViewBox();
+            const gridConfig = gridManager.getConfig();
+            
+            document.getElementById('currentViewBox').textContent = 
+                `${Math.round(viewBox.x)}, ${Math.round(viewBox.y)}, ${Math.round(viewBox.width)}, ${Math.round(viewBox.height)}`;
+            document.getElementById('zoomLevel').textContent = `${Math.round(viewBox.zoom * 100)}%`;
+            document.getElementById('currentGridSize').textContent = `${gridConfig.size}px`;
+            document.getElementById('currentBackgroundColor').textContent = gridConfig.backgroundColor;
+            document.getElementById('gridCoverage').textContent = 
+                `${Math.round(viewBox.width + gridConfig.buffer * 2)} x ${Math.round(viewBox.height + gridConfig.buffer * 2)}`;
+        }
+        
+        // Grid controls
+        document.getElementById('gridSize').addEventListener('input', (e) => {
+            gridManager.setGridSize(parseInt(e.target.value));
+            updateStatus();
+        });
+        
+        document.getElementById('gridColor').addEventListener('input', (e) => {
+            gridManager.setGridColor(e.target.value);
+        });
+        
+        document.getElementById('backgroundColor').addEventListener('input', (e) => {
+            gridManager.setBackgroundColor(e.target.value);
+        });
+        
+        document.getElementById('gridOpacity').addEventListener('input', (e) => {
+            const opacity = parseFloat(e.target.value);
+            gridManager.setGridOpacity(opacity);
+            document.getElementById('opacityValue').textContent = opacity.toFixed(1);
+        });
+        
+        document.getElementById('gridVisible').addEventListener('change', (e) => {
+            gridManager.setVisible(e.target.checked);
+        });
+        
+        document.getElementById('resetView').addEventListener('click', () => {
+            viewBoxManager.viewBoxX = 0;
+            viewBoxManager.viewBoxY = 0;
+            viewBoxManager.viewBoxWidth = 800;
+            viewBoxManager.viewBoxHeight = 500;
+            viewBoxManager.currentZoom = 1;
+            viewBoxManager.updateViewBox();
+            updateStatus();
+        });
+        
+        // Initial status update
+        updateStatus();
+        
+        console.log('Infinite Grid Test initialized');
+        console.log('- ViewBoxManager:', viewBoxManager);
+        console.log('- GridManager:', gridManager);
+        console.log('- LayerManager:', layerManager);
+    </script>
+</body>
+</html>

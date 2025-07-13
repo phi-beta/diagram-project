@@ -19,27 +19,24 @@
     <button id="reset-view">Reset View</button>
   </div>
   <svg id="diagram" width="800" height="600" viewBox="0 0 800 600">
-    <!-- Layer 0: Background -->
+    <!-- Layer 0: Background (managed by GridManager) -->
     <g id="background-layer" class="layer">
-      <rect width="100%" height="100%" fill="var(--background-color, #fafafa)"/>
+      <!-- Background will be dynamically created by GridManager -->
     </g>
     
-    <!-- Layer 1: Grid -->
+    <!-- Layer 1: Grid (managed by GridManager) -->
     <g id="grid-layer" class="layer">
+      <!-- Grid will be dynamically created by GridManager -->
+    </g>
+    
+    <!-- Layer 2: Edges (behind nodes) -->
+    <g id="edges-layer" class="layer">
       <defs>
-        <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-          <path d="M 20 0 L 0 0 0 20" fill="none" stroke="var(--grid-color, #e0e0e0)" stroke-width="1"/>
-        </pattern>
         <marker id="arrowhead" markerWidth="10" markerHeight="7" 
                 refX="9" refY="3.5" orient="auto">
           <polygon points="0 0, 10 3.5, 0 7" fill="var(--edge-color, #666)"/>
         </marker>
       </defs>
-      <rect width="100%" height="100%" fill="url(#grid)"/>
-    </g>
-    
-    <!-- Layer 2: Edges (behind nodes) -->
-    <g id="edges-layer" class="layer">
       <!-- All edges will be added here -->
     </g>
     
