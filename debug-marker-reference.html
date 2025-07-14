@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marker Reference Debug</title>
+    <link rel="stylesheet" href="themes/dark.css?v=049" id="theme-link">
+    <style>
+        body {
+            padding: 20px;
+            background: #1e1e1e;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+        }
+        .debug-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        .controls {
+            margin: 10px 0;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 12px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .log {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .marker-info {
+            background: #2d2d2d;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Marker Reference Debug - Dark Theme</h1>
+    
+    <div class="debug-section">
+        <h3>Controls</h3>
+        <div class="controls">
+            <button onclick="analyzeMarkers()">Analyze Markers</button>
+            <button onclick="createTestEdge()">Create Test Edge</button>
+            <button onclick="forceMarkerVisible()">Force Marker Visible</button>
+            <button onclick="recreateMarker()">Recreate Marker</button>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>SVG Test Area</h3>
+        <svg width="800" height="300" style="border: 1px solid #666; background: #2d2d2d;" id="test-svg">
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7" class="arrowhead-fill"/>
+                </marker>
+                <marker id="temp-arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7" class="temp-arrowhead-fill" fill="#ff6b6b"/>
+                </marker>
+            </defs>
+            
+            <!-- Test edges -->
+            <path d="M 50 50 L 300 50" stroke="#ffffff" stroke-width="2" 
+                  fill="none" marker-end="url(#arrowhead)"/>
+            <text x="175" y="40" fill="#ffffff" text-anchor="middle" font-size="12">
+                Regular Arrowhead
+            </text>
+            
+            <path d="M 50 100 L 300 100" stroke="#ff6b6b" stroke-width="2" 
+                  stroke-dasharray="5,5" fill="none" marker-end="url(#temp-arrowhead)"
+                  class="temporary-edge"/>
+            <text x="175" y="90" fill="#ffffff" text-anchor="middle" font-size="12">
+                Temp Arrowhead
+            </text>
+            
+            <g id="dynamic-edges"></g>
+        </svg>
+    </div>
+    
+    <div class="debug-section">
+        <h3>Marker Information</h3>
+        <div class="marker-info" id="marker-info">
+            Click "Analyze Markers" to see marker details
+        </div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>Debug Log</h3>
+        <div class="log" id="log"></div>
+    </div>
+    
+    <script>
+        let edgeCounter = 0;
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `${timestamp}: ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+        
+        function analyzeMarkers() {
+            const markerInfo = document.getElementById('marker-info');
+            let info = '';
+            
+            // Check if markers exist
+            const tempMarker = document.getElementById('temp-arrowhead');
+            const regularMarker = document.getElementById('arrowhead');
+            
+            info += `=== MARKER EXISTENCE ===\n`;
+            info += `temp-arrowhead marker: ${tempMarker ? 'EXISTS' : 'MISSING'}\n`;
+            info += `arrowhead marker: ${regularMarker ? 'EXISTS' : 'MISSING'}\n`;
+            
+            if (tempMarker) {
+                const polygon = tempMarker.querySelector('polygon');
+                if (polygon) {
+                    const computedStyle = window.getComputedStyle(polygon);
+                    info += `\n=== TEMP MARKER DETAILS ===\n`;
+                    info += `Polygon exists: YES\n`;
+                    info += `Fill attribute: ${polygon.getAttribute('fill') || 'none'}\n`;
+                    info += `Class attribute: ${polygon.getAttribute('class') || 'none'}\n`;
+                    info += `Style fill: ${polygon.style.fill || 'none'}\n`;
+                    info += `Computed fill: ${computedStyle.fill}\n`;
+                    info += `Computed opacity: ${computedStyle.opacity}\n`;
+                    info += `Computed visibility: ${computedStyle.visibility}\n`;
+                    info += `Computed stroke: ${computedStyle.stroke}\n`;
+                    
+                    // Check if it's actually visible
+                    const bbox = polygon.getBBox();
+                    info += `BBox: width=${bbox.width}, height=${bbox.height}\n`;
+                } else {
+                    info += `\nTemp marker polygon: MISSING\n`;
+                }
+            }
+            
+            // Check temp edges
+            const tempEdges = document.querySelectorAll('.temporary-edge');
+            info += `\n=== TEMP EDGES ===\n`;
+            info += `Found ${tempEdges.length} temp edges\n`;
+            
+            tempEdges.forEach((edge, index) => {
+                const markerEnd = edge.getAttribute('marker-end');
+                info += `Edge ${index}: marker-end="${markerEnd}"\n`;
+            });
+            
+            markerInfo.textContent = info;
+            log(`Analyzed markers - see info panel above`);
+        }
+        
+        function createTestEdge() {
+            const container = document.getElementById('dynamic-edges');
+            const y = 150 + (edgeCounter * 30);
+            
+            const edge = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            edge.setAttribute('d', `M 50 ${y} L 300 ${y}`);
+            edge.setAttribute('stroke', '#ff6b6b');
+            edge.setAttribute('stroke-width', '2');
+            edge.setAttribute('stroke-dasharray', '5,5');
+            edge.setAttribute('fill', 'none');
+            edge.setAttribute('marker-end', 'url(#temp-arrowhead)');
+            edge.setAttribute('class', 'temporary-edge');
+            
+            container.appendChild(edge);
+            
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', '175');
+            label.setAttribute('y', y - 10);
+            label.setAttribute('fill', '#ffffff');
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('font-size', '12');
+            label.textContent = `Dynamic Edge ${edgeCounter}`;
+            
+            container.appendChild(label);
+            
+            edgeCounter++;
+            log(`Created dynamic edge ${edgeCounter - 1} at y=${y}`);
+            
+            // Force marker update
+            setTimeout(() => {
+                forceMarkerVisible();
+                analyzeMarkers();
+            }, 50);
+        }
+        
+        function forceMarkerVisible() {
+            const tempMarker = document.querySelector('#temp-arrowhead polygon');
+            if (tempMarker) {
+                // Remove all current attributes and styles
+                tempMarker.removeAttribute('fill');
+                tempMarker.removeAttribute('stroke');
+                tempMarker.removeAttribute('opacity');
+                tempMarker.removeAttribute('visibility');
+                tempMarker.style.cssText = '';
+                
+                // Force set everything
+                tempMarker.setAttribute('fill', '#ff6b6b');
+                tempMarker.setAttribute('stroke', 'none');
+                tempMarker.setAttribute('opacity', '1');
+                tempMarker.setAttribute('visibility', 'visible');
+                tempMarker.style.fill = '#ff6b6b !important';
+                tempMarker.style.stroke = 'none !important';
+                tempMarker.style.opacity = '1 !important';
+                tempMarker.style.visibility = 'visible !important';
+                
+                log('Forced temp marker to be visible with orange fill');
+            } else {
+                log('ERROR: temp marker polygon not found');
+            }
+        }
+        
+        function recreateMarker() {
+            const defs = document.querySelector('defs');
+            const oldMarker = document.getElementById('temp-arrowhead');
+            
+            if (oldMarker) {
+                oldMarker.remove();
+                log('Removed old temp-arrowhead marker');
+            }
+            
+            // Create completely new marker
+            const newMarker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+            newMarker.setAttribute('id', 'temp-arrowhead');
+            newMarker.setAttribute('markerWidth', '10');
+            newMarker.setAttribute('markerHeight', '7');
+            newMarker.setAttribute('refX', '9');
+            newMarker.setAttribute('refY', '3.5');
+            newMarker.setAttribute('orient', 'auto');
+            
+            const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
+            polygon.setAttribute('fill', '#ff6b6b');
+            polygon.setAttribute('stroke', 'none');
+            polygon.setAttribute('opacity', '1');
+            polygon.setAttribute('visibility', 'visible');
+            polygon.style.fill = '#ff6b6b';
+            polygon.style.stroke = 'none';
+            polygon.style.opacity = '1';
+            polygon.style.visibility = 'visible';
+            
+            newMarker.appendChild(polygon);
+            defs.appendChild(newMarker);
+            
+            log('Recreated temp-arrowhead marker with forced orange fill');
+            
+            // Update all temp edges to use the new marker
+            const tempEdges = document.querySelectorAll('.temporary-edge');
+            tempEdges.forEach(edge => {
+                edge.setAttribute('marker-end', 'url(#temp-arrowhead)');
+            });
+            
+            log(`Updated ${tempEdges.length} temp edges to use new marker`);
+            
+            setTimeout(() => {
+                analyzeMarkers();
+            }, 100);
+        }
+        
+        // Initial analysis
+        setTimeout(() => {
+            log('Page loaded - analyzing initial state');
+            analyzeMarkers();
+        }, 100);
+    </script>
+</body>
+</html>

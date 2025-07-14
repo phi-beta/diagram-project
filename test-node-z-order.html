@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Node Z-Order Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    
+    .controls {
+      background-color: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .info {
+      background-color: #e7f3ff;
+      border: 1px solid #b3d9ff;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    
+    .instructions {
+      background-color: #fff3cd;
+      border: 1px solid #ffeaa7;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    
+    button {
+      background-color: #007acc;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    
+    button:hover {
+      background-color: #005a9f;
+    }
+    
+    .svg-container {
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      background-color: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .logs {
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    
+    .log-entry {
+      margin-bottom: 5px;
+      padding: 2px 0;
+    }
+    
+    .log-success {
+      color: #28a745;
+    }
+    
+    .log-warning {
+      color: #ffc107;
+    }
+    
+    .log-error {
+      color: #dc3545;
+    }
+    
+    .log-info {
+      color: #17a2b8;
+    }
+    
+    .test-node {
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .test-node:hover {
+      transform: scale(1.05);
+    }
+    
+    .test-node.selected {
+      stroke-width: 3;
+      filter: drop-shadow(0 0 8px rgba(0,123,255,0.5));
+    }
+  </style>
+</head>
+<body>
+  <h1>Node Z-Order Test</h1>
+  
+  <div class="info">
+    <h3>Z-Order Management Feature Test</h3>
+    <p>This test validates the new PgUp/PgDown functionality for managing node layering (z-order).</p>
+  </div>
+  
+  <div class="instructions">
+    <h3>Test Instructions:</h3>
+    <ol>
+      <li><strong>Click on any node</strong> to select it</li>
+      <li><strong>Press PgUp</strong> to move the selected node up in the z-order (in front of overlapping nodes)</li>
+      <li><strong>Press PgDown</strong> to move the selected node down in the z-order (behind overlapping nodes)</li>
+      <li><strong>Press Home</strong> to move the selected node to the very top of the z-order</li>
+      <li><strong>Press End</strong> to move the selected node to the very bottom of the z-order</li>
+      <li><strong>Use arrow keys</strong> to fine-tune the selected node position (↑↓←→)</li>
+      <li><strong>Create overlapping nodes</strong> using the buttons below to test the functionality</li>
+      <li><strong>Watch the feedback messages</strong> that appear above nodes when you use the keyboard shortcuts</li>
+    </ol>
+    <p><strong>NEW:</strong> Z-order display is now configurable! Both features are disabled by default. Use the configuration buttons to:</p>
+    <ul>
+      <li><strong>Z-Order Help Settings:</strong> Control automatic help display when selecting nodes</li>
+      <li><strong>Z-Order Feedback Settings:</strong> Control feedback messages when moving nodes</li>
+      <li><strong>Arrow Key Fine-tuning:</strong> Control arrow key movement functionality</li>
+      <li><strong>Toggle:</strong> Enable/disable the respective feature</li>
+      <li><strong>Enable/Disable:</strong> Explicitly control each feature</li>
+      <li><strong>Show Help (Manual):</strong> Display help for the selected node on demand</li>
+    </ul>
+  </div>
+  
+  <div class="controls">
+    <button onclick="createOverlappingNodes()">Create Overlapping Nodes</button>
+    <button onclick="addRandomNode()">Add Random Node</button>
+    <button onclick="clearAllNodes()">Clear All Nodes</button>
+    <button onclick="moveNodeInZOrder('up')">Move Up (PgUp)</button>
+    <button onclick="moveNodeInZOrder('down')">Move Down (PgDown)</button>
+    <button onclick="moveNodeToZOrderExtreme('top')">Move to Top (Home)</button>
+    <button onclick="moveNodeToZOrderExtreme('bottom')">Move to Bottom (End)</button>
+    <button onclick="toggleHelp()">Toggle Help</button>
+    <button onclick="clearLogs()">Clear Logs</button>
+    <br>
+    <strong>Z-Order Help Settings:</strong>
+    <button onclick="toggleZOrderHelpOnSelection()">Toggle Auto-Help</button>
+    <button onclick="enableZOrderHelpOnSelection()">Enable Auto-Help</button>
+    <button onclick="disableZOrderHelpOnSelection()">Disable Auto-Help</button>
+    <button onclick="showZOrderHelpManually()">Show Help (Manual)</button>
+    <br>
+    <strong>Z-Order Feedback Settings:</strong>
+    <button onclick="toggleZOrderFeedback()">Toggle Feedback</button>
+    <button onclick="enableZOrderFeedback()">Enable Feedback</button>
+    <button onclick="disableZOrderFeedback()">Disable Feedback</button>
+    <br>
+    <strong>Arrow Key Fine-tuning:</strong>
+    <button onclick="toggleArrowKeyFinetuning()">Toggle Fine-tuning</button>
+    <button onclick="enableArrowKeyFinetuning()">Enable Fine-tuning</button>
+    <button onclick="disableArrowKeyFinetuning()">Disable Fine-tuning</button>
+  </div>
+  
+  <div class="svg-container">
+    <svg id="test-diagram" width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+      <!-- Layers -->
+      <g id="background-layer"></g>
+      <g id="grid-layer"></g>
+      <g id="edges-layer"></g>
+      <g id="nodes-layer"></g>
+      <g id="temp-layer"></g>
+      <g id="ui-layer"></g>
+      <g id="debug-layer"></g>
+    </svg>
+  </div>
+  
+  <div class="logs" id="logs"></div>
+  
+  <script>
+    const svg = document.getElementById('test-diagram');
+    const nodesLayer = document.getElementById('nodes-layer');
+    const tempLayer = document.getElementById('temp-layer');
+    const logs = document.getElementById('logs');
+    
+    let selectedNode = null;
+    let nodeCounter = 0;
+    let helpVisible = true;
+    
+    // Colors for different nodes
+    const nodeColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#FF9FF3', '#54A0FF'];
+    
+    function log(message, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logs.appendChild(entry);
+      logs.scrollTop = logs.scrollHeight;
+    }
+    
+    function clearLogs() {
+      logs.innerHTML = '';
+    }
+    
+    function createNode(x, y, label, color) {
+      const nodeId = `node-${++nodeCounter}`;
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      group.setAttribute('class', 'test-node');
+      group.setAttribute('data-node-id', nodeId);
+      group.setAttribute('transform', `translate(${x}, ${y})`);
+      
+      // Create circle
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('r', '30');
+      circle.setAttribute('fill', color);
+      circle.setAttribute('stroke', '#333');
+      circle.setAttribute('stroke-width', '2');
+      
+      // Create label
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('dy', '0.3em');
+      text.setAttribute('font-size', '12');
+      text.setAttribute('font-weight', 'bold');
+      text.setAttribute('fill', 'white');
+      text.textContent = label;
+      
+      group.appendChild(circle);
+      group.appendChild(text);
+      
+      // Add click handler
+      group.addEventListener('click', () => selectNode(group, nodeId));
+      
+      nodesLayer.appendChild(group);
+      log(`Created node ${nodeId} at (${x}, ${y})`, 'success');
+      
+      return group;
+    }
+    
+    function selectNode(nodeElement, nodeId) {
+      // Deselect previous
+      if (selectedNode) {
+        selectedNode.classList.remove('selected');
+      }
+      
+      // Select new
+      selectedNode = nodeElement;
+      nodeElement.classList.add('selected');
+      
+      // Show z-order info
+      showZOrderInfo(nodeElement, nodeId);
+      log(`Selected node ${nodeId}`, 'info');
+    }
+    
+    function showZOrderInfo(nodeElement, nodeId) {
+      const allNodes = Array.from(nodesLayer.children);
+      const currentIndex = allNodes.indexOf(nodeElement);
+      const overlappingNodes = findOverlappingNodes(nodeElement);
+      
+      let message = `Layer: ${currentIndex + 1}/${allNodes.length}`;
+      if (overlappingNodes.length > 0) {
+        message += ` (${overlappingNodes.length} overlap${overlappingNodes.length > 1 ? 's' : ''})`;
+      }
+      
+      // Add keyboard shortcuts info
+      const shortcuts = [];
+      const isAtTop = currentIndex === allNodes.length - 1;
+      const isAtBottom = currentIndex === 0;
+      
+      if (!isAtTop && !isAtBottom) {
+        shortcuts.push('PgUp/PgDown to move');
+      } else if (isAtTop) {
+        shortcuts.push('PgDown to move down');
+      } else if (isAtBottom) {
+        shortcuts.push('PgUp to move up');
+      }
+      
+      if (!isAtTop) {
+        shortcuts.push('Home for top');
+      }
+      if (!isAtBottom) {
+        shortcuts.push('End for bottom');
+      }
+      
+      if (shortcuts.length > 0) {
+        message += ` • ${shortcuts.join(', ')}`;
+      }
+      
+      if (helpVisible) {
+        showFeedback(nodeElement, message, 'info', 2000);
+      }
+    }
+    
+    function findOverlappingNodes(targetNode) {
+      const targetBounds = getNodeBounds(targetNode);
+      const overlapping = [];
+      
+      for (const node of nodesLayer.children) {
+        if (node === targetNode) continue;
+        
+        const nodeBounds = getNodeBounds(node);
+        if (doNodesOverlap(targetBounds, nodeBounds)) {
+          overlapping.push(node);
+        }
+      }
+      
+      return overlapping;
+    }
+    
+    function getNodeBounds(node) {
+      const transform = node.getAttribute('transform');
+      let x = 0, y = 0;
+      
+      if (transform) {
+        const match = transform.match(/translate\\(([^,]+),\\s*([^)]+)\\)/);
+        if (match) {
+          x = parseFloat(match[1]);
+          y = parseFloat(match[2]);
+        }
+      }
+      
+      return {
+        x: x - 30,
+        y: y - 30,
+        width: 60,
+        height: 60
+      };
+    }
+    
+    function doNodesOverlap(bounds1, bounds2) {
+      return !(
+        bounds1.x + bounds1.width < bounds2.x ||
+        bounds2.x + bounds2.width < bounds1.x ||
+        bounds1.y + bounds1.height < bounds2.y ||
+        bounds2.y + bounds2.height < bounds1.y
+      );
+    }
+    
+    function moveNodeInZOrder(direction) {
+      if (!selectedNode) {
+        log('No node selected', 'warning');
+        return;
+      }
+      
+      const allNodes = Array.from(nodesLayer.children);
+      const currentIndex = allNodes.indexOf(selectedNode);
+      
+      if (currentIndex === -1) {
+        log('Selected node not found in layer', 'error');
+        return;
+      }
+      
+      const overlappingNodes = findOverlappingNodes(selectedNode);
+      const hasOverlaps = overlappingNodes.length > 0;
+      
+      let newIndex;
+      if (direction === 'up') {
+        newIndex = Math.min(currentIndex + 1, allNodes.length - 1);
+      } else {
+        newIndex = Math.max(currentIndex - 1, 0);
+      }
+      
+      if (newIndex === currentIndex) {
+        const message = `Node already at ${direction === 'up' ? 'top' : 'bottom'} of z-order`;
+        log(message, 'warning');
+        showFeedback(selectedNode, message, 'warning');
+        return;
+      }
+      
+      // Remove and reinsert at new position
+      selectedNode.remove();
+      
+      if (newIndex >= allNodes.length - 1) {
+        nodesLayer.appendChild(selectedNode);
+      } else {
+        const referenceNode = allNodes[newIndex];
+        nodesLayer.insertBefore(selectedNode, referenceNode);
+      }
+      
+      const message = hasOverlaps ? 
+        `Moved ${direction} (${overlappingNodes.length} overlap${overlappingNodes.length > 1 ? 's' : ''})` :
+        `Moved ${direction}`;
+      
+      log(`${message} - from index ${currentIndex} to ${newIndex}`, 'success');
+      showFeedback(selectedNode, message, 'success');
+      
+      // Update z-order info
+      setTimeout(() => showZOrderInfo(selectedNode, selectedNode.getAttribute('data-node-id')), 100);
+    }
+    
+    function moveNodeToZOrderExtreme(direction) {
+      if (!selectedNode) {
+        log('No node selected', 'warning');
+        return;
+      }
+      
+      const allNodes = Array.from(nodesLayer.children);
+      const currentIndex = allNodes.indexOf(selectedNode);
+      
+      if (currentIndex === -1) {
+        log('Selected node not found in layer', 'error');
+        return;
+      }
+      
+      const overlappingNodes = findOverlappingNodes(selectedNode);
+      const hasOverlaps = overlappingNodes.length > 0;
+      
+      // Check if already at the extreme
+      const isAtTop = currentIndex === allNodes.length - 1;
+      const isAtBottom = currentIndex === 0;
+      
+      if ((direction === 'top' && isAtTop) || (direction === 'bottom' && isAtBottom)) {
+        const message = `Node already at ${direction} of z-order`;
+        log(message, 'warning');
+        showFeedback(selectedNode, message, 'warning');
+        return;
+      }
+      
+      // Remove node from current position
+      selectedNode.remove();
+      
+      if (direction === 'top') {
+        // Move to top (highest z-index)
+        nodesLayer.appendChild(selectedNode);
+      } else {
+        // Move to bottom (lowest z-index)
+        nodesLayer.insertBefore(selectedNode, nodesLayer.firstChild);
+      }
+      
+      const newIndex = direction === 'top' ? allNodes.length - 1 : 0;
+      const message = hasOverlaps ? 
+        `Moved to ${direction} (${overlappingNodes.length} overlap${overlappingNodes.length > 1 ? 's' : ''})` :
+        `Moved to ${direction}`;
+      
+      log(`${message} - from index ${currentIndex} to ${newIndex}`, 'success');
+      showFeedback(selectedNode, message, 'success');
+      
+      // Update z-order info
+      setTimeout(() => showZOrderInfo(selectedNode, selectedNode.getAttribute('data-node-id')), 100);
+    }
+    
+    function showFeedback(nodeElement, message, type = 'info', duration = 1500) {
+      const colors = {
+        success: '#28a745',
+        warning: '#ffc107',
+        error: '#dc3545',
+        info: '#17a2b8'
+      };
+      
+      const color = colors[type] || colors.info;
+      
+      // Get node position
+      const transform = nodeElement.getAttribute('transform');
+      let x = 0, y = 0;
+      
+      if (transform) {
+        const match = transform.match(/translate\\(([^,]+),\\s*([^)]+)\\)/);
+        if (match) {
+          x = parseFloat(match[1]);
+          y = parseFloat(match[2]);
+        }
+      }
+      
+      // Create feedback text
+      const feedback = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      feedback.setAttribute('x', x);
+      feedback.setAttribute('y', y - 40);
+      feedback.setAttribute('text-anchor', 'middle');
+      feedback.setAttribute('font-size', '12');
+      feedback.setAttribute('font-weight', 'bold');
+      feedback.setAttribute('fill', color);
+      feedback.setAttribute('opacity', '1');
+      feedback.textContent = message;
+      
+      // Create background
+      const background = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      const bbox = feedback.getBBox();
+      background.setAttribute('x', bbox.x - 4);
+      background.setAttribute('y', bbox.y - 2);
+      background.setAttribute('width', bbox.width + 8);
+      background.setAttribute('height', bbox.height + 4);
+      background.setAttribute('fill', 'rgba(255, 255, 255, 0.9)');
+      background.setAttribute('rx', '3');
+      background.setAttribute('stroke', color);
+      background.setAttribute('stroke-width', '1');
+      
+      tempLayer.appendChild(background);
+      tempLayer.appendChild(feedback);
+      
+      // Fade out and remove
+      setTimeout(() => {
+        background.style.transition = 'opacity 0.3s ease-out';
+        feedback.style.transition = 'opacity 0.3s ease-out';
+        background.setAttribute('opacity', '0');
+        feedback.setAttribute('opacity', '0');
+        
+        setTimeout(() => {
+          if (background.parentNode) background.parentNode.removeChild(background);
+          if (feedback.parentNode) feedback.parentNode.removeChild(feedback);
+        }, 300);
+      }, duration);
+    }
+    
+    function createOverlappingNodes() {
+      const baseX = 300;
+      const baseY = 300;
+      
+      // Create 3 overlapping nodes
+      createNode(baseX, baseY, 'A', nodeColors[0]);
+      createNode(baseX + 20, baseY + 20, 'B', nodeColors[1]);
+      createNode(baseX + 40, baseY + 40, 'C', nodeColors[2]);
+      
+      log('Created 3 overlapping nodes', 'success');
+    }
+    
+    function addRandomNode() {
+      const x = Math.random() * 700 + 50;
+      const y = Math.random() * 500 + 50;
+      const label = String.fromCharCode(65 + (nodeCounter % 26));
+      const color = nodeColors[nodeCounter % nodeColors.length];
+      
+      createNode(x, y, label, color);
+    }
+    
+    function clearAllNodes() {
+      nodesLayer.innerHTML = '';
+      tempLayer.innerHTML = '';
+      selectedNode = null;
+      nodeCounter = 0;
+      log('Cleared all nodes', 'info');
+    }
+    
+    function toggleHelp() {
+      helpVisible = !helpVisible;
+      log(`Help messages ${helpVisible ? 'enabled' : 'disabled'}`, 'info');
+    }
+    
+    // Z-Order help configuration functions
+    function toggleZOrderHelpOnSelection() {
+      if (window.interactionManager) {
+        const newValue = window.interactionManager.toggleShowZOrderHelpOnSelection();
+        log(`Z-Order auto-help is now ${newValue ? 'ENABLED' : 'DISABLED'}`, 'info');
+      } else {
+        log('InteractionManager not available', 'error');
+      }
+    }
+    
+    function enableZOrderHelpOnSelection() {
+      if (window.interactionManager) {
+        window.interactionManager.setShowZOrderHelpOnSelection(true);
+        log('Z-Order auto-help ENABLED', 'success');
+      } else {
+        log('InteractionManager not available', 'error');
+      }
+    }
+    
+    function disableZOrderHelpOnSelection() {
+      if (window.interactionManager) {
+        window.interactionManager.setShowZOrderHelpOnSelection(false);
+        log('Z-Order auto-help DISABLED', 'success');
+      } else {
+        log('InteractionManager not available', 'error');
+      }
+    }
+    
+    function showZOrderHelpManually() {
+      if (window.interactionManager && selectedNode) {
+        // Create a mock node object for testing
+        const mockNode = {
+          id: selectedNode.dataset.nodeId,
+          element: selectedNode
+        };
+        window.interactionManager.showZOrderHelp(mockNode);
+        log('Manually triggered z-order help', 'info');
+      } else if (!selectedNode) {
+        log('No node selected', 'warning');
+      } else {
+        log('InteractionManager not available', 'error');
+      }
+    }
+    
+    // Z-Order feedback configuration functions
+    function toggleZOrderFeedback() {
+      if (window.interactionManager) {
+        const newValue = window.interactionManager.toggleShowZOrderFeedback();
+        log(`Z-Order feedback messages are now ${newValue ? 'ENABLED' : 'DISABLED'}`, 'info');
+      } else {
+        log('InteractionManager not available', 'error');
+      }
+    }
+    
+    function enableZOrderFeedback() {
+      if (window.interactionManager) {
+        window.interactionManager.setShowZOrderFeedback(true);
+        log('Z-Order feedback messages ENABLED', 'success');
+      } else {
+        log('InteractionManager not available', 'error');
+      }
+    }
+    
+    function disableZOrderFeedback() {
+      if (window.interactionManager) {
+        window.interactionManager.setShowZOrderFeedback(false);
+        log('Z-Order feedback messages DISABLED', 'success');
+      } else {
+        log('InteractionManager not available', 'error');
+      }
+    }
+    
+    // Arrow key fine-tuning configuration functions
+    function toggleArrowKeyFinetuning() {
+      if (window.interactionManager) {
+        const newValue = window.interactionManager.toggleArrowKeyFinetuning();
+        log(`Arrow key fine-tuning is now ${newValue ? 'ENABLED' : 'DISABLED'}`, 'info');
+      } else {
+        log('InteractionManager not available', 'error');
+      }
+    }
+    
+    function enableArrowKeyFinetuning() {
+      if (window.interactionManager) {
+        window.interactionManager.setEnableArrowKeyFinetuning(true);
+        log('Arrow key fine-tuning ENABLED', 'success');
+      } else {
+        log('InteractionManager not available', 'error');
+      }
+    }
+    
+    function disableArrowKeyFinetuning() {
+      if (window.interactionManager) {
+        window.interactionManager.setEnableArrowKeyFinetuning(false);
+        log('Arrow key fine-tuning DISABLED', 'success');
+      } else {
+        log('InteractionManager not available', 'error');
+      }
+    }
+
+    // Keyboard event handler
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'PageUp') {
+        e.preventDefault();
+        moveNodeInZOrder('up');
+      } else if (e.key === 'PageDown') {
+        e.preventDefault();
+        moveNodeInZOrder('down');
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        moveNodeToZOrderExtreme('top');
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        moveNodeToZOrderExtreme('bottom');
+      } else if (e.key === 'Escape') {
+        if (selectedNode) {
+          selectedNode.classList.remove('selected');
+          selectedNode = null;
+          log('Deselected node', 'info');
+        }
+      }
+    });
+    
+    // Initialize with some test nodes
+    createOverlappingNodes();
+    addRandomNode();
+    addRandomNode();
+    
+    log('Z-Order test initialized', 'success');
+    log('Click on nodes to select them, then use PgUp/PgDown to move them', 'info');
+  </script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inline Arrowhead Test</title>
+    <link rel="stylesheet" href="themes/dark.css?v=049">
+    <style>
+        body {
+            padding: 20px;
+            background: #1e1e1e;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 12px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .log {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Inline Arrowhead Test</h1>
+    
+    <div class="test-section">
+        <h3>Controls</h3>
+        <button onclick="createMarkerEdge()">Create Marker Edge</button>
+        <button onclick="createInlineArrowhead()">Create Inline Arrowhead</button>
+        <button onclick="createPolygonArrowhead()">Create Polygon Arrowhead</button>
+        <button onclick="clearEdges()">Clear All</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test Results</h3>
+        <svg width="800" height="400" style="border: 1px solid #666; background: #2d2d2d;">
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7"/>
+                </marker>
+                <marker id="temp-arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7" fill="#ff6b6b" stroke="none"/>
+                </marker>
+            </defs>
+            
+            <g id="test-edges"></g>
+        </svg>
+    </div>
+    
+    <div class="test-section">
+        <h3>Log</h3>
+        <div class="log" id="log"></div>
+    </div>
+    
+    <script>
+        let edgeCount = 0;
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            logDiv.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function createMarkerEdge() {
+            const container = document.getElementById('test-edges');
+            const y = 50 + (edgeCount * 60);
+            
+            const edge = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            edge.setAttribute('d', `M 50 ${y} L 350 ${y}`);
+            edge.setAttribute('stroke', '#ff6b6b');
+            edge.setAttribute('stroke-width', '2');
+            edge.setAttribute('stroke-dasharray', '5,5');
+            edge.setAttribute('fill', 'none');
+            edge.setAttribute('marker-end', 'url(#temp-arrowhead)');
+            
+            container.appendChild(edge);
+            
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', '200');
+            label.setAttribute('y', y - 10);
+            label.setAttribute('fill', '#ffffff');
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('font-size', '12');
+            label.textContent = `Marker Edge ${edgeCount}`;
+            
+            container.appendChild(label);
+            
+            edgeCount++;
+            log(`Created marker-based edge ${edgeCount - 1}`);
+        }
+        
+        function createInlineArrowhead() {
+            const container = document.getElementById('test-edges');
+            const y = 50 + (edgeCount * 60);
+            
+            // Create the main line
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            line.setAttribute('d', `M 50 ${y} L 340 ${y}`);
+            line.setAttribute('stroke', '#ff6b6b');
+            line.setAttribute('stroke-width', '2');
+            line.setAttribute('stroke-dasharray', '5,5');
+            line.setAttribute('fill', 'none');
+            
+            container.appendChild(line);
+            
+            // Create arrowhead as separate polygon
+            const arrowhead = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            arrowhead.setAttribute('points', `340,${y-3.5} 350,${y} 340,${y+3.5}`);
+            arrowhead.setAttribute('fill', '#ff6b6b');
+            arrowhead.setAttribute('stroke', 'none');
+            
+            container.appendChild(arrowhead);
+            
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', '200');
+            label.setAttribute('y', y - 10);
+            label.setAttribute('fill', '#ffffff');
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('font-size', '12');
+            label.textContent = `Inline Arrowhead ${edgeCount}`;
+            
+            container.appendChild(label);
+            
+            edgeCount++;
+            log(`Created inline arrowhead edge ${edgeCount - 1} - should be visible`);
+        }
+        
+        function createPolygonArrowhead() {
+            const container = document.getElementById('test-edges');
+            const y = 50 + (edgeCount * 60);
+            
+            // Create the main line (slightly shorter)
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            line.setAttribute('d', `M 50 ${y} L 335 ${y}`);
+            line.setAttribute('stroke', '#ff6b6b');
+            line.setAttribute('stroke-width', '2');
+            line.setAttribute('stroke-dasharray', '5,5');
+            line.setAttribute('fill', 'none');
+            
+            container.appendChild(line);
+            
+            // Create arrowhead as triangle
+            const arrowhead = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            arrowhead.setAttribute('points', `335,${y-5} 350,${y} 335,${y+5}`);
+            arrowhead.setAttribute('fill', '#ff6b6b');
+            arrowhead.setAttribute('stroke', '#ff6b6b');
+            arrowhead.setAttribute('stroke-width', '1');
+            
+            container.appendChild(arrowhead);
+            
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', '200');
+            label.setAttribute('y', y - 10);
+            label.setAttribute('fill', '#ffffff');
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('font-size', '12');
+            label.textContent = `Polygon Arrowhead ${edgeCount}`;
+            
+            container.appendChild(label);
+            
+            edgeCount++;
+            log(`Created polygon arrowhead edge ${edgeCount - 1} - should be visible`);
+        }
+        
+        function clearEdges() {
+            document.getElementById('test-edges').innerHTML = '';
+            edgeCount = 0;
+            log('Cleared all edges');
+        }
+        
+        // Test all methods on load
+        setTimeout(() => {
+            log('Page loaded - testing all arrowhead methods');
+            createMarkerEdge();
+            createInlineArrowhead();
+            createPolygonArrowhead();
+        }, 100);
+    </script>
+</body>
+</html>

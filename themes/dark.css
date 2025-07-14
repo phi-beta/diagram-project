@@ -3,8 +3,36 @@ body {
   background-color: var(--body-background, #1e1e1e);
   color: #e1e1e1;
   margin: 0;
-  padding: 10px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Arrowhead styling for dark theme */
+.arrowhead-fill {
+  fill: #ffffff !important; /* White for dark theme */
+}
+
+#temp-arrowhead polygon {
+  fill: #ff6b6b !important; /* Orange color for temporary edges */
+  stroke: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Temporary arrowhead styling - multiple selectors for maximum specificity */
+#temp-arrowhead polygon,
+#temp-arrowhead polygon.temp-arrowhead-fill,
+.temp-arrowhead-fill,
+marker#temp-arrowhead polygon,
+svg marker#temp-arrowhead polygon {
+  fill: #ff6b6b !important; /* Orange color for temporary edges */
+  stroke: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.temp-arrow-marker {
+  fill: #ff6b6b !important;
+  opacity: 0.8;
 }
 
 /* Viewport indicators */
@@ -130,23 +158,9 @@ body {
   fill: #ffffff !important; /* White for dark theme */
 }
 
-#temp-arrowhead polygon {
-  fill: #ff7675 !important; /* Orange color for temporary edges */
-}
-
 /* Legacy class-based styling as fallback */
 .arrowhead-fill {
   fill: #ffffff; /* White for dark theme */
-}
-
-/* Temporary arrowhead styling */
-.temp-arrowhead-fill {
-  fill: #ff7675; /* Orange color for temporary edges */
-}
-
-.temp-arrow-marker {
-  fill: #ff7675;
-  opacity: 0.8;
 }
 
 /* Selection and interaction states */

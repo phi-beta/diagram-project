@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dark Theme Arrowhead Fix Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #1e1e1e;
+            color: #ffffff;
+        }
+        
+        .test-container {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #444;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        
+        .controls {
+            margin: 10px 0;
+        }
+        
+        button {
+            padding: 8px 16px;
+            margin: 4px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        .debug-info {
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #00ff00;
+            margin: 10px 0;
+            white-space: pre-wrap;
+        }
+        
+        /* Dark theme styles for temp arrowhead */
+        .temp-arrowhead-fill {
+            fill: #ff6b6b !important;
+            stroke: none !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+        
+        #temp-arrowhead polygon {
+            fill: #ff6b6b !important;
+            stroke: none !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>Dark Theme Arrowhead Fix Test</h1>
+    
+    <div class="test-container">
+        <h2>Test: Temporary Arrowhead Visibility</h2>
+        <svg width="600" height="200" style="border: 1px solid #666; background: #333;">
+            <defs>
+                <marker id="temp-arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7" class="temp-arrowhead-fill" fill="#ff6b6b"/>
+                </marker>
+            </defs>
+            
+            <path id="test-temp-edge" class="temporary-edge" 
+                  stroke="#ff6b6b" stroke-width="2" stroke-dasharray="5,5" 
+                  fill="none" marker-end="url(#temp-arrowhead)"
+                  d="M 50 100 L 300 100"/>
+            
+            <text x="175" y="90" fill="#ffffff" text-anchor="middle" font-size="12">
+                Temporary Edge (should have orange arrowhead)
+            </text>
+        </svg>
+        
+        <div class="controls">
+            <button onclick="testJSFix()">Apply JS Fix</button>
+            <button onclick="checkMarkerState()">Check Marker State</button>
+            <button onclick="createDynamicEdge()">Create Dynamic Edge</button>
+            <button onclick="clearEdges()">Clear</button>
+        </div>
+        
+        <div class="debug-info" id="debug-info">
+            Click "Check Marker State" to see marker debugging info
+        </div>
+    </div>
+
+    <script>
+        function testJSFix() {
+            const tempArrowheadMarker = document.querySelector('#temp-arrowhead polygon');
+            if (tempArrowheadMarker) {
+                tempArrowheadMarker.setAttribute('fill', '#ff6b6b');
+                console.log('🎯 Applied JS fix - set temp arrowhead fill to orange');
+                updateDebugInfo('JS Fix Applied: Set temp arrowhead fill to #ff6b6b');
+            } else {
+                updateDebugInfo('Error: Could not find temp arrowhead marker');
+            }
+        }
+        
+        function checkMarkerState() {
+            const tempArrowheadMarker = document.querySelector('#temp-arrowhead polygon');
+            let debug = 'Marker State Check:\n';
+            
+            if (tempArrowheadMarker) {
+                const style = window.getComputedStyle(tempArrowheadMarker);
+                const fillAttr = tempArrowheadMarker.getAttribute('fill');
+                
+                debug += `Element found: ${tempArrowheadMarker.tagName}\n`;
+                debug += `Fill attribute: ${fillAttr}\n`;
+                debug += `Computed fill: ${style.fill}\n`;
+                debug += `Computed opacity: ${style.opacity}\n`;
+                debug += `Computed visibility: ${style.visibility}\n`;
+                debug += `Classes: ${tempArrowheadMarker.className.baseVal || tempArrowheadMarker.className}\n`;
+            } else {
+                debug += 'Error: Temp arrowhead marker not found!\n';
+            }
+            
+            updateDebugInfo(debug);
+        }
+        
+        function createDynamicEdge() {
+            const svg = document.querySelector('svg');
+            
+            // Clear existing dynamic edges
+            const existing = svg.querySelectorAll('.dynamic-edge');
+            existing.forEach(edge => edge.remove());
+            
+            // Create new dynamic edge
+            const dynamicEdge = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            dynamicEdge.setAttribute('class', 'temporary-edge dynamic-edge');
+            dynamicEdge.setAttribute('stroke', '#ff6b6b');
+            dynamicEdge.setAttribute('stroke-width', '2');
+            dynamicEdge.setAttribute('stroke-dasharray', '5,5');
+            dynamicEdge.setAttribute('fill', 'none');
+            dynamicEdge.setAttribute('marker-end', 'url(#temp-arrowhead)');
+            dynamicEdge.setAttribute('d', 'M 50 150 L 300 150');
+            
+            svg.appendChild(dynamicEdge);
+            
+            // Apply JS fix
+            setTimeout(() => {
+                testJSFix();
+            }, 50);
+            
+            updateDebugInfo('Dynamic edge created and JS fix applied');
+        }
+        
+        function clearEdges() {
+            const svg = document.querySelector('svg');
+            const dynamicEdges = svg.querySelectorAll('.dynamic-edge');
+            dynamicEdges.forEach(edge => edge.remove());
+            updateDebugInfo('Dynamic edges cleared');
+        }
+        
+        function updateDebugInfo(message) {
+            const debugDiv = document.getElementById('debug-info');
+            debugDiv.textContent = message;
+        }
+        
+        // Initial check
+        setTimeout(() => {
+            checkMarkerState();
+        }, 100);
+    </script>
+</body>
+</html>

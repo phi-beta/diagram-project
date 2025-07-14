@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marker Refresh Test</title>
+    <link rel="stylesheet" href="themes/dark.css" id="theme-link">
+    <style>
+        body {
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .test-container {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 15px;
+            background: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #357abd;
+        }
+        .log {
+            background: #1a1a1a;
+            color: #0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Marker Refresh Test - Dark Theme</h1>
+    
+    <div class="test-container">
+        <button onclick="toggleTheme()">Toggle Theme</button>
+        <button onclick="refreshMarkers()">Refresh Markers</button>
+        <button onclick="forceMarkerUpdate()">Force Marker Update</button>
+        <button onclick="checkMarkerCSS()">Check Marker CSS</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+    
+    <svg width="800" height="300" style="border: 1px solid #666; background: #2d2d2d;">
+        <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                    refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" class="arrowhead-fill"/>
+            </marker>
+            <marker id="temp-arrowhead" markerWidth="10" markerHeight="7" 
+                    refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" class="temp-arrowhead-fill" fill="#ff6b6b"/>
+            </marker>
+        </defs>
+        
+        <!-- Regular arrowhead -->
+        <path d="M 50 50 L 400 50" stroke="#ffffff" stroke-width="2" 
+              fill="none" marker-end="url(#arrowhead)"/>
+        <text x="225" y="40" fill="#ffffff" text-anchor="middle" font-size="12">
+            Regular Arrowhead
+        </text>
+        
+        <!-- Temporary arrowhead -->
+        <path d="M 50 120 L 400 120" stroke="#ff6b6b" stroke-width="2" 
+              stroke-dasharray="5,5" fill="none" marker-end="url(#temp-arrowhead)"
+              class="temporary-edge"/>
+        <text x="225" y="110" fill="#ffffff" text-anchor="middle" font-size="12">
+            Temporary Arrowhead
+        </text>
+        
+        <!-- Another temporary arrowhead -->
+        <path d="M 50 200 L 400 200" stroke="#ff6b6b" stroke-width="2" 
+              stroke-dasharray="5,5" fill="none" marker-end="url(#temp-arrowhead)"
+              class="temporary-edge"/>
+        <text x="225" y="190" fill="#ffffff" text-anchor="middle" font-size="12">
+            Another Temporary Arrowhead
+        </text>
+    </svg>
+    
+    <div class="log" id="log"></div>
+    
+    <script>
+        let currentTheme = 'dark';
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            logDiv.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+        
+        function toggleTheme() {
+            const link = document.getElementById('theme-link');
+            if (currentTheme === 'dark') {
+                link.href = 'themes/default.css';
+                currentTheme = 'light';
+                log('Switched to light theme');
+            } else {
+                link.href = 'themes/dark.css';
+                currentTheme = 'dark';
+                log('Switched to dark theme');
+            }
+            
+            // Force marker update after theme change
+            setTimeout(() => {
+                forceMarkerUpdate();
+            }, 200);
+        }
+        
+        function refreshMarkers() {
+            const defs = document.querySelector('defs');
+            const tempMarker = document.getElementById('temp-arrowhead');
+            
+            if (tempMarker) {
+                // Remove and re-add the marker
+                const parent = tempMarker.parentNode;
+                parent.removeChild(tempMarker);
+                
+                // Create new marker
+                const newMarker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+                newMarker.setAttribute('id', 'temp-arrowhead');
+                newMarker.setAttribute('markerWidth', '10');
+                newMarker.setAttribute('markerHeight', '7');
+                newMarker.setAttribute('refX', '9');
+                newMarker.setAttribute('refY', '3.5');
+                newMarker.setAttribute('orient', 'auto');
+                
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
+                polygon.setAttribute('class', 'temp-arrowhead-fill');
+                polygon.setAttribute('fill', '#ff6b6b');
+                
+                newMarker.appendChild(polygon);
+                parent.appendChild(newMarker);
+                
+                log('Refreshed temp-arrowhead marker');
+            }
+        }
+        
+        function forceMarkerUpdate() {
+            const tempMarker = document.querySelector('#temp-arrowhead polygon');
+            const regularMarker = document.querySelector('#arrowhead polygon');
+            
+            if (tempMarker) {
+                tempMarker.setAttribute('fill', '#ff6b6b');
+                tempMarker.setAttribute('stroke', 'none');
+                tempMarker.setAttribute('opacity', '1');
+                tempMarker.setAttribute('visibility', 'visible');
+                log('Forced temp marker attributes');
+            }
+            
+            if (regularMarker) {
+                if (currentTheme === 'dark') {
+                    regularMarker.setAttribute('fill', '#ffffff');
+                } else {
+                    regularMarker.setAttribute('fill', '#333333');
+                }
+                log('Updated regular marker for ' + currentTheme + ' theme');
+            }
+        }
+        
+        function checkMarkerCSS() {
+            const tempMarker = document.querySelector('#temp-arrowhead polygon');
+            const regularMarker = document.querySelector('#arrowhead polygon');
+            
+            if (tempMarker) {
+                const styles = window.getComputedStyle(tempMarker);
+                log('Temp marker computed styles:');
+                log('  fill: ' + styles.fill);
+                log('  stroke: ' + styles.stroke);
+                log('  opacity: ' + styles.opacity);
+                log('  visibility: ' + styles.visibility);
+                log('  Attributes:');
+                log('  fill attr: ' + tempMarker.getAttribute('fill'));
+                log('  class: ' + tempMarker.getAttribute('class'));
+            }
+            
+            if (regularMarker) {
+                const styles = window.getComputedStyle(regularMarker);
+                log('Regular marker computed styles:');
+                log('  fill: ' + styles.fill);
+                log('  stroke: ' + styles.stroke);
+                log('  opacity: ' + styles.opacity);
+                log('  visibility: ' + styles.visibility);
+            }
+        }
+        
+        // Initial setup
+        setTimeout(() => {
+            log('Page loaded in ' + currentTheme + ' theme');
+            checkMarkerCSS();
+            forceMarkerUpdate();
+        }, 100);
+    </script>
+</body>
+</html>

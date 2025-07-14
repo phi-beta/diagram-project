@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dark Theme Arrowhead Debug</title>
+    <link rel="stylesheet" href="themes/dark.css">
+    <style>
+        body {
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .test-container {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ccc;
+            background: #2e2e2e;
+        }
+        .debug-info {
+            margin: 10px 0;
+            padding: 10px;
+            background: #1a1a1a;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #00ff00;
+        }
+    </style>
+</head>
+<body>
+    <h1>Dark Theme Arrowhead Debug</h1>
+    
+    <div class="test-container">
+        <h2>Test 1: Direct SVG with Markers</h2>
+        <svg width="400" height="200" style="border: 1px solid #666;">
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7"/>
+                </marker>
+                <marker id="temp-arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7" class="temp-arrowhead-fill"/>
+                </marker>
+            </defs>
+            
+            <line x1="50" y1="50" x2="200" y2="50" stroke="#ffffff" stroke-width="2" marker-end="url(#arrowhead)"/>
+            <text x="125" y="40" fill="#ffffff" text-anchor="middle" font-size="12">Regular Arrowhead</text>
+            
+            <line x1="50" y1="100" x2="200" y2="100" stroke="#ff7675" stroke-width="2" marker-end="url(#temp-arrowhead)"/>
+            <text x="125" y="90" fill="#ffffff" text-anchor="middle" font-size="12">Temporary Arrowhead</text>
+        </svg>
+        <div class="debug-info" id="debug1">Loading...</div>
+    </div>
+    
+    <div class="test-container">
+        <h2>Test 2: Programmatically Created Temporary Edge</h2>
+        <svg width="400" height="200" style="border: 1px solid #666;" id="test-svg">
+            <defs>
+                <marker id="arrowhead2" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7"/>
+                </marker>
+                <marker id="temp-arrowhead2" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7" class="temp-arrowhead-fill"/>
+                </marker>
+            </defs>
+        </svg>
+        <div class="debug-info" id="debug2">Loading...</div>
+    </div>
+    
+    <div class="test-container">
+        <h2>Test 3: CSS Debug Info</h2>
+        <div class="debug-info" id="debug3">Loading...</div>
+    </div>
+
+    <script>
+        function debugArrowheads() {
+            // Test 1: Check computed styles
+            const tempArrowhead = document.querySelector('#temp-arrowhead polygon');
+            const regularArrowhead = document.querySelector('#arrowhead polygon');
+            
+            let debug1 = '';
+            if (tempArrowhead) {
+                const computedStyle = window.getComputedStyle(tempArrowhead);
+                debug1 += `Temp arrowhead fill: ${computedStyle.fill}\n`;
+                debug1 += `Temp arrowhead opacity: ${computedStyle.opacity}\n`;
+                debug1 += `Temp arrowhead visibility: ${computedStyle.visibility}\n`;
+            }
+            
+            if (regularArrowhead) {
+                const computedStyle = window.getComputedStyle(regularArrowhead);
+                debug1 += `Regular arrowhead fill: ${computedStyle.fill}\n`;
+            }
+            
+            document.getElementById('debug1').textContent = debug1;
+            
+            // Test 2: Create temporary edge programmatically
+            const svg = document.getElementById('test-svg');
+            const tempEdge = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            tempEdge.setAttribute('x1', '50');
+            tempEdge.setAttribute('y1', '50');
+            tempEdge.setAttribute('x2', '200');
+            tempEdge.setAttribute('y2', '100');
+            tempEdge.setAttribute('stroke', '#ff7675');
+            tempEdge.setAttribute('stroke-width', '3');
+            tempEdge.setAttribute('fill', 'none');
+            tempEdge.setAttribute('marker-end', 'url(#temp-arrowhead2)');
+            tempEdge.setAttribute('class', 'temporary-edge');
+            svg.appendChild(tempEdge);
+            
+            document.getElementById('debug2').textContent = 'Temporary edge created programmatically';
+            
+            // Test 3: Check CSS rules
+            const tempArrowhead2 = document.querySelector('#temp-arrowhead2 polygon');
+            let debug3 = '';
+            if (tempArrowhead2) {
+                const computedStyle = window.getComputedStyle(tempArrowhead2);
+                debug3 += `Temp arrowhead2 fill: ${computedStyle.fill}\n`;
+                debug3 += `Temp arrowhead2 opacity: ${computedStyle.opacity}\n`;
+                debug3 += `Temp arrowhead2 visibility: ${computedStyle.visibility}\n`;
+                debug3 += `Temp arrowhead2 stroke: ${computedStyle.stroke}\n`;
+            }
+            
+            document.getElementById('debug3').textContent = debug3;
+        }
+        
+        // Run debug after page loads
+        window.addEventListener('load', () => {
+            setTimeout(debugArrowheads, 100);
+        });
+    </script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-// Version 010 - Added LayerManager support for temporary elements
+// Version 011 - Removed marker fallback and enforced inline arrowhead approach
 /**
  * DiagramStateManager - Manages diagram-wide states and coordinates multi-component interactions
  * 
@@ -420,29 +420,44 @@ export class DiagramStateManager {
     // Remove any existing temporary edge
     this.removeTemporaryEdge();
     
-    // Create temporary edge element
-    this.temporaryEdge = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    this.temporaryEdge.setAttribute('class', 'temporary-edge');
-    this.temporaryEdge.setAttribute('stroke', '#ff6b6b'); // Orange-red color
-    this.temporaryEdge.setAttribute('stroke-width', '2');
-    this.temporaryEdge.setAttribute('stroke-dasharray', '5,5');
-    this.temporaryEdge.setAttribute('fill', 'none');
-    this.temporaryEdge.setAttribute('pointer-events', 'none');
-    this.temporaryEdge.setAttribute('marker-end', 'url(#temp-arrowhead)'); // Use temp arrowhead for orange color
-    
-    // Add a simple visible path (from source node center to a default location)
-    this.temporaryEdge.setAttribute('d', 'M 100 100 L 200 200');
-    
-    // Add to temp layer if LayerManager is available, otherwise fallback to SVG root
-    if (this.layerManager) {
-      this.layerManager.addToLayer('temp', this.temporaryEdge);
-    } else {
-      this.svg.appendChild(this.temporaryEdge);
+    // Use InteractionManager's inline arrowhead method if available
+    if (this.interactionManager && typeof this.interactionManager.createTemporaryEdgeWithInlineArrowhead === 'function') {
+      // Get start position (use default if we can't get the actual position)
+      let startX = 100, startY = 100;
+      
+      // Try to get actual source node position
+      if (this.edgeSourceNode) {
+        try {
+          // Try different methods to get position
+          if (typeof this.edgeSourceNode.getGlobalCenter === 'function') {
+            const center = this.edgeSourceNode.getGlobalCenter();
+            startX = center.x;
+            startY = center.y;
+          } else if (typeof this.edgeSourceNode.getTransformedCenter === 'function') {
+            const center = this.edgeSourceNode.getTransformedCenter();
+            startX = center.x;
+            startY = center.y;
+          } else if (this.edgeSourceNode.element) {
+            // Try to get center from DOM element
+            const rect = this.edgeSourceNode.element.getBoundingClientRect();
+            startX = rect.left + rect.width / 2;
+            startY = rect.top + rect.height / 2;
+          }
+        } catch (e) {
+          console.warn('Could not get source node position, using default:', e);
+        }
+      }
+      
+      // Create with inline arrowhead approach
+      this.interactionManager.createTemporaryEdgeWithInlineArrowhead(startX, startY, startX + 100, startY + 100);
+      console.log('✅ EXPLICIT Created temporary edge with inline arrowhead');
+      return;
     }
-    console.log('✅ EXPLICIT Temporary edge created and added to SVG');
-    debugEdgeCreation('✅ Temporary edge created and added to SVG');
-    debugEdgeCreation('🔍 Temporary edge element:', this.temporaryEdge);
-    debugEdgeCreation('🔍 SVG children count:', this.svg.children.length);
+    
+    // ERROR: No inline arrowhead method available
+    console.error('❌ EXPLICIT No inline arrowhead method available - cannot create temporary edge');
+    console.error('❌ This should not happen - InteractionManager should always have createTemporaryEdgeWithInlineArrowhead');
+    return;
   }
   
   /**
@@ -464,91 +479,94 @@ export class DiagramStateManager {
    * Update temporary edge position to follow mouse
    */
   updateTemporaryEdge(mouseX, mouseY) {
-    if (!this.temporaryEdge || !this.edgeSourceNode) {
-      return;
-    }
-    
-    // Ensure edgeSourceNode is a DOM element
-    let sourceElement = this.edgeSourceNode;
-    if (!sourceElement.getAttribute) {
-      console.log('⚠️ edgeSourceNode is not a DOM element:', sourceElement);
-      return;
-    }
-    
-    // Get source node center and radius using the same method as legacy system
-    let startCenter;
-    try {
-      // Try to get the center using getBBox and getCTM (like the legacy system)
-      const bbox = sourceElement.getBBox();
-      const matrix = sourceElement.getCTM();
-      const centerX = bbox.x + bbox.width / 2;
-      const centerY = bbox.y + bbox.height / 2;
-      
-      if (matrix) {
-        startCenter = {
-          x: matrix.a * centerX + matrix.c * centerY + matrix.e,
-          y: matrix.b * centerX + matrix.d * centerY + matrix.f,
-          radius: Math.min(bbox.width, bbox.height) / 2 * Math.sqrt(matrix.a * matrix.a + matrix.b * matrix.b)
-        };
-      } else {
-        startCenter = {
-          x: centerX,
-          y: centerY,
-          radius: Math.min(bbox.width, bbox.height) / 2
-        };
+    // Use InteractionManager's inline arrowhead method if available
+    if (this.interactionManager && typeof this.interactionManager.createTemporaryEdgeWithInlineArrowhead === 'function' && this.edgeSourceNode) {
+      // Get source node center and radius using the same method as legacy system
+      let startCenter;
+      try {
+        // Ensure edgeSourceNode is a DOM element
+        let sourceElement = this.edgeSourceNode;
+        if (!sourceElement.getAttribute) {
+          console.log('⚠️ edgeSourceNode is not a DOM element:', sourceElement);
+          return;
+        }
+        
+        // Try to get the center using getBBox and getCTM (like the legacy system)
+        const bbox = sourceElement.getBBox();
+        const matrix = sourceElement.getCTM();
+        const centerX = bbox.x + bbox.width / 2;
+        const centerY = bbox.y + bbox.height / 2;
+        
+        if (matrix) {
+          startCenter = {
+            x: matrix.a * centerX + matrix.c * centerY + matrix.e,
+            y: matrix.b * centerX + matrix.d * centerY + matrix.f,
+            radius: Math.min(bbox.width, bbox.height) / 2 * Math.sqrt(matrix.a * matrix.a + matrix.b * matrix.b)
+          };
+        } else {
+          startCenter = {
+            x: centerX,
+            y: centerY,
+            radius: Math.min(bbox.width, bbox.height) / 2
+          };
+        }
+      } catch (error) {
+        console.error('Error calculating node center:', error);
+        // Fallback to transform-based calculation
+        const transform = this.edgeSourceNode.getAttribute('transform');
+        let sourceX = 0, sourceY = 0;
+        
+        if (transform) {
+          const matches = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+          if (matches) {
+            sourceX = parseFloat(matches[1]);
+            sourceY = parseFloat(matches[2]);
+          }
+        }
+        
+        startCenter = { x: sourceX, y: sourceY, radius: 30 }; // Default radius
       }
-    } catch (error) {
-      console.error('Error calculating node center:', error);
-      // Fallback to transform-based calculation
-      const transform = sourceElement.getAttribute('transform');
-      let sourceX = 0, sourceY = 0;
       
-      if (transform) {
-        const matches = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
-        if (matches) {
-          sourceX = parseFloat(matches[1]);
-          sourceY = parseFloat(matches[2]);
+      // Convert mouse coordinates to SVG coordinates
+      let targetX, targetY;
+      if (this.viewBoxManager) {
+        const mousePos = this.viewBoxManager.screenToViewBox(mouseX, mouseY);
+        targetX = mousePos.x;
+        targetY = mousePos.y;
+      } else {
+        // Fallback: direct conversion
+        const svgRect = this.svg.getBoundingClientRect();
+        targetX = mouseX - svgRect.left;
+        targetY = mouseY - svgRect.top;
+        
+        // Apply viewBox transformation if present
+        const viewBox = this.svg.getAttribute('viewBox');
+        if (viewBox) {
+          const [vbX, vbY, vbWidth, vbHeight] = viewBox.split(' ').map(Number);
+          const scaleX = vbWidth / svgRect.width;
+          const scaleY = vbHeight / svgRect.height;
+          targetX = vbX + targetX * scaleX;
+          targetY = vbY + targetY * scaleY;
         }
       }
       
-      startCenter = { x: sourceX, y: sourceY, radius: 30 }; // Default radius
-    }
-    
-    // Convert mouse coordinates to SVG coordinates
-    let targetX, targetY;
-    if (this.viewBoxManager) {
-      const mousePos = this.viewBoxManager.screenToViewBox(mouseX, mouseY);
-      targetX = mousePos.x;
-      targetY = mousePos.y;
-    } else {
-      // Fallback: direct conversion
-      const svgRect = this.svg.getBoundingClientRect();
-      targetX = mouseX - svgRect.left;
-      targetY = mouseY - svgRect.top;
+      // Calculate direction vector from node center to mouse
+      const dx = targetX - startCenter.x;
+      const dy = targetY - startCenter.y;
+      const distance = Math.hypot(dx, dy) || 1; // Avoid division by zero
       
-      // Apply viewBox transformation if present
-      const viewBox = this.svg.getAttribute('viewBox');
-      if (viewBox) {
-        const [vbX, vbY, vbWidth, vbHeight] = viewBox.split(' ').map(Number);
-        const scaleX = vbWidth / svgRect.width;
-        const scaleY = vbHeight / svgRect.height;
-        targetX = vbX + targetX * scaleX;
-        targetY = vbY + targetY * scaleY;
-      }
+      // Calculate the start point at the edge of the node (not the center)
+      const startX = startCenter.x + dx * (startCenter.radius / distance);
+      const startY = startCenter.y + dy * (startCenter.radius / distance);
+      
+      // Update using inline arrowhead approach
+      this.interactionManager.createTemporaryEdgeWithInlineArrowhead(startX, startY, targetX, targetY);
+      return;
     }
     
-    // Calculate direction vector from node center to mouse
-    const dx = targetX - startCenter.x;
-    const dy = targetY - startCenter.y;
-    const distance = Math.hypot(dx, dy) || 1; // Avoid division by zero
-    
-    // Calculate the start point at the edge of the node (not the center)
-    const startX = startCenter.x + dx * (startCenter.radius / distance);
-    const startY = startCenter.y + dy * (startCenter.radius / distance);
-    
-    // Create path from node edge to mouse position
-    const pathData = `M ${startX} ${startY} L ${targetX} ${targetY}`;
-    this.temporaryEdge.setAttribute('d', pathData);
+    // ERROR: No inline arrowhead method available
+    console.error('❌ updateTemporaryEdge: No inline arrowhead method available');
+    return;
   }
   
   /**

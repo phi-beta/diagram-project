@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final Marker Validation Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            transition: background-color 0.3s ease;
+        }
+        
+        .theme-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .theme-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .theme-btn:hover {
+            transform: translateY(-1px);
+        }
+        
+        .light-theme {
+            background: #007acc;
+            color: white;
+        }
+        
+        .dark-theme {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .test-area {
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.8);
+        }
+        
+        .instructions {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #007acc;
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        
+        svg {
+            border: 1px solid #ddd;
+            background: white;
+        }
+        
+        .marker-demo {
+            stroke: #333;
+            stroke-width: 2;
+            fill: none;
+        }
+        
+        .temp-marker-demo {
+            stroke: #ff6b6b;
+            stroke-width: 3;
+            fill: none;
+        }
+    </style>
+    <link id="theme-link" rel="stylesheet" href="themes/default.css">
+</head>
+<body>
+    <div class="theme-controls">
+        <button class="theme-btn light-theme" onclick="switchTheme('default')">Light Theme</button>
+        <button class="theme-btn dark-theme" onclick="switchTheme('dark')">Dark Theme</button>
+    </div>
+    
+    <h1>Final Marker Validation Test</h1>
+    
+    <div class="instructions">
+        <h3>Test Instructions:</h3>
+        <ol>
+            <li>Switch between light and dark themes using the buttons above</li>
+            <li>Observe that regular arrowheads (black/white) change with theme</li>
+            <li>Observe that temporary arrowheads (orange) stay orange in both themes</li>
+            <li>Test edge creation by holding Shift and clicking nodes</li>
+            <li>Verify temporary edge arrowheads are visible and orange in both themes</li>
+        </ol>
+    </div>
+    
+    <div class="test-area">
+        <h3>Static Marker Test</h3>
+        <svg width="800" height="200">
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7"/>
+                </marker>
+                <marker id="temp-arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7" class="temp-arrowhead-fill"/>
+                </marker>
+            </defs>
+            
+            <line x1="50" y1="50" x2="200" y2="50" class="marker-demo" marker-end="url(#arrowhead)"/>
+            <text x="125" y="40" text-anchor="middle" font-size="12">Regular Arrowhead</text>
+            
+            <line x1="50" y1="100" x2="200" y2="100" class="temp-marker-demo" marker-end="url(#temp-arrowhead)"/>
+            <text x="125" y="90" text-anchor="middle" font-size="12">Temporary Arrowhead</text>
+            
+            <line x1="250" y1="50" x2="400" y2="50" class="marker-demo" marker-end="url(#arrowhead)"/>
+            <text x="325" y="40" text-anchor="middle" font-size="12">Regular Arrowhead</text>
+            
+            <line x1="250" y1="100" x2="400" y2="100" class="temp-marker-demo" marker-end="url(#temp-arrowhead)"/>
+            <text x="325" y="90" text-anchor="middle" font-size="12">Temporary Arrowhead</text>
+        </svg>
+    </div>
+    
+    <div class="test-area">
+        <h3>Interactive Diagram Test</h3>
+        <div id="diagram" style="width: 100%; height: 400px; border: 1px solid #ddd; background: white; position: relative;">
+            <!-- Diagram will be loaded here -->
+        </div>
+    </div>
+    
+    <div id="status" class="status warning">
+        Theme: <span id="current-theme">Default (Light)</span> | 
+        Status: <span id="test-status">Ready for testing</span>
+    </div>
+
+    <script>
+        let currentTheme = 'default';
+        
+        function switchTheme(theme) {
+            currentTheme = theme;
+            const themeLink = document.getElementById('theme-link');
+            const currentThemeSpan = document.getElementById('current-theme');
+            
+            if (theme === 'dark') {
+                themeLink.href = 'themes/dark.css';
+                currentThemeSpan.textContent = 'Dark';
+            } else {
+                themeLink.href = 'themes/default.css';
+                currentThemeSpan.textContent = 'Default (Light)';
+            }
+            
+            // Update test status
+            document.getElementById('test-status').textContent = `Theme switched to ${theme}`;
+            
+            // Update arrowhead colors via JavaScript (simulating the main app)
+            setTimeout(() => {
+                updateArrowheadColors();
+            }, 100);
+        }
+        
+        function updateArrowheadColors() {
+            const arrowheadPolygons = document.querySelectorAll('#arrowhead polygon');
+            const color = currentTheme === 'dark' ? '#ffffff' : '#000000';
+            
+            arrowheadPolygons.forEach(polygon => {
+                polygon.setAttribute('fill', color);
+            });
+            
+            // Temporary arrowheads should always be orange
+            const tempArrowheadPolygons = document.querySelectorAll('#temp-arrowhead polygon');
+            tempArrowheadPolygons.forEach(polygon => {
+                polygon.setAttribute('fill', '#ff6b6b');
+            });
+        }
+        
+        // Initialize
+        updateArrowheadColors();
+        
+        // Load the main diagram for interactive testing
+        fetch('index.html')
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const diagramContainer = doc.getElementById('diagram');
+                
+                if (diagramContainer) {
+                    document.getElementById('diagram').innerHTML = diagramContainer.innerHTML;
+                    
+                    // Load the JavaScript files
+                    const scripts = [
+                        'js/InteractionManager.js',
+                        'js/DiagramStateManager.js',
+                        'js/renderer.js'
+                    ];
+                    
+                    scripts.forEach(src => {
+                        const script = document.createElement('script');
+                        script.src = src;
+                        document.head.appendChild(script);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error loading diagram:', error);
+                document.getElementById('test-status').textContent = 'Error loading diagram';
+            });
+    </script>
+</body>
+</html>

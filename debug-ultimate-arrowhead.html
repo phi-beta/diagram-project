@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Arrowhead Debug Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #1e1e1e;
+            color: #ffffff;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #444;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        .debug-info {
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #00ff00;
+            margin: 10px 0;
+            white-space: pre-wrap;
+        }
+        .test-svg {
+            border: 1px solid #666;
+            margin: 10px 0;
+            background: #333;
+        }
+        .controls {
+            margin: 10px 0;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 4px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Ultimate Arrowhead Debug Test</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Basic Markers</h2>
+        <svg width="600" height="150" class="test-svg">
+            <defs>
+                <marker id="test-arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7" fill="#ffffff"/>
+                </marker>
+                <marker id="test-temp-arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7" fill="#ff6b6b"/>
+                </marker>
+            </defs>
+            
+            <line x1="50" y1="50" x2="200" y2="50" stroke="#ffffff" stroke-width="2" marker-end="url(#test-arrowhead)"/>
+            <text x="125" y="40" fill="#ffffff" text-anchor="middle" font-size="12">Regular (White)</text>
+            
+            <line x1="50" y1="100" x2="200" y2="100" stroke="#ff6b6b" stroke-width="2" marker-end="url(#test-temp-arrowhead)"/>
+            <text x="125" y="90" fill="#ffffff" text-anchor="middle" font-size="12">Temp (Orange)</text>
+            
+            <line x1="250" y1="50" x2="400" y2="50" stroke="#ffffff" stroke-width="2" marker-end="url(#test-arrowhead)"/>
+            <text x="325" y="40" fill="#ffffff" text-anchor="middle" font-size="12">Regular (White)</text>
+            
+            <line x1="250" y1="100" x2="400" y2="100" stroke="#ff6b6b" stroke-width="2" marker-end="url(#test-temp-arrowhead)"/>
+            <text x="325" y="90" fill="#ffffff" text-anchor="middle" font-size="12">Temp (Orange)</text>
+        </svg>
+        <div class="debug-info" id="debug1">Click "Check Markers" to see debug info</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 2: With CSS Classes</h2>
+        <style>
+            .arrowhead-fill {
+                fill: #ffffff !important;
+            }
+            .temp-arrowhead-fill {
+                fill: #ff6b6b !important;
+                stroke: none !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+            }
+        </style>
+        <svg width="600" height="150" class="test-svg">
+            <defs>
+                <marker id="css-arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7" class="arrowhead-fill"/>
+                </marker>
+                <marker id="css-temp-arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7" class="temp-arrowhead-fill"/>
+                </marker>
+            </defs>
+            
+            <line x1="50" y1="50" x2="200" y2="50" stroke="#ffffff" stroke-width="2" marker-end="url(#css-arrowhead)"/>
+            <text x="125" y="40" fill="#ffffff" text-anchor="middle" font-size="12">CSS Regular</text>
+            
+            <line x1="50" y1="100" x2="200" y2="100" stroke="#ff6b6b" stroke-width="2" marker-end="url(#css-temp-arrowhead)"/>
+            <text x="125" y="90" fill="#ffffff" text-anchor="middle" font-size="12">CSS Temp</text>
+        </svg>
+        <div class="debug-info" id="debug2">Click "Check CSS Markers" to see debug info</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 3: Dynamic Creation (Simulating Real App)</h2>
+        <svg width="600" height="150" class="test-svg" id="dynamic-svg">
+            <defs>
+                <marker id="dynamic-arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7"/>
+                </marker>
+                <marker id="dynamic-temp-arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7" class="temp-arrowhead-fill" fill="#ff6b6b"/>
+                </marker>
+            </defs>
+        </svg>
+        <div class="controls">
+            <button onclick="createTempEdge()">Create Temporary Edge</button>
+            <button onclick="clearDynamic()">Clear</button>
+        </div>
+        <div class="debug-info" id="debug3">Click "Create Temporary Edge" to test dynamic creation</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 4: Load Dark Theme CSS</h2>
+        <link id="dark-theme" rel="stylesheet" href="themes/dark.css">
+        <svg width="600" height="150" class="test-svg">
+            <defs>
+                <marker id="themed-arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7"/>
+                </marker>
+                <marker id="themed-temp-arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7" class="temp-arrowhead-fill"/>
+                </marker>
+            </defs>
+            
+            <line x1="50" y1="50" x2="200" y2="50" stroke="#ffffff" stroke-width="2" marker-end="url(#themed-arrowhead)"/>
+            <text x="125" y="40" fill="#ffffff" text-anchor="middle" font-size="12">Themed Regular</text>
+            
+            <line x1="50" y1="100" x2="200" y2="100" stroke="#ff6b6b" stroke-width="2" marker-end="url(#themed-temp-arrowhead)"/>
+            <text x="125" y="90" fill="#ffffff" text-anchor="middle" font-size="12">Themed Temp</text>
+        </svg>
+        <div class="debug-info" id="debug4">Click "Check Themed Markers" to see debug info</div>
+    </div>
+    
+    <div class="controls">
+        <button onclick="checkMarkers()">Check Markers</button>
+        <button onclick="checkCSSMarkers()">Check CSS Markers</button>
+        <button onclick="checkThemedMarkers()">Check Themed Markers</button>
+    </div>
+
+    <script>
+        function checkMarkers() {
+            const regular = document.querySelector('#test-arrowhead polygon');
+            const temp = document.querySelector('#test-temp-arrowhead polygon');
+            
+            let debug = 'Test 1 - Basic Markers:\n';
+            if (regular) {
+                const style = window.getComputedStyle(regular);
+                debug += `Regular: fill=${style.fill}, opacity=${style.opacity}, visibility=${style.visibility}\n`;
+            }
+            if (temp) {
+                const style = window.getComputedStyle(temp);
+                debug += `Temp: fill=${style.fill}, opacity=${style.opacity}, visibility=${style.visibility}\n`;
+            }
+            
+            document.getElementById('debug1').textContent = debug;
+        }
+        
+        function checkCSSMarkers() {
+            const regular = document.querySelector('#css-arrowhead polygon');
+            const temp = document.querySelector('#css-temp-arrowhead polygon');
+            
+            let debug = 'Test 2 - CSS Markers:\n';
+            if (regular) {
+                const style = window.getComputedStyle(regular);
+                debug += `Regular: fill=${style.fill}, opacity=${style.opacity}, visibility=${style.visibility}\n`;
+            }
+            if (temp) {
+                const style = window.getComputedStyle(temp);
+                debug += `Temp: fill=${style.fill}, opacity=${style.opacity}, visibility=${style.visibility}\n`;
+            }
+            
+            document.getElementById('debug2').textContent = debug;
+        }
+        
+        function checkThemedMarkers() {
+            const regular = document.querySelector('#themed-arrowhead polygon');
+            const temp = document.querySelector('#themed-temp-arrowhead polygon');
+            
+            let debug = 'Test 4 - Themed Markers:\n';
+            if (regular) {
+                const style = window.getComputedStyle(regular);
+                debug += `Regular: fill=${style.fill}, opacity=${style.opacity}, visibility=${style.visibility}\n`;
+            }
+            if (temp) {
+                const style = window.getComputedStyle(temp);
+                debug += `Temp: fill=${style.fill}, opacity=${style.opacity}, visibility=${style.visibility}\n`;
+            }
+            
+            document.getElementById('debug4').textContent = debug;
+        }
+        
+        function createTempEdge() {
+            const svg = document.getElementById('dynamic-svg');
+            
+            // Clear previous
+            const existing = svg.querySelector('.temp-edge');
+            if (existing) existing.remove();
+            
+            // Create temporary edge
+            const edge = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            edge.setAttribute('x1', '50');
+            edge.setAttribute('y1', '50');
+            edge.setAttribute('x2', '200');
+            edge.setAttribute('y2', '100');
+            edge.setAttribute('stroke', '#ff6b6b');
+            edge.setAttribute('stroke-width', '3');
+            edge.setAttribute('fill', 'none');
+            edge.setAttribute('marker-end', 'url(#dynamic-temp-arrowhead)');
+            edge.setAttribute('class', 'temp-edge');
+            
+            svg.appendChild(edge);
+            
+            // Debug info
+            setTimeout(() => {
+                const marker = document.querySelector('#dynamic-temp-arrowhead polygon');
+                let debug = 'Test 3 - Dynamic Creation:\n';
+                debug += `Edge created: stroke=${edge.getAttribute('stroke')}, marker-end=${edge.getAttribute('marker-end')}\n`;
+                if (marker) {
+                    const style = window.getComputedStyle(marker);
+                    debug += `Marker polygon: fill=${style.fill}, opacity=${style.opacity}, visibility=${style.visibility}\n`;
+                } else {
+                    debug += 'Marker polygon not found!\n';
+                }
+                document.getElementById('debug3').textContent = debug;
+            }, 100);
+        }
+        
+        function clearDynamic() {
+            const svg = document.getElementById('dynamic-svg');
+            const existing = svg.querySelector('.temp-edge');
+            if (existing) existing.remove();
+            document.getElementById('debug3').textContent = 'Cleared';
+        }
+    </script>
+</body>
+</html>

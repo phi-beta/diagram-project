@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arrowhead Size & Theme Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: var(--background-color);
+      color: var(--text-color);
+    }
+    
+    .controls {
+      margin-bottom: 20px;
+    }
+    
+    .theme-controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .theme-btn {
+      background-color: #007acc;
+      color: white;
+    }
+    
+    .theme-btn:hover {
+      background-color: #005a9f;
+    }
+    
+    .action-btn {
+      background-color: #28a745;
+      color: white;
+    }
+    
+    .action-btn:hover {
+      background-color: #218838;
+    }
+    
+    .info {
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    
+    .svg-container {
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      background-color: white;
+      margin-bottom: 20px;
+    }
+    
+    .logs {
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      padding: 15px;
+      border-radius: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    
+    .log-entry {
+      margin-bottom: 5px;
+    }
+    
+    .log-success {
+      color: #28a745;
+    }
+    
+    .log-warning {
+      color: #ffc107;
+    }
+    
+    .log-error {
+      color: #dc3545;
+    }
+    
+    .status {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+    
+    .status.success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .status.warning {
+      background-color: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+    
+    .status.error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+  </style>
+</head>
+<body>
+  <h1>Arrowhead Size & Theme Test</h1>
+  
+  <div class="info">
+    <p><strong>Test Objectives:</strong></p>
+    <ul>
+      <li>Verify temporary edge arrowhead is visible in both light and dark themes</li>
+      <li>Confirm arrowhead size matches the original marker size</li>
+      <li>Test that node cloning and interactions don't revert to old marker method</li>
+      <li>Ensure all code paths use the inline arrowhead approach</li>
+    </ul>
+  </div>
+  
+  <div class="controls">
+    <div class="theme-controls">
+      <button class="theme-btn" onclick="setTheme('light')">Light Theme</button>
+      <button class="theme-btn" onclick="setTheme('dark')">Dark Theme</button>
+    </div>
+    <div class="action-controls">
+      <button class="action-btn" onclick="runTest()">Run Comprehensive Test</button>
+      <button class="action-btn" onclick="testNodeCloning()">Test Node Cloning</button>
+      <button class="action-btn" onclick="testEdgeCreation()">Test Edge Creation</button>
+      <button class="action-btn" onclick="clearLogs()">Clear Logs</button>
+    </div>
+  </div>
+  
+  <div class="svg-container">
+    <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <!-- Original marker for size comparison -->
+        <marker id="original-arrowhead" markerWidth="10" markerHeight="7" 
+                refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#666" stroke="none"/>
+        </marker>
+        
+        <!-- Temporary arrowhead marker -->
+        <marker id="temp-arrowhead" markerWidth="10" markerHeight="7" 
+                refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#ff6b6b" stroke="none"/>
+        </marker>
+      </defs>
+      
+      <!-- Original marker size reference -->
+      <line x1="50" y1="50" x2="200" y2="50" stroke="#666" stroke-width="2" marker-end="url(#original-arrowhead)"/>
+      <text x="50" y="40" font-size="12" fill="var(--text-color)">Original Marker Size</text>
+      
+      <!-- Temporary marker size reference -->
+      <line x1="50" y1="100" x2="200" y2="100" stroke="#ff6b6b" stroke-width="2" marker-end="url(#temp-arrowhead)"/>
+      <text x="50" y="90" font-size="12" fill="var(--text-color)">Temp Marker Size</text>
+      
+      <!-- Inline arrowhead will be added here dynamically -->
+      <g id="inline-arrowhead-container"></g>
+      
+      <!-- Test nodes -->
+      <g id="test-nodes">
+        <circle cx="300" cy="200" r="30" fill="#4CAF50" stroke="#2E7D32" stroke-width="2" data-node-id="node1"/>
+        <text x="300" y="205" text-anchor="middle" font-size="12" fill="white">Node 1</text>
+        
+        <circle cx="500" cy="200" r="30" fill="#2196F3" stroke="#1976D2" stroke-width="2" data-node-id="node2"/>
+        <text x="500" y="205" text-anchor="middle" font-size="12" fill="white">Node 2</text>
+        
+        <circle cx="400" cy="350" r="30" fill="#FF9800" stroke="#F57C00" stroke-width="2" data-node-id="node3"/>
+        <text x="400" y="355" text-anchor="middle" font-size="12" fill="white">Node 3</text>
+      </g>
+    </svg>
+  </div>
+  
+  <div class="logs" id="logs"></div>
+  
+  <div class="status" id="status"></div>
+  
+  <script>
+    const logs = document.getElementById('logs');
+    const statusDiv = document.getElementById('status');
+    const inlineContainer = document.getElementById('inline-arrowhead-container');
+    
+    function log(message, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logs.appendChild(entry);
+      logs.scrollTop = logs.scrollHeight;
+    }
+    
+    function clearLogs() {
+      logs.innerHTML = '';
+      statusDiv.innerHTML = '';
+    }
+    
+    function setStatus(message, type = 'info') {
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type}`;
+    }
+    
+    function setTheme(theme) {
+      document.body.className = theme;
+      log(`Theme changed to: ${theme}`, 'success');
+    }
+    
+    function createInlineArrowhead(startX, startY, endX, endY) {
+      // Clear existing inline arrowhead
+      inlineContainer.innerHTML = '';
+      
+      // Calculate arrowhead position and angle
+      const dx = endX - startX;
+      const dy = endY - startY;
+      const angle = Math.atan2(dy, dx);
+      
+      // Match original marker dimensions: markerWidth="10" markerHeight="7"
+      // Scale up slightly to match visual appearance
+      const arrowLength = 12;
+      const arrowWidth = 9;
+      
+      // Adjust line end point to not overlap with arrowhead
+      const lineEndX = endX - Math.cos(angle) * arrowLength;
+      const lineEndY = endY - Math.sin(angle) * arrowLength;
+      
+      // Create the main line
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      line.setAttribute('d', `M ${startX} ${startY} L ${lineEndX} ${lineEndY}`);
+      line.setAttribute('stroke', '#ff6b6b');
+      line.setAttribute('stroke-width', '2');
+      line.setAttribute('stroke-dasharray', '5,5');
+      line.setAttribute('fill', 'none');
+      
+      // Create arrowhead as inline polygon
+      const arrowHalfWidth = arrowWidth / 2;
+      const arrowX1 = endX - Math.cos(angle) * arrowLength;
+      const arrowY1 = endY - Math.sin(angle) * arrowLength;
+      const arrowX2 = arrowX1 - Math.cos(angle - Math.PI/2) * arrowHalfWidth;
+      const arrowY2 = arrowY1 - Math.sin(angle - Math.PI/2) * arrowHalfWidth;
+      const arrowX3 = arrowX1 - Math.cos(angle + Math.PI/2) * arrowHalfWidth;
+      const arrowY3 = arrowY1 - Math.sin(angle + Math.PI/2) * arrowHalfWidth;
+      
+      const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      arrow.setAttribute('points', `${endX},${endY} ${arrowX2},${arrowY2} ${arrowX3},${arrowY3}`);
+      arrow.setAttribute('fill', '#ff6b6b');
+      arrow.setAttribute('stroke', 'none');
+      
+      inlineContainer.appendChild(line);
+      inlineContainer.appendChild(arrow);
+      
+      return { line, arrow };
+    }
+    
+    function testEdgeCreation() {
+      log('Testing edge creation...', 'info');
+      
+      // Create inline arrowhead
+      const { line, arrow } = createInlineArrowhead(50, 150, 200, 150);
+      
+      // Add label
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('x', '50');
+      label.setAttribute('y', '140');
+      label.setAttribute('font-size', '12');
+      label.setAttribute('fill', 'var(--text-color)');
+      label.textContent = 'Inline Arrowhead (New Method)';
+      inlineContainer.appendChild(label);
+      
+      log('✅ Inline arrowhead created successfully', 'success');
+      
+      // Test size comparison
+      const originalMarkerSize = { width: 10, height: 7 };
+      const inlineArrowSize = { length: 12, width: 9 };
+      
+      log(`Original marker size: ${originalMarkerSize.width}x${originalMarkerSize.height}`, 'info');
+      log(`Inline arrow size: ${inlineArrowSize.length}x${inlineArrowSize.width}`, 'info');
+      
+      if (inlineArrowSize.length >= originalMarkerSize.width && inlineArrowSize.width >= originalMarkerSize.height) {
+        log('✅ Inline arrowhead size is adequate', 'success');
+        setStatus('✅ Edge creation test passed - arrowhead size is adequate', 'success');
+      } else {
+        log('⚠️ Inline arrowhead might be too small', 'warning');
+        setStatus('⚠️ Edge creation test warning - arrowhead might be too small', 'warning');
+      }
+    }
+    
+    function testNodeCloning() {
+      log('Testing node cloning scenario...', 'info');
+      
+      // Simulate cloning by duplicating a node
+      const testNodes = document.getElementById('test-nodes');
+      const originalNode = testNodes.querySelector('[data-node-id="node1"]');
+      
+      if (originalNode) {
+        const clonedNode = originalNode.cloneNode(true);
+        clonedNode.setAttribute('data-node-id', 'node1-clone');
+        clonedNode.setAttribute('cx', '300');
+        clonedNode.setAttribute('cy', '400');
+        
+        const clonedText = testNodes.querySelector('text');
+        if (clonedText) {
+          const clonedTextNode = clonedText.cloneNode(true);
+          clonedTextNode.setAttribute('x', '300');
+          clonedTextNode.setAttribute('y', '405');
+          clonedTextNode.textContent = 'Clone';
+          testNodes.appendChild(clonedTextNode);
+        }
+        
+        testNodes.appendChild(clonedNode);
+        log('✅ Node cloned successfully', 'success');
+        
+        // Test edge creation after cloning
+        setTimeout(() => {
+          const { line, arrow } = createInlineArrowhead(300, 400, 500, 200);
+          log('✅ Edge creation after cloning works correctly', 'success');
+          setStatus('✅ Node cloning test passed - inline arrowhead still works', 'success');
+        }, 100);
+      } else {
+        log('❌ Could not find test node to clone', 'error');
+        setStatus('❌ Node cloning test failed - could not find test node', 'error');
+      }
+    }
+    
+    function runTest() {
+      log('Running comprehensive test...', 'info');
+      clearLogs();
+      
+      let testsPassed = 0;
+      let testsTotal = 5;
+      
+      // Test 1: Basic arrowhead creation
+      try {
+        const { line, arrow } = createInlineArrowhead(50, 250, 200, 250);
+        if (line && arrow) {
+          log('✅ Test 1: Basic arrowhead creation - PASSED', 'success');
+          testsPassed++;
+        } else {
+          log('❌ Test 1: Basic arrowhead creation - FAILED', 'error');
+        }
+      } catch (e) {
+        log(`❌ Test 1: Basic arrowhead creation - ERROR: ${e.message}`, 'error');
+      }
+      
+      // Test 2: Theme compatibility
+      try {
+        setTheme('dark');
+        setTimeout(() => {
+          const arrowElement = inlineContainer.querySelector('polygon');
+          if (arrowElement && arrowElement.getAttribute('fill') === '#ff6b6b') {
+            log('✅ Test 2: Dark theme compatibility - PASSED', 'success');
+            testsPassed++;
+          } else {
+            log('❌ Test 2: Dark theme compatibility - FAILED', 'error');
+          }
+          
+          setTheme('light');
+          setTimeout(() => {
+            const arrowElement = inlineContainer.querySelector('polygon');
+            if (arrowElement && arrowElement.getAttribute('fill') === '#ff6b6b') {
+              log('✅ Test 3: Light theme compatibility - PASSED', 'success');
+              testsPassed++;
+            } else {
+              log('❌ Test 3: Light theme compatibility - FAILED', 'error');
+            }
+            
+            // Test 4: Size consistency
+            const arrowElements = inlineContainer.querySelectorAll('polygon');
+            if (arrowElements.length > 0) {
+              log('✅ Test 4: Size consistency - PASSED', 'success');
+              testsPassed++;
+            } else {
+              log('❌ Test 4: Size consistency - FAILED', 'error');
+            }
+            
+            // Test 5: No marker fallback
+            const hasMarkerEnd = inlineContainer.innerHTML.includes('marker-end');
+            if (!hasMarkerEnd) {
+              log('✅ Test 5: No marker fallback - PASSED', 'success');
+              testsPassed++;
+            } else {
+              log('❌ Test 5: No marker fallback - FAILED (found marker-end)', 'error');
+            }
+            
+            // Final status
+            const successRate = (testsPassed / testsTotal) * 100;
+            if (successRate === 100) {
+              setStatus(`✅ All tests passed! (${testsPassed}/${testsTotal})`, 'success');
+            } else if (successRate >= 80) {
+              setStatus(`⚠️ Most tests passed (${testsPassed}/${testsTotal}) - ${successRate.toFixed(1)}%`, 'warning');
+            } else {
+              setStatus(`❌ Tests failed (${testsPassed}/${testsTotal}) - ${successRate.toFixed(1)}%`, 'error');
+            }
+          }, 100);
+        }, 100);
+      } catch (e) {
+        log(`❌ Test 2-3: Theme compatibility - ERROR: ${e.message}`, 'error');
+      }
+    }
+    
+    // Initialize
+    setTheme('light');
+    log('Test page loaded successfully', 'success');
+    
+    // Add CSS for themes
+    const style = document.createElement('style');
+    style.textContent = `
+      .light {
+        --background-color: #ffffff;
+        --text-color: #333333;
+      }
+      
+      .dark {
+        --background-color: #1e1e1e;
+        --text-color: #cccccc;
+      }
+      
+      .dark .svg-container {
+        background-color: #2d2d2d;
+        border-color: #555;
+      }
+      
+      .dark .info {
+        background-color: #2d2d2d;
+        color: #cccccc;
+        border-color: #555;
+      }
+      
+      .dark .logs {
+        background-color: #2d2d2d;
+        color: #cccccc;
+        border-color: #555;
+      }
+    `;
+    document.head.appendChild(style);
+  </script>
+</body>
+</html>

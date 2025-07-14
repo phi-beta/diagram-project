@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final Marker Test</title>
+    <link rel="stylesheet" href="themes/default.css?v=049" id="theme-link">
+</head>
+<body>
+    <h1>Final Marker Test</h1>
+    <div style="padding: 20px;">
+        <button onclick="toggleTheme()">Toggle Theme</button>
+        <button onclick="createTempEdge()">Create Temp Edge</button>
+        <button onclick="clearTempEdges()">Clear Temp Edges</button>
+        <button onclick="refreshMarkers()">Refresh Markers</button>
+        <div id="status" style="margin: 10px 0; padding: 10px; background: #f0f0f0; border-radius: 4px;"></div>
+    </div>
+    
+    <svg width="800" height="400" style="border: 1px solid #ccc; margin: 20px;">
+        <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                    refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" class="arrowhead-fill"/>
+            </marker>
+            <marker id="temp-arrowhead" markerWidth="10" markerHeight="7" 
+                    refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" class="temp-arrowhead-fill" fill="#ff6b6b"/>
+            </marker>
+        </defs>
+        
+        <!-- Regular edge -->
+        <path d="M 50 50 L 400 50" stroke="#333" stroke-width="2" 
+              fill="none" marker-end="url(#arrowhead)"/>
+        <text x="225" y="40" text-anchor="middle" font-size="12">Regular Edge</text>
+        
+        <!-- Container for temp edges -->
+        <g id="temp-container"></g>
+    </svg>
+    
+    <script>
+        let currentTheme = 'light';
+        let tempEdgeCount = 0;
+        
+        function log(message) {
+            const status = document.getElementById('status');
+            status.textContent = new Date().toLocaleTimeString() + ': ' + message;
+        }
+        
+        function toggleTheme() {
+            const link = document.getElementById('theme-link');
+            if (currentTheme === 'light') {
+                link.href = 'themes/dark.css?v=049';
+                currentTheme = 'dark';
+                document.body.style.background = '#1e1e1e';
+                document.body.style.color = '#ffffff';
+                document.getElementById('status').style.background = '#2a2a2a';
+                document.getElementById('status').style.color = '#ffffff';
+                log('Switched to DARK theme');
+            } else {
+                link.href = 'themes/default.css?v=049';
+                currentTheme = 'light';
+                document.body.style.background = '#ffffff';
+                document.body.style.color = '#000000';
+                document.getElementById('status').style.background = '#f0f0f0';
+                document.getElementById('status').style.color = '#000000';
+                log('Switched to LIGHT theme');
+            }
+            
+            // Force marker refresh after theme change
+            setTimeout(() => {
+                refreshMarkers();
+            }, 300);
+        }
+        
+        function createTempEdge() {
+            const container = document.getElementById('temp-container');
+            const y = 120 + (tempEdgeCount * 50);
+            
+            const edge = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            edge.setAttribute('d', `M 50 ${y} L 400 ${y}`);
+            edge.setAttribute('stroke', '#ff6b6b');
+            edge.setAttribute('stroke-width', '2');
+            edge.setAttribute('stroke-dasharray', '5,5');
+            edge.setAttribute('fill', 'none');
+            edge.setAttribute('marker-end', 'url(#temp-arrowhead)');
+            edge.setAttribute('class', 'temporary-edge');
+            
+            container.appendChild(edge);
+            
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', '225');
+            label.setAttribute('y', y - 10);
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('font-size', '12');
+            label.textContent = `Temp Edge ${tempEdgeCount}`;
+            
+            container.appendChild(label);
+            
+            tempEdgeCount++;
+            log(`Created temp edge ${tempEdgeCount - 1} - arrowhead should be ORANGE`);
+            
+            // Force marker refresh
+            setTimeout(refreshMarkers, 50);
+        }
+        
+        function clearTempEdges() {
+            document.getElementById('temp-container').innerHTML = '';
+            tempEdgeCount = 0;
+            log('Cleared all temp edges');
+        }
+        
+        function refreshMarkers() {
+            const tempMarker = document.querySelector('#temp-arrowhead polygon');
+            if (tempMarker) {
+                tempMarker.setAttribute('fill', '#ff6b6b');
+                tempMarker.setAttribute('stroke', 'none');
+                tempMarker.setAttribute('opacity', '1');
+                tempMarker.setAttribute('visibility', 'visible');
+                tempMarker.style.fill = '#ff6b6b';
+                tempMarker.style.stroke = 'none';
+                tempMarker.style.opacity = '1';
+                tempMarker.style.visibility = 'visible';
+                
+                const computed = window.getComputedStyle(tempMarker);
+                log(`Refreshed marker - computed fill: ${computed.fill}, attr fill: ${tempMarker.getAttribute('fill')}`);
+            }
+            
+            // Force re-render temp edges
+            const tempEdges = document.querySelectorAll('.temporary-edge');
+            tempEdges.forEach(edge => {
+                const marker = edge.getAttribute('marker-end');
+                edge.removeAttribute('marker-end');
+                setTimeout(() => {
+                    edge.setAttribute('marker-end', marker);
+                }, 10);
+            });
+        }
+        
+        // Initial setup
+        setTimeout(() => {
+            log('Page loaded - create temp edges and toggle theme to test');
+            refreshMarkers();
+        }, 100);
+    </script>
+</body>
+</html>

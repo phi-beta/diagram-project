@@ -1,10 +1,10 @@
-// Version 079 - Updated ContextMenu import to v009
+// Version 082 - Fixed PgUp issue and added Home/End for extreme z-order positioning
 /**
  * Interaction Manager - Handles user interactions with the diagram
  */
 import { debugInteraction, debugEdgeCreation, debugKeyboard, debugMouse } from './debug.js';
 import { nodeStateManager } from './NodeStateManager.js?v=021';
-import { diagramStateManager } from './DiagramStateManager.js?v=010';
+import { diagramStateManager } from './DiagramStateManager.js?v=011';
 import { ContextMenu } from './ContextMenu.js?v=009';
 
 export class InteractionManager {
@@ -43,6 +43,14 @@ export class InteractionManager {
     this.nodeSelectCallback = null;
     this.edgeCreateCallback = null;
     this.redrawCallback = null;
+    
+    // Settings/Configuration
+    this.settings = {
+      showZOrderHelpOnSelection: false,  // Make z-order help configurable
+      showZOrderFeedback: false,         // Make z-order feedback configurable (disabled by default)
+      enableArrowKeyFinetuning: true,    // Enable arrow key fine-tuning
+      arrowKeyMovementAmount: 5          // Base movement amount for arrow keys
+    };
     
     this.setupEventListeners();
     
@@ -195,6 +203,32 @@ export class InteractionManager {
       
       // Reset all interaction states
       this.resetAllStates();
+    }
+    
+    // Handle PgUp/PgDown for node z-order management
+    if (e.key === 'PageUp' || e.key === 'PageDown') {
+      if (this.selectedNode) {
+        const direction = e.key === 'PageUp' ? 'up' : 'down';
+        this.moveNodeInZOrder(this.selectedNode, direction);
+        e.preventDefault(); // Prevent page scrolling
+      }
+    }
+    
+    // Handle Home/End for node z-order management
+    if (e.key === 'Home' || e.key === 'End') {
+      if (this.selectedNode) {
+        const direction = e.key === 'Home' ? 'top' : 'bottom';
+        this.moveNodeToZOrderExtreme(this.selectedNode, direction);
+        e.preventDefault(); // Prevent page scrolling
+      }
+    }
+    
+    // Handle arrow keys for node fine-tuning
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      if (this.selectedNode) {
+        this.finetuneNodePosition(this.selectedNode, e.key);
+        e.preventDefault(); // Prevent page scrolling
+      }
     }
     
     // Note: Ctrl+D for duplication is handled by the main renderer
@@ -552,6 +586,15 @@ export class InteractionManager {
       this.selectedNode = node;
       node.select();
       console.log(`✅ Node ${node.id} now selected`);
+      
+      // Show z-order help for the selected node (if enabled)
+      if (this.settings.showZOrderHelpOnSelection) {
+        setTimeout(() => {
+          if (this.selectedNode === node) { // Only show if still selected
+            this.showZOrderHelp(node);
+          }
+        }, 500); // Small delay to let selection visual settle
+      }
     }
   }
   
@@ -614,24 +657,11 @@ export class InteractionManager {
     // Change cursor to indicate edge creation mode
     this.svg.style.cursor = 'crosshair';
     
-    // Create temporary edge element with CSS class
-    this.temporaryEdge = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    this.temporaryEdge.setAttribute('class', 'temporary-edge');
-    this.temporaryEdge.setAttribute('stroke', '#ff6b6b');
-    this.temporaryEdge.setAttribute('stroke-width', '2');
-    this.temporaryEdge.setAttribute('stroke-dasharray', '5,5');
-    this.temporaryEdge.setAttribute('fill', 'none');
-    this.temporaryEdge.setAttribute('pointer-events', 'none');
-    this.temporaryEdge.setAttribute('marker-end', 'url(#temp-arrowhead)'); // Add temporary arrowhead
+    // Use inline arrowhead approach instead of marker
+    const center = fromNode.getGlobalCenter();
+    this.createTemporaryEdgeWithInlineArrowhead(center.x, center.y, center.x + 100, center.y + 100);
     
-    // Add to temp layer if LayerManager is available, otherwise fallback to SVG root
-    if (this.layerManager) {
-      this.layerManager.addToLayer('temp', this.temporaryEdge);
-    } else {
-      this.svg.appendChild(this.temporaryEdge);
-    }
-    
-    console.log('🎯 TEMPORARY EDGE CREATED:', this.temporaryEdge);
+    console.log('🎯 LEGACY TEMPORARY EDGE CREATED WITH INLINE ARROWHEAD');
     
     // Delay the temporary edge update to allow drag state to clear
     setTimeout(() => {
@@ -641,7 +671,78 @@ export class InteractionManager {
       }
     }, 0);
   }
-  
+
+  /**
+   * Alternative method to create temporary edge with inline arrowhead
+   * This bypasses SVG marker issues by creating arrowhead as inline polygon
+   */
+  createTemporaryEdgeWithInlineArrowhead(startX, startY, endX, endY) {
+    if (!this.svg) {
+      console.error('❌ SVG not found for temporary edge creation');
+      return;
+    }
+
+    // Remove existing temporary edge if any
+    if (this.temporaryEdge) {
+      this.temporaryEdge.remove();
+      this.temporaryEdge = null;
+    }
+    if (this.temporaryArrowhead) {
+      this.temporaryArrowhead.remove();
+      this.temporaryArrowhead = null;
+    }
+
+    // Calculate arrowhead position and angle
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const angle = Math.atan2(dy, dx);
+    // Match original marker dimensions: markerWidth="10" markerHeight="7"
+    // Scale up slightly to match visual appearance
+    const arrowLength = 12;
+    const arrowWidth = 9;
+
+    // Adjust line end point to not overlap with arrowhead
+    const lineEndX = endX - Math.cos(angle) * arrowLength;
+    const lineEndY = endY - Math.sin(angle) * arrowLength;
+
+    // Create the main line
+    this.temporaryEdge = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    this.temporaryEdge.setAttribute('d', `M ${startX} ${startY} L ${lineEndX} ${lineEndY}`);
+    this.temporaryEdge.setAttribute('stroke', '#ff6b6b');
+    this.temporaryEdge.setAttribute('stroke-width', '2');
+    this.temporaryEdge.setAttribute('stroke-dasharray', '5,5');
+    this.temporaryEdge.setAttribute('fill', 'none');
+    this.temporaryEdge.setAttribute('pointer-events', 'none');
+    this.temporaryEdge.setAttribute('class', 'temporary-edge');
+
+    // Create arrowhead as inline polygon
+    const arrowHalfWidth = arrowWidth / 2;
+    const arrowX1 = endX - Math.cos(angle) * arrowLength;
+    const arrowY1 = endY - Math.sin(angle) * arrowLength;
+    const arrowX2 = arrowX1 - Math.cos(angle - Math.PI/2) * arrowHalfWidth;
+    const arrowY2 = arrowY1 - Math.sin(angle - Math.PI/2) * arrowHalfWidth;
+    const arrowX3 = arrowX1 - Math.cos(angle + Math.PI/2) * arrowHalfWidth;
+    const arrowY3 = arrowY1 - Math.sin(angle + Math.PI/2) * arrowHalfWidth;
+
+    this.temporaryArrowhead = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    this.temporaryArrowhead.setAttribute('points', `${endX},${endY} ${arrowX2},${arrowY2} ${arrowX3},${arrowY3}`);
+    this.temporaryArrowhead.setAttribute('fill', '#ff6b6b');
+    this.temporaryArrowhead.setAttribute('stroke', 'none');
+    this.temporaryArrowhead.setAttribute('pointer-events', 'none');
+    this.temporaryArrowhead.setAttribute('class', 'temporary-arrowhead');
+
+    // Add to temp layer if LayerManager is available, otherwise fallback to SVG root
+    if (this.layerManager) {
+      this.layerManager.addToLayer('temp', this.temporaryEdge);
+      this.layerManager.addToLayer('temp', this.temporaryArrowhead);
+    } else {
+      this.svg.appendChild(this.temporaryEdge);
+      this.svg.appendChild(this.temporaryArrowhead);
+    }
+
+    console.log('🎯 TEMPORARY EDGE WITH INLINE ARROWHEAD CREATED');
+  }
+
   /**
    * Update the temporary edge during creation
    */
@@ -723,14 +824,8 @@ export class InteractionManager {
     const startX = startCenter.x + dx * (startCenter.radius / distance);
     const startY = startCenter.y + dy * (startCenter.radius / distance);
     
-    // Create path from node edge to mouse position
-    const pathData = `M ${startX} ${startY} L ${mouseX} ${mouseY}`;
-    this.temporaryEdge.setAttribute('d', pathData);
-    
-    // Force a visual update
-    if (this.temporaryEdge.parentNode) {
-      this.temporaryEdge.parentNode.appendChild(this.temporaryEdge); // Move to end to ensure it's on top
-    }
+    // Use inline arrowhead method instead of SVG markers
+    this.createTemporaryEdgeWithInlineArrowhead(startX, startY, mouseX, mouseY);
   }
   
   /**
@@ -892,6 +987,12 @@ export class InteractionManager {
       this.temporaryEdge = null;
     }
     
+    // Remove temporary arrowhead if it exists
+    if (this.temporaryArrowhead) {
+      this.temporaryArrowhead.remove();
+      this.temporaryArrowhead = null;
+    }
+    
     // Add cooldown to prevent immediate re-interactions
     this._edgeCancelCooldown = true;
     setTimeout(() => {
@@ -937,6 +1038,12 @@ export class InteractionManager {
     if (this.temporaryEdge) {
       this.temporaryEdge.remove();
       this.temporaryEdge = null;
+    }
+    
+    // Remove temporary arrowhead
+    if (this.temporaryArrowhead) {
+      this.temporaryArrowhead.remove();
+      this.temporaryArrowhead = null;
     }
     
     // Add a small delay to prevent immediate re-interactions
@@ -1135,5 +1242,541 @@ export class InteractionManager {
     this.deselectAllNodes();
     
     console.log('✅ All states reset to default');
+  }
+
+  /**
+   * Move a node up or down in z-order (layering)
+   * @param {Node} node - The node to move
+   * @param {string} direction - 'up' or 'down'
+   */
+  moveNodeInZOrder(node, direction) {
+    if (!node || !node.element) {
+      console.error('❌ moveNodeInZOrder: Invalid node or missing element');
+      return;
+    }
+    
+    // Get the nodes layer
+    const nodesLayer = this.layerManager ? this.layerManager.getLayer('nodes') : this.svg.querySelector('#nodes-layer');
+    if (!nodesLayer) {
+      console.error('❌ moveNodeInZOrder: Could not find nodes layer');
+      return;
+    }
+    
+    const nodeElement = node.element;
+    const allNodes = Array.from(nodesLayer.children);
+    const currentIndex = allNodes.indexOf(nodeElement);
+    
+    if (currentIndex === -1) {
+      console.error('❌ moveNodeInZOrder: Node element not found in nodes layer');
+      return;
+    }
+    
+    // Find overlapping nodes to provide better feedback
+    const overlappingNodes = this.findOverlappingNodes(node);
+    const hasOverlaps = overlappingNodes.length > 0;
+    
+    let newIndex;
+    if (direction === 'up') {
+      // Move up means higher z-index (later in DOM order)
+      newIndex = Math.min(currentIndex + 1, allNodes.length - 1);
+    } else {
+      // Move down means lower z-index (earlier in DOM order)
+      newIndex = Math.max(currentIndex - 1, 0);
+    }
+    
+    // If no change needed, return early
+    if (newIndex === currentIndex) {
+      const message = `Node ${node.id} already at ${direction === 'up' ? 'top' : 'bottom'} of z-order`;
+      console.log(`📌 ${message}`);
+      this.showZOrderFeedback(node, direction, message, 'warning');
+      return;
+    }
+    
+    // Remove node from current position
+    nodeElement.remove();
+    
+    // Get updated node list after removal
+    const updatedNodes = Array.from(nodesLayer.children);
+    
+    if (direction === 'up') {
+      // Moving up: insert at the new position (which is now currentIndex since we removed the node)
+      if (currentIndex >= updatedNodes.length) {
+        // Insert at the end (highest z-index)
+        nodesLayer.appendChild(nodeElement);
+      } else {
+        // Insert before the node that's now at our target position
+        const referenceNode = updatedNodes[currentIndex];
+        nodesLayer.insertBefore(nodeElement, referenceNode);
+      }
+    } else {
+      // Moving down: insert at the new position
+      if (newIndex <= 0) {
+        // Insert at the beginning (lowest z-index)
+        nodesLayer.insertBefore(nodeElement, nodesLayer.firstChild);
+      } else {
+        // Insert before the node at the new position
+        const referenceNode = updatedNodes[newIndex - 1];
+        nodesLayer.insertBefore(nodeElement, referenceNode.nextSibling);
+      }
+    }
+    
+    console.log(`✅ Moved node ${node.id} ${direction} in z-order (from index ${currentIndex} to ${newIndex})`);
+    
+    // Provide enhanced visual feedback
+    const message = hasOverlaps ? 
+      `Moved ${direction} (${overlappingNodes.length} overlap${overlappingNodes.length > 1 ? 's' : ''})` :
+      `Moved ${direction}`;
+    this.showZOrderFeedback(node, direction, message, 'success');
+  }
+  
+  /**
+   * Move a node to the very top or bottom of z-order
+   * @param {Node} node - The node to move
+   * @param {string} direction - 'top' or 'bottom'
+   */
+  moveNodeToZOrderExtreme(node, direction) {
+    if (!node || !node.element) {
+      console.error('❌ moveNodeToZOrderExtreme: Invalid node or missing element');
+      return;
+    }
+    
+    // Get the nodes layer
+    const nodesLayer = this.layerManager ? this.layerManager.getLayer('nodes') : this.svg.querySelector('#nodes-layer');
+    if (!nodesLayer) {
+      console.error('❌ moveNodeToZOrderExtreme: Could not find nodes layer');
+      return;
+    }
+    
+    const nodeElement = node.element;
+    const allNodes = Array.from(nodesLayer.children);
+    const currentIndex = allNodes.indexOf(nodeElement);
+    
+    if (currentIndex === -1) {
+      console.error('❌ moveNodeToZOrderExtreme: Node element not found in nodes layer');
+      return;
+    }
+    
+    // Find overlapping nodes to provide better feedback
+    const overlappingNodes = this.findOverlappingNodes(node);
+    const hasOverlaps = overlappingNodes.length > 0;
+    
+    // Check if already at the extreme
+    const isAtTop = currentIndex === allNodes.length - 1;
+    const isAtBottom = currentIndex === 0;
+    
+    if ((direction === 'top' && isAtTop) || (direction === 'bottom' && isAtBottom)) {
+      const message = `Node ${node.id} already at ${direction} of z-order`;
+      console.log(`📌 ${message}`);
+      this.showZOrderFeedback(node, direction, message, 'warning');
+      return;
+    }
+    
+    // Remove node from current position
+    nodeElement.remove();
+    
+    if (direction === 'top') {
+      // Move to top (highest z-index)
+      nodesLayer.appendChild(nodeElement);
+    } else {
+      // Move to bottom (lowest z-index)
+      nodesLayer.insertBefore(nodeElement, nodesLayer.firstChild);
+    }
+    
+    const newIndex = direction === 'top' ? allNodes.length - 1 : 0;
+    console.log(`✅ Moved node ${node.id} to ${direction} of z-order (from index ${currentIndex} to ${newIndex})`);
+    
+    // Provide enhanced visual feedback
+    const message = hasOverlaps ? 
+      `Moved to ${direction} (${overlappingNodes.length} overlap${overlappingNodes.length > 1 ? 's' : ''})` :
+      `Moved to ${direction}`;
+    this.showZOrderFeedback(node, direction, message, 'success');
+  }
+  
+  /**
+   * Fine-tune node position using arrow keys
+   * Movement amount is proportional to current zoom level
+   * @param {Node} node - The node to move
+   * @param {string} key - Arrow key pressed ('ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight')
+   */
+  finetuneNodePosition(node, key) {
+    // Check if arrow key fine-tuning is enabled
+    if (!this.settings.enableArrowKeyFinetuning) {
+      return;
+    }
+    
+    if (!node || !node.moveTo) {
+      console.error('❌ finetuneNodePosition: Invalid node or missing moveTo method');
+      return;
+    }
+    
+    // Get current zoom level from ViewBoxManager
+    const currentZoom = this.viewBoxManager.currentZoom;
+    
+    // Base movement amount (in viewBox coordinates)
+    const baseMovement = this.settings.arrowKeyMovementAmount;
+    
+    // Calculate movement amount proportional to zoom
+    // Higher zoom = smaller movement for finer control
+    // Lower zoom = larger movement for more visible changes
+    const movementAmount = baseMovement / currentZoom;
+    
+    // Calculate new position based on arrow key
+    let deltaX = 0;
+    let deltaY = 0;
+    
+    switch (key) {
+      case 'ArrowUp':
+        deltaY = -movementAmount;
+        break;
+      case 'ArrowDown':
+        deltaY = movementAmount;
+        break;
+      case 'ArrowLeft':
+        deltaX = -movementAmount;
+        break;
+      case 'ArrowRight':
+        deltaX = movementAmount;
+        break;
+      default:
+        console.warn(`⚠️ Unhandled arrow key: ${key}`);
+        return;
+    }
+    
+    // Get current position
+    const currentX = node.x || 0;
+    const currentY = node.y || 0;
+    
+    // Calculate new position
+    const newX = currentX + deltaX;
+    const newY = currentY + deltaY;
+    
+    // Move the node
+    node.moveTo(newX, newY, false); // No animation for fine-tuning
+    
+    console.log(`🎯 Fine-tuned node ${node.id} by (${deltaX.toFixed(2)}, ${deltaY.toFixed(2)}) at zoom ${currentZoom.toFixed(2)}`);
+  }
+  
+  /**
+   * Show visual feedback when node z-order changes
+   * @param {Node} node - The node that was moved
+   * @param {string} direction - 'up' or 'down'
+   * @param {string} message - Custom message to display
+   * @param {string} type - 'success', 'warning', or 'error'
+   */
+  showZOrderFeedback(node, direction, message, type = 'success', duration = 1500) {
+    // Check if z-order feedback is enabled
+    if (!this.settings.showZOrderFeedback) {
+      return;
+    }
+    
+    if (!node || !node.element) return;
+    
+    // Color based on type
+    const colors = {
+      success: '#28a745',
+      warning: '#ffc107',
+      error: '#dc3545',
+      info: '#17a2b8'
+    };
+    
+    const color = colors[type] || colors.success;
+    
+    // Create a temporary visual indicator
+    const feedback = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    feedback.setAttribute('x', node.x);
+    feedback.setAttribute('y', node.y - 40);
+    feedback.setAttribute('text-anchor', 'middle');
+    feedback.setAttribute('font-size', '12');
+    feedback.setAttribute('font-weight', 'bold');
+    feedback.setAttribute('fill', color);
+    feedback.setAttribute('opacity', '1');
+    feedback.setAttribute('pointer-events', 'none');
+    feedback.textContent = message || (direction === 'up' ? '↑ Moved Up' : '↓ Moved Down');
+    
+    // Add background for better visibility
+    const background = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    const bbox = feedback.getBBox();
+    background.setAttribute('x', bbox.x - 4);
+    background.setAttribute('y', bbox.y - 2);
+    background.setAttribute('width', bbox.width + 8);
+    background.setAttribute('height', bbox.height + 4);
+    background.setAttribute('fill', 'rgba(255, 255, 255, 0.9)');
+    background.setAttribute('rx', '3');
+    background.setAttribute('stroke', color);
+    background.setAttribute('stroke-width', '1');
+    background.setAttribute('opacity', '0.9');
+    background.setAttribute('pointer-events', 'none');
+    
+    // Add to temp layer
+    const tempLayer = this.layerManager ? this.layerManager.getLayer('temp') : this.svg.querySelector('#temp-layer');
+    if (tempLayer) {
+      tempLayer.appendChild(background);
+      tempLayer.appendChild(feedback);
+      
+      // Fade out and remove after specified duration
+      setTimeout(() => {
+        background.setAttribute('opacity', '0');
+        feedback.setAttribute('opacity', '0');
+        background.style.transition = 'opacity 0.3s ease-out';
+        feedback.style.transition = 'opacity 0.3s ease-out';
+        setTimeout(() => {
+          if (background.parentNode) {
+            background.parentNode.removeChild(background);
+          }
+          if (feedback.parentNode) {
+            feedback.parentNode.removeChild(feedback);
+          }
+        }, 300);
+      }, duration);
+    }
+  }
+
+  /**
+   * Get z-order information for a node
+   * @param {Node} node - The node to get z-order info for
+   * @returns {Object} Z-order information
+   */
+  getNodeZOrderInfo(node) {
+    if (!node || !node.element) {
+      return null;
+    }
+    
+    const nodesLayer = this.layerManager ? this.layerManager.getLayer('nodes') : this.svg.querySelector('#nodes-layer');
+    if (!nodesLayer) {
+      return null;
+    }
+    
+    const allNodes = Array.from(nodesLayer.children);
+    const currentIndex = allNodes.indexOf(node.element);
+    
+    if (currentIndex === -1) {
+      return null;
+    }
+    
+    const overlappingNodes = this.findOverlappingNodes(node);
+    
+    return {
+      currentIndex,
+      totalNodes: allNodes.length,
+      isAtTop: currentIndex === allNodes.length - 1,
+      isAtBottom: currentIndex === 0,
+      overlappingCount: overlappingNodes.length,
+      overlappingNodes: overlappingNodes
+    };
+  }
+  
+  /**
+   * Show z-order help when a node is selected
+   * @param {Node} node - The selected node
+   */
+  showZOrderHelp(node) {
+    const zOrderInfo = this.getNodeZOrderInfo(node);
+    if (!zOrderInfo) return;
+    
+    const { currentIndex, totalNodes, isAtTop, isAtBottom, overlappingCount } = zOrderInfo;
+    
+    let helpText = `Layer: ${currentIndex + 1}/${totalNodes}`;
+    if (overlappingCount > 0) {
+      helpText += ` (${overlappingCount} overlap${overlappingCount > 1 ? 's' : ''})`;
+    }
+    
+    // Add keyboard shortcuts info
+    const shortcuts = [];
+    if (!isAtTop && !isAtBottom) {
+      shortcuts.push('PgUp/PgDown to move');
+    } else if (isAtTop) {
+      shortcuts.push('PgDown to move down');
+    } else if (isAtBottom) {
+      shortcuts.push('PgUp to move up');
+    }
+    
+    if (!isAtTop) {
+      shortcuts.push('Home for top');
+    }
+    if (!isAtBottom) {
+      shortcuts.push('End for bottom');
+    }
+    
+    if (shortcuts.length > 0) {
+      helpText += ` • ${shortcuts.join(', ')}`;
+    }
+    
+    // Show help text briefly
+    this.showZOrderFeedback(node, 'info', helpText, 'info', 2000);
+  }
+  
+  /**
+   * Find overlapping nodes for a given node
+   * @param {Node} targetNode - The node to check for overlaps
+   * @returns {Array} Array of overlapping nodes
+   */
+  findOverlappingNodes(targetNode) {
+    if (!targetNode || !this.nodeMap) {
+      return [];
+    }
+    
+    const overlapping = [];
+    const targetBounds = this.getNodeBounds(targetNode);
+    
+    for (const [nodeId, node] of this.nodeMap) {
+      if (node === targetNode) continue;
+      
+      const nodeBounds = this.getNodeBounds(node);
+      if (this.doNodesOverlap(targetBounds, nodeBounds)) {
+        overlapping.push(node);
+      }
+    }
+    
+    return overlapping;
+  }
+  
+  /**
+   * Get bounding box for a node
+   * @param {Node} node - The node to get bounds for
+   * @returns {Object} {x, y, width, height}
+   */
+  getNodeBounds(node) {
+    if (!node || !node.element) {
+      return { x: 0, y: 0, width: 0, height: 0 };
+    }
+    
+    try {
+      const bbox = node.element.getBBox();
+      return {
+        x: bbox.x,
+        y: bbox.y,
+        width: bbox.width,
+        height: bbox.height
+      };
+    } catch (e) {
+      // Fallback for nodes without getBBox
+      return {
+        x: node.x - 30,
+        y: node.y - 30,
+        width: 60,
+        height: 60
+      };
+    }
+  }
+  
+  /**
+   * Check if two bounding boxes overlap
+   * @param {Object} bounds1 - First bounding box
+   * @param {Object} bounds2 - Second bounding box
+   * @returns {boolean} True if they overlap
+   */
+  doNodesOverlap(bounds1, bounds2) {
+    return !(
+      bounds1.x + bounds1.width < bounds2.x ||
+      bounds2.x + bounds2.width < bounds1.x ||
+      bounds1.y + bounds1.height < bounds2.y ||
+      bounds2.y + bounds2.height < bounds1.y
+    );
+  }
+  
+  /**
+   * Configuration methods for customizing behavior
+   */
+  
+  /**
+   * Enable or disable automatic z-order help display on node selection
+   * @param {boolean} enabled - Whether to show z-order help when a node is selected
+   */
+  setShowZOrderHelpOnSelection(enabled) {
+    this.settings.showZOrderHelpOnSelection = enabled;
+    console.log(`Z-order help on selection: ${enabled ? 'ENABLED' : 'DISABLED'}`);
+  }
+  
+  /**
+   * Get current configuration setting for z-order help display
+   * @returns {boolean} Current setting
+   */
+  getShowZOrderHelpOnSelection() {
+    return this.settings.showZOrderHelpOnSelection;
+  }
+  
+  /**
+   * Toggle z-order help display on node selection
+   * @returns {boolean} New setting value
+   */
+  toggleShowZOrderHelpOnSelection() {
+    this.settings.showZOrderHelpOnSelection = !this.settings.showZOrderHelpOnSelection;
+    console.log(`Z-order help on selection: ${this.settings.showZOrderHelpOnSelection ? 'ENABLED' : 'DISABLED'}`);
+    return this.settings.showZOrderHelpOnSelection;
+  }
+  
+  /**
+   * Enable or disable z-order feedback messages
+   * @param {boolean} enabled - Whether to show z-order feedback messages
+   */
+  setShowZOrderFeedback(enabled) {
+    this.settings.showZOrderFeedback = enabled;
+    console.log(`Z-order feedback messages: ${enabled ? 'ENABLED' : 'DISABLED'}`);
+  }
+  
+  /**
+   * Get current configuration setting for z-order feedback
+   * @returns {boolean} Current setting
+   */
+  getShowZOrderFeedback() {
+    return this.settings.showZOrderFeedback;
+  }
+  
+  /**
+   * Toggle z-order feedback messages
+   * @returns {boolean} New setting value
+   */
+  toggleShowZOrderFeedback() {
+    this.settings.showZOrderFeedback = !this.settings.showZOrderFeedback;
+    console.log(`Z-order feedback messages: ${this.settings.showZOrderFeedback ? 'ENABLED' : 'DISABLED'}`);
+    return this.settings.showZOrderFeedback;
+  }
+  
+  /**
+   * Enable or disable arrow key fine-tuning
+   * @param {boolean} enabled - Whether to enable arrow key fine-tuning
+   */
+  setEnableArrowKeyFinetuning(enabled) {
+    this.settings.enableArrowKeyFinetuning = enabled;
+    console.log(`Arrow key fine-tuning: ${enabled ? 'ENABLED' : 'DISABLED'}`);
+  }
+  
+  /**
+   * Get current configuration setting for arrow key fine-tuning
+   * @returns {boolean} Current setting
+   */
+  getEnableArrowKeyFinetuning() {
+    return this.settings.enableArrowKeyFinetuning;
+  }
+  
+  /**
+   * Toggle arrow key fine-tuning
+   * @returns {boolean} New setting value
+   */
+  toggleArrowKeyFinetuning() {
+    this.settings.enableArrowKeyFinetuning = !this.settings.enableArrowKeyFinetuning;
+    console.log(`Arrow key fine-tuning: ${this.settings.enableArrowKeyFinetuning ? 'ENABLED' : 'DISABLED'}`);
+    return this.settings.enableArrowKeyFinetuning;
+  }
+  
+  /**
+   * Set the arrow key movement amount
+   * @param {number} amount - Base movement amount in viewBox coordinates
+   */
+  setArrowKeyMovementAmount(amount) {
+    if (amount > 0) {
+      this.settings.arrowKeyMovementAmount = amount;
+      console.log(`Arrow key movement amount set to: ${amount}`);
+    } else {
+      console.warn('⚠️ Arrow key movement amount must be positive');
+    }
+  }
+  
+  /**
+   * Get the current arrow key movement amount
+   * @returns {number} Current movement amount
+   */
+  getArrowKeyMovementAmount() {
+    return this.settings.arrowKeyMovementAmount;
   }
 }

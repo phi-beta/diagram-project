@@ -107,6 +107,9 @@ body {
 
 #temp-arrowhead polygon {
   fill: #ff6b6b !important; /* Orange color for temporary edges */
+  stroke: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 /* Legacy class-based styling as fallback */
@@ -114,13 +117,20 @@ body {
   fill: #000000; /* Black for light theme */
 }
 
-/* Temporary arrowhead styling */
-.temp-arrowhead-fill {
-  fill: #ff6b6b; /* Orange color for temporary edges */
+/* Temporary arrowhead styling - multiple selectors for maximum specificity */
+#temp-arrowhead polygon,
+#temp-arrowhead polygon.temp-arrowhead-fill,
+.temp-arrowhead-fill,
+marker#temp-arrowhead polygon,
+svg marker#temp-arrowhead polygon {
+  fill: #ff6b6b !important; /* Orange color for temporary edges */
+  stroke: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 .temp-arrow-marker {
-  fill: #ff6b6b;
+  fill: #ff6b6b !important;
   opacity: 0.8;
 }
 

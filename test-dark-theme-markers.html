@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dark Theme Marker Test</title>
+    <link rel="stylesheet" href="themes/dark.css">
+</head>
+<body>
+    <h1>Dark Theme Marker Test</h1>
+    <p>This should show both markers in dark theme with proper colors.</p>
+    
+    <svg width="600" height="200" style="border: 1px solid #666; background: #333;">
+        <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                    refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7"/>
+            </marker>
+            <marker id="temp-arrowhead" markerWidth="10" markerHeight="7" 
+                    refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" class="temp-arrowhead-fill" fill="#ff6b6b"/>
+            </marker>
+        </defs>
+        
+        <!-- Regular arrowhead (should be white) -->
+        <path d="M 50 50 L 300 50" stroke="#ffffff" stroke-width="2" 
+              fill="none" marker-end="url(#arrowhead)"/>
+        <text x="175" y="40" fill="#ffffff" text-anchor="middle" font-size="12">
+            Regular Arrowhead (White)
+        </text>
+        
+        <!-- Temporary arrowhead (should be orange) -->
+        <path d="M 50 100 L 300 100" stroke="#ff6b6b" stroke-width="2" 
+              stroke-dasharray="5,5" fill="none" marker-end="url(#temp-arrowhead)"
+              class="temporary-edge"/>
+        <text x="175" y="90" fill="#ffffff" text-anchor="middle" font-size="12">
+            Temporary Arrowhead (Orange)
+        </text>
+        
+        <!-- Another temp edge to test -->
+        <path d="M 50 150 L 300 150" stroke="#ff6b6b" stroke-width="2" 
+              stroke-dasharray="5,5" fill="none" marker-end="url(#temp-arrowhead)"
+              class="temporary-edge"/>
+        <text x="175" y="140" fill="#ffffff" text-anchor="middle" font-size="12">
+            Another Temporary Edge (Orange)
+        </text>
+    </svg>
+    
+    <div style="margin-top: 20px; padding: 10px; background: #2a2a2a; color: #fff; border-radius: 4px;">
+        <p><strong>Expected:</strong></p>
+        <ul>
+            <li>Regular arrowhead should be white</li>
+            <li>Temporary arrowheads should be orange (#ff6b6b)</li>
+            <li>All arrowheads should be visible</li>
+        </ul>
+    </div>
+    
+    <script>
+        // Test the CSS application
+        setTimeout(() => {
+            const tempMarker = document.querySelector('#temp-arrowhead polygon');
+            const regularMarker = document.querySelector('#arrowhead polygon');
+            
+            console.log('Temp marker computed style:', window.getComputedStyle(tempMarker));
+            console.log('Regular marker computed style:', window.getComputedStyle(regularMarker));
+            
+            // Force update the temp marker fill
+            if (tempMarker) {
+                tempMarker.setAttribute('fill', '#ff6b6b');
+                console.log('Forced temp marker fill to #ff6b6b');
+            }
+        }, 100);
+    </script>
+</body>
+</html>

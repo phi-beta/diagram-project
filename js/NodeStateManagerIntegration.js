@@ -7,6 +7,7 @@
 
 import { nodeStateManager } from './NodeStateManager.js?v=011';
 import { debugNodeEvents } from './debug.js';
+import { diagramStateManager } from './DiagramStateManager.js?v=011';
 
 /**
  * Modified NodeRenderer class with state machine integration
@@ -214,6 +215,9 @@ export class InteractionManagerWithStateManager {
   constructor(svg, viewBoxManager, dragManager) {
     // ... existing constructor logic ...
     
+    // Set reference to DiagramStateManager
+    this.diagramStateManager = diagramStateManager;
+    
     // Initialize state manager
     this.initializeStateManager();
   }
@@ -298,5 +302,17 @@ export class InteractionManagerWithStateManager {
   setSelectedNode(nodeId) {
     // Find node by ID and select it
     // This would need to integrate with your existing node lookup system
+  }
+  
+  /**
+   * Create temporary edge using inline arrowhead approach
+   */
+  createTemporaryEdge() {
+    // Use DiagramStateManager to create the temporary edge
+    if (this.diagramStateManager && typeof this.diagramStateManager.createTemporaryEdge === 'function') {
+      this.diagramStateManager.createTemporaryEdge();
+    } else {
+      console.error('❌ NodeStateManagerIntegration: DiagramStateManager not available for createTemporaryEdge');
+    }
   }
 }

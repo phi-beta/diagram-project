@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Diagram Project</title>
-  <link rel="stylesheet" href="themes/default.css?v=048" id="theme-link">
+  <link rel="stylesheet" href="themes/default.css?v=049" id="theme-link">
   <script>
     // Ensure CSS is loaded before proceeding with initialization
     function ensureCSSLoaded(callback) {
@@ -73,7 +73,12 @@
         </marker>
         <marker id="temp-arrowhead" markerWidth="10" markerHeight="7" 
                 refX="9" refY="3.5" orient="auto">
-          <polygon points="0 0, 10 3.5, 0 7" fill="#ff6b6b"/>
+          <polygon points="0 0, 10 3.5, 0 7" fill="#ff6b6b" stroke="none" opacity="1" visibility="visible"/>
+        </marker>
+        <!-- Backup marker with different approach -->
+        <marker id="temp-arrowhead-backup" markerWidth="10" markerHeight="7" 
+                refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" style="fill:#ff6b6b;stroke:none;opacity:1;visibility:visible"/>
         </marker>
       </defs>
       <!-- All edges will be added here -->
@@ -112,7 +117,7 @@
       KEYBOARD: true,
       MOUSE: true
     };
-  </script>    <script type="module" src="js/renderer.js?v=127"></script>
+  </script>    <script type="module" src="js/renderer.js?v=130"></script>
   <script src="test-fixes.js"></script>
   <script>
     // Function to update arrowhead color based on current theme

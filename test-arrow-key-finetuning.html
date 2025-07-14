@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arrow Key Fine-tuning Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    
+    .controls {
+      background-color: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .info {
+      background-color: #e7f3ff;
+      border: 1px solid #b3d9ff;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    
+    .instructions {
+      background-color: #fff3cd;
+      border: 1px solid #ffeaa7;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    
+    button {
+      background-color: #007acc;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    
+    button:hover {
+      background-color: #005a9e;
+    }
+    
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .svg-container {
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    svg {
+      border: 1px solid #ccc;
+      background-color: #fafafa;
+    }
+    
+    .test-node {
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .test-node:hover {
+      filter: brightness(1.1);
+    }
+    
+    .test-node.selected {
+      filter: drop-shadow(0 0 8px rgba(0,123,255,0.5));
+    }
+    
+    .logs {
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 15px;
+      max-height: 300px;
+      overflow-y: auto;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .log-entry {
+      margin-bottom: 5px;
+      padding: 5px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    
+    .log-info { background-color: #e7f3ff; }
+    .log-success { background-color: #d4edda; }
+    .log-warning { background-color: #fff3cd; }
+    .log-error { background-color: #f8d7da; }
+    
+    .zoom-info {
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    
+    input[type="range"] {
+      width: 200px;
+      margin: 0 10px;
+    }
+    
+    .movement-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Arrow Key Fine-tuning Test</h1>
+  
+  <div class="info">
+    <h3>Arrow Key Fine-tuning Feature Test</h3>
+    <p>This test validates the new arrow key fine-tuning functionality for selected nodes.</p>
+  </div>
+  
+  <div class="instructions">
+    <h3>Test Instructions:</h3>
+    <ol>
+      <li><strong>Click on any node</strong> to select it</li>
+      <li><strong>Use arrow keys</strong> to fine-tune the position:</li>
+      <ul>
+        <li>↑ - Move up</li>
+        <li>↓ - Move down</li>
+        <li>← - Move left</li>
+        <li>→ - Move right</li>
+      </ul>
+      <li><strong>Zoom in/out</strong> to see how movement scales with zoom level</li>
+      <li><strong>Test configuration</strong> using the control buttons below</li>
+    </ol>
+    <p><strong>Note:</strong> Movement amount is proportional to zoom level - higher zoom = finer movement.</p>
+  </div>
+  
+  <div class="controls">
+    <button onclick="createTestNodes()">Create Test Nodes</button>
+    <button onclick="clearAllNodes()">Clear All Nodes</button>
+    <button onclick="zoomIn()">Zoom In</button>
+    <button onclick="zoomOut()">Zoom Out</button>
+    <button onclick="resetZoom()">Reset Zoom</button>
+    <button onclick="clearLogs()">Clear Logs</button>
+    <br>
+    <strong>Arrow Key Fine-tuning Settings:</strong>
+    <button onclick="toggleArrowKeyFinetuning()">Toggle Fine-tuning</button>
+    <button onclick="enableArrowKeyFinetuning()">Enable Fine-tuning</button>
+    <button onclick="disableArrowKeyFinetuning()">Disable Fine-tuning</button>
+    <div class="movement-controls">
+      <label>Movement Amount:</label>
+      <input type="range" id="movementSlider" min="1" max="20" value="5" oninput="updateMovementAmount(this.value)">
+      <span id="movementValue">5</span>
+    </div>
+  </div>
+  
+  <div class="zoom-info" id="zoomInfo">
+    Zoom: 1.00x | Movement Amount: 5.00 | Effective Movement: 5.00
+  </div>
+  
+  <div class="svg-container">
+    <svg id="test-diagram" width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+      <!-- Layers -->
+      <g id="background-layer"></g>
+      <g id="grid-layer"></g>
+      <g id="edges-layer"></g>
+      <g id="nodes-layer"></g>
+      <g id="temp-layer"></g>
+      <g id="ui-layer"></g>
+      <g id="debug-layer"></g>
+    </svg>
+  </div>
+  
+  <div class="logs" id="logs"></div>
+  
+  <script type="module">
+    import { ViewBoxManager } from './js/ViewBoxManager.js?v=002';
+    import { InteractionManager } from './js/InteractionManager.js?v=082';
+    import { DragManager } from './js/DragManager.js?v=007';
+    
+    const svg = document.getElementById('test-diagram');
+    const nodesLayer = document.getElementById('nodes-layer');
+    const logs = document.getElementById('logs');
+    const zoomInfo = document.getElementById('zoomInfo');
+    const movementSlider = document.getElementById('movementSlider');
+    const movementValue = document.getElementById('movementValue');
+    
+    let selectedNode = null;
+    let nodeCounter = 0;
+    let viewBoxManager = null;
+    let interactionManager = null;
+    let dragManager = null;
+    
+    // Colors for different nodes
+    const nodeColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#FF9FF3', '#54A0FF'];
+    
+    // Initialize the system
+    function initializeSystem() {
+      viewBoxManager = new ViewBoxManager(svg);
+      dragManager = new DragManager(viewBoxManager);
+      interactionManager = new InteractionManager(svg, viewBoxManager, dragManager, new Map());
+      
+      // Make available globally for testing
+      window.viewBoxManager = viewBoxManager;
+      window.interactionManager = interactionManager;
+      window.dragManager = dragManager;
+      
+      // Update zoom info display
+      updateZoomInfo();
+      
+      log('System initialized', 'success');
+    }
+    
+    function log(message, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logs.appendChild(entry);
+      logs.scrollTop = logs.scrollHeight;
+    }
+    
+    function clearLogs() {
+      logs.innerHTML = '';
+    }
+    
+    function updateZoomInfo() {
+      if (!viewBoxManager || !interactionManager) return;
+      
+      const zoom = viewBoxManager.currentZoom;
+      const movementAmount = interactionManager.getArrowKeyMovementAmount();
+      const effectiveMovement = movementAmount / zoom;
+      
+      zoomInfo.textContent = `Zoom: ${zoom.toFixed(2)}x | Movement Amount: ${movementAmount.toFixed(2)} | Effective Movement: ${effectiveMovement.toFixed(2)}`;
+    }
+    
+    function createNode(x, y, label, color) {
+      const nodeId = `node-${++nodeCounter}`;
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      group.setAttribute('class', 'test-node');
+      group.setAttribute('data-node-id', nodeId);
+      group.setAttribute('transform', `translate(${x}, ${y})`);
+      
+      // Create circle
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('r', '30');
+      circle.setAttribute('fill', color);
+      circle.setAttribute('stroke', '#333');
+      circle.setAttribute('stroke-width', '2');
+      
+      // Create label
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('dy', '0.3em');
+      text.setAttribute('font-size', '12');
+      text.setAttribute('font-weight', 'bold');
+      text.setAttribute('fill', 'white');
+      text.textContent = label;
+      
+      group.appendChild(circle);
+      group.appendChild(text);
+      
+      // Create mock node object for testing
+      const mockNode = {
+        id: nodeId,
+        x: x,
+        y: y,
+        element: group,
+        moveTo: function(newX, newY, animate = false) {
+          this.x = newX;
+          this.y = newY;
+          this.element.setAttribute('transform', `translate(${newX}, ${newY})`);
+          log(`Node ${this.id} moved to (${newX.toFixed(2)}, ${newY.toFixed(2)})`, 'info');
+        }
+      };
+      
+      // Add click handler
+      group.addEventListener('click', () => selectNode(mockNode));
+      
+      nodesLayer.appendChild(group);
+      log(`Created node ${nodeId} at (${x}, ${y})`, 'success');
+      
+      return mockNode;
+    }
+    
+    function selectNode(node) {
+      // Deselect previous node
+      if (selectedNode) {
+        selectedNode.element.classList.remove('selected');
+      }
+      
+      // Select new node
+      selectedNode = node;
+      node.element.classList.add('selected');
+      
+      // Update InteractionManager's selected node
+      if (interactionManager) {
+        interactionManager.selectedNode = node;
+      }
+      
+      log(`Selected node ${node.id}`, 'info');
+    }
+    
+    function createTestNodes() {
+      const positions = [
+        { x: 100, y: 100, label: 'A' },
+        { x: 250, y: 150, label: 'B' },
+        { x: 400, y: 200, label: 'C' },
+        { x: 550, y: 250, label: 'D' },
+        { x: 700, y: 300, label: 'E' }
+      ];
+      
+      positions.forEach((pos, index) => {
+        const color = nodeColors[index % nodeColors.length];
+        createNode(pos.x, pos.y, pos.label, color);
+      });
+      
+      log('Created test nodes', 'success');
+    }
+    
+    function clearAllNodes() {
+      nodesLayer.innerHTML = '';
+      selectedNode = null;
+      nodeCounter = 0;
+      if (interactionManager) {
+        interactionManager.selectedNode = null;
+      }
+      log('Cleared all nodes', 'info');
+    }
+    
+    function zoomIn() {
+      if (viewBoxManager) {
+        viewBoxManager.zoom(1.2, 400, 300);
+        updateZoomInfo();
+        log('Zoomed in', 'info');
+      }
+    }
+    
+    function zoomOut() {
+      if (viewBoxManager) {
+        viewBoxManager.zoom(0.8, 400, 300);
+        updateZoomInfo();
+        log('Zoomed out', 'info');
+      }
+    }
+    
+    function resetZoom() {
+      if (viewBoxManager) {
+        viewBoxManager.resetView();
+        updateZoomInfo();
+        log('Reset zoom', 'info');
+      }
+    }
+    
+    // Arrow key fine-tuning configuration functions
+    function toggleArrowKeyFinetuning() {
+      if (interactionManager) {
+        const newValue = interactionManager.toggleArrowKeyFinetuning();
+        log(`Arrow key fine-tuning is now ${newValue ? 'ENABLED' : 'DISABLED'}`, 'info');
+      }
+    }
+    
+    function enableArrowKeyFinetuning() {
+      if (interactionManager) {
+        interactionManager.setEnableArrowKeyFinetuning(true);
+        log('Arrow key fine-tuning ENABLED', 'success');
+      }
+    }
+    
+    function disableArrowKeyFinetuning() {
+      if (interactionManager) {
+        interactionManager.setEnableArrowKeyFinetuning(false);
+        log('Arrow key fine-tuning DISABLED', 'success');
+      }
+    }
+    
+    function updateMovementAmount(value) {
+      const amount = parseFloat(value);
+      movementValue.textContent = amount.toFixed(1);
+      
+      if (interactionManager) {
+        interactionManager.setArrowKeyMovementAmount(amount);
+        updateZoomInfo();
+        log(`Movement amount set to ${amount}`, 'info');
+      }
+    }
+    
+    // Make functions available globally
+    window.createTestNodes = createTestNodes;
+    window.clearAllNodes = clearAllNodes;
+    window.zoomIn = zoomIn;
+    window.zoomOut = zoomOut;
+    window.resetZoom = resetZoom;
+    window.clearLogs = clearLogs;
+    window.toggleArrowKeyFinetuning = toggleArrowKeyFinetuning;
+    window.enableArrowKeyFinetuning = enableArrowKeyFinetuning;
+    window.disableArrowKeyFinetuning = disableArrowKeyFinetuning;
+    window.updateMovementAmount = updateMovementAmount;
+    
+    // Initialize system and create test nodes
+    initializeSystem();
+    createTestNodes();
+    
+    log('Arrow key fine-tuning test initialized', 'success');
+    log('Click on nodes to select them, then use arrow keys to fine-tune position', 'info');
+  </script>
+</body>
+</html>

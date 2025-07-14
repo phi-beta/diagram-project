@@ -3,7 +3,7 @@ import { Node } from './Node.js?v=065';
 import { Edge } from './Edge.js?v=011';
 import { ViewBoxManager } from './ViewBoxManager.js?v=002';
 import { DragManager } from './DragManager.js?v=051';
-import { InteractionManager } from './InteractionManager.js?v=079';
+import { InteractionManager } from './InteractionManager.js?v=082';
 import { LayerManager } from './LayerManager.js?v=011';
 import { GridManager } from './GridManager.js?v=020';
 import { generateGuid, clearGuidRegistry, initializeFromExisting } from './GuidManager.js';
@@ -367,6 +367,11 @@ async function loadLayout() {
     if (window.updateArrowheadColor) {
       window.updateArrowheadColor();
     }
+    
+    // Ensure temporary arrowhead is always visible
+    if (window.ensureTemporaryArrowheadVisible) {
+      window.ensureTemporaryArrowheadVisible();
+    }
   }, 100);
 
   saveButton.addEventListener('click', () => {
@@ -521,6 +526,12 @@ function toggleTheme() {
       if (window.updateArrowheadColor) {
         window.updateArrowheadColor();
       }
+      
+      // Ensure temporary arrowhead is always visible
+      ensureTemporaryArrowheadVisible();
+      
+      // Force refresh SVG markers to handle cache issues
+      refreshSVGMarkers();
     }, 100); // Small delay to ensure CSS has been applied
   };
   
@@ -538,11 +549,93 @@ function toggleTheme() {
   
   // Change the CSS file
   if (currentHref.includes('default.css')) {
-    link.href = 'themes/dark.css?v=048';
+    link.href = 'themes/dark.css?v=049';
   } else {
-    link.href = 'themes/default.css?v=048';
+    link.href = 'themes/default.css?v=049';
   }
 }
+
+// Function to ensure temporary arrowhead is always visible
+function ensureTemporaryArrowheadVisible() {
+  const tempArrowheadMarker = document.querySelector('#temp-arrowhead polygon');
+  if (tempArrowheadMarker) {
+    // Remove any CSS classes that might interfere
+    tempArrowheadMarker.removeAttribute('class');
+    
+    // Force all attributes to ensure visibility
+    tempArrowheadMarker.setAttribute('fill', '#ff6b6b');
+    tempArrowheadMarker.setAttribute('stroke', 'none');
+    tempArrowheadMarker.setAttribute('opacity', '1');
+    tempArrowheadMarker.setAttribute('visibility', 'visible');
+    tempArrowheadMarker.style.fill = '#ff6b6b !important';
+    tempArrowheadMarker.style.stroke = 'none !important';
+    tempArrowheadMarker.style.opacity = '1 !important';
+    tempArrowheadMarker.style.visibility = 'visible !important';
+    console.log('🎯 THEME Ensured temp arrowhead fill is orange with all attributes');
+  }
+  
+  // Also refresh all existing temporary edges
+  const tempEdges = document.querySelectorAll('.temporary-edge');
+  tempEdges.forEach(edge => {
+    // Force re-render by removing and re-adding marker reference
+    const originalMarker = edge.getAttribute('marker-end');
+    edge.removeAttribute('marker-end');
+    setTimeout(() => {
+      edge.setAttribute('marker-end', originalMarker);
+    }, 10);
+  });
+  
+  if (tempEdges.length > 0) {
+    console.log(`🎯 THEME Refreshed ${tempEdges.length} temporary edges`);
+  }
+}
+
+// Function to force refresh SVG markers (for troubleshooting cache issues)
+function refreshSVGMarkers() {
+  const defs = document.querySelector('defs');
+  if (!defs) return;
+  
+  // Remove and recreate temp-arrowhead marker
+  const tempMarker = document.getElementById('temp-arrowhead');
+  if (tempMarker) {
+    tempMarker.remove();
+    
+    // Create new temp marker
+    const newTempMarker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    newTempMarker.setAttribute('id', 'temp-arrowhead');
+    newTempMarker.setAttribute('markerWidth', '10');
+    newTempMarker.setAttribute('markerHeight', '7');
+    newTempMarker.setAttribute('refX', '9');
+    newTempMarker.setAttribute('refY', '3.5');
+    newTempMarker.setAttribute('orient', 'auto');
+    
+    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
+    polygon.setAttribute('fill', '#ff6b6b');
+    polygon.setAttribute('stroke', 'none');
+    polygon.setAttribute('opacity', '1');
+    polygon.setAttribute('visibility', 'visible');
+    // Remove class to avoid CSS conflicts
+    polygon.style.fill = '#ff6b6b';
+    polygon.style.stroke = 'none';
+    polygon.style.opacity = '1';
+    polygon.style.visibility = 'visible';
+    
+    newTempMarker.appendChild(polygon);
+    defs.appendChild(newTempMarker);
+    
+    console.log('🔄 Refreshed temp-arrowhead marker completely');
+  }
+  
+  // Force update all temporary edges to use the new marker
+  const tempEdges = document.querySelectorAll('.temporary-edge');
+  tempEdges.forEach(edge => {
+    edge.setAttribute('marker-end', 'url(#temp-arrowhead)');
+  });
+}
+
+// Make it globally available
+window.refreshSVGMarkers = refreshSVGMarkers;
 
 // Add duplication handler
 document.addEventListener('keydown', e => {
