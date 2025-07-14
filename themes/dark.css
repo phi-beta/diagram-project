@@ -1,6 +1,6 @@
 /* Background colors for dark theme */
 body {
-  background-color: #1e1e1e;
+  background-color: var(--body-background, #1e1e1e);
   color: #e1e1e1;
   margin: 0;
   padding: 10px;
@@ -44,9 +44,30 @@ body {
 }
 
 #diagram {
-  background-color: #2d2d2d;
+  background-color: var(--diagram-background, #2d2d2d);
   border: 1px solid #404040;
   border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+/* Force style recalculation during theme updates */
+#diagram.theme-updating {
+  background-color: var(--diagram-background, #2d2d2d) !important;
+}
+
+/* Grid colors for dark theme - hierarchical levels from finest to coarsest */
+:root {
+  --body-background: #1e1e1e;
+  --diagram-background: #2d2d2d;
+  --grid-background: var(--diagram-background); /* Same as diagram background for perfect sync */
+  --grid-level-0: #363636;  /* Finest grid - subtle dark gray */
+  --grid-level-1: #484848;  /* Fine grid - medium-dark gray */
+  --grid-level-2: #5a5a5a;  /* Medium-fine grid - lighter gray */
+  --grid-level-3: #707070;  /* Medium grid - medium-light gray */
+  --grid-level-4: #909090;  /* Medium-coarse grid - light gray */
+  --grid-level-5: #b0b0b0;  /* Coarsest grid - lightest gray */
+  --edge-color: #ffffff;    /* Default edge color - white */
+  --arrowhead-color: #ffffff; /* Default arrowhead color - white */
 }
 
 .user-node svg {
@@ -86,17 +107,16 @@ body {
   stroke-width: 1;
 }
 .access-link {
-  stroke: white;
+  stroke: var(--edge-color, #ffffff);
   stroke-width: 2;
   filter: drop-shadow(0 0 2px #242424)
 }
 
 .connection {
-  stroke: #eee;
+  stroke: var(--edge-color, #ffffff);
   stroke-width: 2;
   fill: none;
-  marker-end: url(#arrow-end);
-   filter: drop-shadow(0 0 2px #242424)
+  filter: drop-shadow(0 0 2px #242424)
 }
 
 /* Arrow markers - these need to be defined in JavaScript but colors can be controlled here */
@@ -105,8 +125,28 @@ body {
    filter: drop-shadow(0 0 2px #242424)
 }
 
+/* Arrowhead styling - target markers directly */
+#arrowhead polygon {
+  fill: #ffffff !important; /* White for dark theme */
+}
+
+#temp-arrowhead polygon {
+  fill: #ff7675 !important; /* Orange color for temporary edges */
+}
+
+/* Legacy class-based styling as fallback */
+.arrowhead-fill {
+  fill: #ffffff; /* White for dark theme */
+}
+
+/* Temporary arrowhead styling */
+.temp-arrowhead-fill {
+  fill: #ff7675; /* Orange color for temporary edges */
+}
+
 .temp-arrow-marker {
   fill: #ff7675;
+  opacity: 0.8;
 }
 
 /* Selection and interaction states */

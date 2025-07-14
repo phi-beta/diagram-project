@@ -90,12 +90,15 @@ export class LayerManager {
    * Hide a layer
    */
   hideLayer(layerId) {
+    console.log(`🔄 LayerManager.hideLayer called with layerId: ${layerId}`);
     const layer = this.getLayer(layerId);
     if (layer) {
       layer.classList.add('hidden');
-      console.log(`👁️ Hidden layer: ${layerId}`);
+      console.log(`👁️ Hidden layer: ${layerId}`, layer);
+      console.log(`🔄 Layer classes after hiding:`, layer.classList.toString());
       return true;
     }
+    console.error(`❌ Cannot hide layer ${layerId}: layer not found`);
     return false;
   }
   
@@ -103,12 +106,15 @@ export class LayerManager {
    * Show a layer
    */
   showLayer(layerId) {
+    console.log(`🔄 LayerManager.showLayer called with layerId: ${layerId}`);
     const layer = this.getLayer(layerId);
     if (layer) {
       layer.classList.remove('hidden');
-      console.log(`👁️ Shown layer: ${layerId}`);
+      console.log(`👁️ Shown layer: ${layerId}`, layer);
+      console.log(`🔄 Layer classes after showing:`, layer.classList.toString());
       return true;
     }
+    console.error(`❌ Cannot show layer ${layerId}: layer not found`);
     return false;
   }
   
@@ -116,13 +122,29 @@ export class LayerManager {
    * Toggle layer visibility
    */
   toggleLayer(layerId) {
+    console.log(`🔄 LayerManager.toggleLayer called with layerId: ${layerId}`);
     const layer = this.getLayer(layerId);
+    console.log(`🔄 Layer element found:`, layer);
     if (layer) {
       if (layer.classList.contains('hidden')) {
+        console.log(`🔄 Layer ${layerId} is hidden, showing it`);
         return this.showLayer(layerId);
       } else {
+        console.log(`🔄 Layer ${layerId} is visible, hiding it`);
         return this.hideLayer(layerId);
       }
+    }
+    console.error(`❌ Layer ${layerId} not found`);
+    return false;
+  }
+  
+  /**
+   * Check if a layer is visible
+   */
+  isLayerVisible(layerId) {
+    const layer = this.getLayer(layerId);
+    if (layer) {
+      return !layer.classList.contains('hidden');
     }
     return false;
   }

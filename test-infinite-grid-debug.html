@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinite Grid Debug Test</title>
+    <link rel="stylesheet" href="themes/default.css?v=041">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #333;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .controls {
+            padding: 20px;
+            background: #f9f9f9;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .control-group label {
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        .control-group input, .control-group select, .control-group button {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        
+        .control-group button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .control-group button:hover {
+            background: #1976D2;
+        }
+        
+        .svg-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            border: 2px solid #ddd;
+            overflow: hidden;
+        }
+        
+        .debug-info {
+            padding: 20px;
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            margin: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-line;
+        }
+        
+        .status {
+            padding: 20px;
+            background: #e3f2fd;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        
+        .status-item {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .status-item strong {
+            display: block;
+            color: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="header">
+            <h1>🔧 Infinite Grid Debug Test</h1>
+            <p>Testing infinite hierarchical grid system with debug output</p>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="zoom">Manual Zoom:</label>
+                <input type="range" id="zoom" min="0.1" max="10" step="0.1" value="1">
+                <span id="zoomValue">1.0x</span>
+            </div>
+            <div class="control-group">
+                <label for="targetSpacing">Target Spacing:</label>
+                <input type="range" id="targetSpacing" min="20" max="100" step="5" value="40">
+                <span id="targetSpacingValue">40px</span>
+            </div>
+            <div class="control-group">
+                <label for="fadeRange">Fade Range:</label>
+                <input type="range" id="fadeRange" min="0.1" max="2" step="0.1" value="0.5">
+                <span id="fadeRangeValue">0.5</span>
+            </div>
+            <div class="control-group">
+                <label for="maxLevels">Max Levels:</label>
+                <select id="maxLevels">
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4" selected>4</option>
+                    <option value="5">5</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Actions:</label>
+                <button id="debugUpdate">Force Update</button>
+            </div>
+        </div>
+        
+        <div class="svg-container">
+            <svg id="diagram" viewBox="0 0 800 500">
+                <!-- Background layer -->
+                <g id="background-layer"></g>
+                
+                <!-- Test node at center -->
+                <g class="node" transform="translate(400, 250)">
+                    <circle cx="0" cy="0" r="15" fill="#2196F3" stroke="#1976D2" stroke-width="2"/>
+                    <text x="0" y="5" text-anchor="middle" fill="white" font-size="10">TEST</text>
+                </g>
+            </svg>
+        </div>
+        
+        <div class="status">
+            <div class="status-item">
+                <strong>Current Zoom</strong>
+                <span id="currentZoom">1.0x</span>
+            </div>
+            <div class="status-item">
+                <strong>Active Levels</strong>
+                <span id="activeLevels">0</span>
+            </div>
+            <div class="status-item">
+                <strong>Level Range</strong>
+                <span id="levelRange">None</span>
+            </div>
+            <div class="status-item">
+                <strong>Dynamic Opacity</strong>
+                <span id="dynamicOpacity">Enabled</span>
+            </div>
+        </div>
+        
+        <div class="debug-info" id="debugInfo">
+            Debug output will appear here...
+        </div>
+    </div>
+
+    <script type="module">
+        import { LayerManager } from './js/LayerManager.js?v=011';
+        import { GridManager } from './js/GridManager.js?v=017';
+        
+        // Initialize
+        const svg = document.getElementById('diagram');
+        const layerManager = new LayerManager(svg);
+        const gridManager = new GridManager(svg, layerManager);
+        
+        let debugOutput = [];
+        
+        function addDebugLine(message) {
+            debugOutput.push(`${new Date().toLocaleTimeString()}: ${message}`);
+            if (debugOutput.length > 20) {
+                debugOutput.shift();
+            }
+            document.getElementById('debugInfo').textContent = debugOutput.join('\n');
+        }
+        
+        // Override console.log to capture grid debug messages
+        const originalLog = console.log;
+        console.log = function(...args) {
+            const message = args.join(' ');
+            if (message.includes('📊') || message.includes('🔍') || message.includes('✅') || message.includes('🔄')) {
+                addDebugLine(message);
+            }
+            originalLog.apply(console, args);
+        };
+        
+        function updateGrid() {
+            const zoom = parseFloat(document.getElementById('zoom').value);
+            const viewBoxWidth = 800 / zoom;
+            const viewBoxHeight = 500 / zoom;
+            const viewBoxX = (800 - viewBoxWidth) / 2;
+            const viewBoxY = (500 - viewBoxHeight) / 2;
+            
+            // Update SVG viewBox
+            svg.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`);
+            
+            // Update grid
+            gridManager.updateGrid(viewBoxX, viewBoxY, viewBoxWidth, viewBoxHeight, zoom);
+            
+            // Update status
+            updateStatus();
+        }
+        
+        function updateStatus() {
+            const config = gridManager.getConfig();
+            const zoom = parseFloat(document.getElementById('zoom').value);
+            
+            document.getElementById('currentZoom').textContent = `${zoom.toFixed(1)}x`;
+            document.getElementById('activeLevels').textContent = config.activeLevels;
+            document.getElementById('levelRange').textContent = config.levelRange;
+            document.getElementById('dynamicOpacity').textContent = config.enableDynamicOpacity ? 'Enabled' : 'Disabled';
+        }
+        
+        // Manual level calculation test
+        function testLevelCalculation() {
+            console.log('\n🧪 === MANUAL LEVEL CALCULATION TEST ===');
+            const testZooms = [0.1, 0.25, 0.5, 1.0, 2.0, 5.0];
+            
+            testZooms.forEach(testZoom => {
+                console.log(`\n🔍 Testing zoom ${testZoom}x:`);
+                const baseSize = 20;
+                const multiplier = 5;
+                const minSpacing = 3;
+                const maxSpacing = 1200;
+                
+                const levels = [];
+                for (let level = -10; level <= 20; level++) {
+                    const exactSpacing = baseSize * Math.pow(multiplier, level);
+                    const apparentSpacing = exactSpacing * testZoom;
+                    
+                    if (apparentSpacing >= minSpacing && apparentSpacing <= maxSpacing) {
+                        levels.push({
+                            level,
+                            exactSpacing: exactSpacing.toFixed(2),
+                            apparentSpacing: apparentSpacing.toFixed(2)
+                        });
+                    }
+                }
+                
+                console.log(`   Found ${levels.length} levels:`, 
+                    levels.map(l => `L${l.level}(${l.exactSpacing}→${l.apparentSpacing})`).join(', '));
+            });
+        }
+        
+        // Add test button
+        const testButton = document.createElement('button');
+        testButton.textContent = 'Test Level Calculation';
+        testButton.onclick = testLevelCalculation;
+        testButton.style.cssText = 'margin: 10px; padding: 10px; font-weight: bold;';
+        document.querySelector('.controls').appendChild(testButton);
+        
+        // Event listeners
+        document.getElementById('zoom').addEventListener('input', (e) => {
+            const zoom = parseFloat(e.target.value);
+            document.getElementById('zoomValue').textContent = `${zoom.toFixed(1)}x`;
+            updateGrid();
+        });
+        
+        document.getElementById('targetSpacing').addEventListener('input', (e) => {
+            const spacing = parseInt(e.target.value);
+            document.getElementById('targetSpacingValue').textContent = `${spacing}px`;
+            gridManager.setTargetGridSpacing(spacing);
+            updateGrid();
+        });
+        
+        document.getElementById('fadeRange').addEventListener('input', (e) => {
+            const range = parseFloat(e.target.value);
+            document.getElementById('fadeRangeValue').textContent = range.toFixed(1);
+            gridManager.setOpacityFadeRange(range);
+            updateGrid();
+        });
+        
+        document.getElementById('maxLevels').addEventListener('change', (e) => {
+            gridManager.setMaxVisibleLevels(parseInt(e.target.value));
+            updateGrid();
+        });
+        
+        document.getElementById('debugUpdate').addEventListener('click', () => {
+            addDebugLine('=== MANUAL UPDATE TRIGGERED ===');
+            gridManager.forceRecalculation();
+            updateGrid();
+        });
+        
+        // Initial setup
+        addDebugLine('=== INITIALIZING GRID SYSTEM ===');
+        updateGrid();
+        
+        addDebugLine('=== INITIALIZATION COMPLETE ===');
+    </script>
+</body>
+</html>

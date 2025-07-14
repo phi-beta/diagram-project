@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arrowhead Fixes Test</title>
+  <link rel="stylesheet" href="themes/default.css?v=045" id="theme-link">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    .test-result {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 3px;
+    }
+    .test-pass {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .test-fail {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    button {
+      margin: 5px;
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+    #diagram {
+      border: 1px solid #ccc;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Arrowhead Fixes Test</h1>
+  
+  <div class="test-section">
+    <h2>Issue 1: Arrowhead Color</h2>
+    <p>The arrowhead should match the edge color (theme-aware).</p>
+    <button onclick="testArrowheadColor()">Test Arrowhead Color</button>
+    <div id="arrowhead-test-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>Issue 2: Duplicate User Node</h2>
+    <p>There should be no duplicate user nodes created automatically.</p>
+    <button onclick="testDuplicateNodes()">Test Duplicate Nodes</button>
+    <div id="duplicate-test-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>Issue 3: Large Arrowhead</h2>
+    <p>New edges should not have large arrowheads beneath them.</p>
+    <button onclick="testLargeArrowhead()">Test Large Arrowhead</button>
+    <div id="large-arrowhead-test-result"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>Theme Toggle Test</h2>
+    <button onclick="toggleTheme()">Toggle Theme</button>
+    <p>Check if arrowheads change color with theme.</p>
+  </div>
+
+  <div class="test-section">
+    <h2>Manual Edge Creation Test</h2>
+    <button onclick="runManualTests()">Run Manual Tests</button>
+    <p>This will create a test edge and duplicate a node for visual inspection.</p>
+  </div>
+
+  <svg id="diagram" width="800" height="600" viewBox="0 0 800 600">
+    <!-- Layer 0: Background -->
+    <g id="background-layer" class="layer">
+      <rect width="800" height="600" fill="var(--diagram-background, #ffffff)"/>
+    </g>
+    
+    <!-- Layer 1: Grid -->
+    <g id="grid-layer" class="layer">
+      <!-- Grid will be added here -->
+    </g>
+    
+    <!-- Layer 2: Edges -->
+    <g id="edges-layer" class="layer">
+      <defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="var(--arrowhead-color, #000000)"/>
+        </marker>
+      </defs>
+      <!-- All edges will be added here -->
+    </g>
+    
+    <!-- Layer 3: Nodes -->
+    <g id="nodes-layer" class="layer">
+      <!-- All nodes will be added here -->
+    </g>
+    
+    <!-- Layer 4: Temporary Elements -->
+    <g id="temp-layer" class="layer">
+      <!-- Temporary edges, selection boxes, etc. -->
+    </g>
+  </svg>
+
+  <script type="module">
+    import { LayerManager } from './js/LayerManager.js';
+    import { ViewBoxManager } from './js/ViewBoxManager.js';
+    import { DragManager } from './js/DragManager.js';
+    import { Node } from './js/Node.js';
+    import { Edge } from './js/Edge.js';
+
+    // Initialize managers
+    const svg = document.getElementById('diagram');
+    const layerManager = new LayerManager(svg);
+    const viewBoxManager = new ViewBoxManager(svg);
+    const dragManager = new DragManager(viewBoxManager);
+    const nodeMap = new Map();
+    const edgeList = [];
+
+    // Make available globally
+    window.layerManager = layerManager;
+    window.viewBoxManager = viewBoxManager;
+    window.dragManager = dragManager;
+    window.nodeMap = nodeMap;
+    window.edgeList = edgeList;
+
+    // Test functions
+    window.testArrowheadColor = function() {
+      const resultDiv = document.getElementById('arrowhead-test-result');
+      const marker = document.getElementById('arrowhead');
+      const polygon = marker.querySelector('polygon');
+      
+      if (polygon) {
+        const fill = polygon.getAttribute('fill');
+        if (fill && fill.includes('var(--arrowhead-color')) {
+          resultDiv.innerHTML = '<div class="test-result test-pass">✅ PASS: Arrowhead uses CSS variable for color</div>';
+          resultDiv.innerHTML += `<div class="test-result">Fill attribute: ${fill}</div>`;
+        } else {
+          resultDiv.innerHTML = '<div class="test-result test-fail">❌ FAIL: Arrowhead does not use CSS variable</div>';
+          resultDiv.innerHTML += `<div class="test-result">Fill attribute: ${fill}</div>`;
+        }
+      } else {
+        resultDiv.innerHTML = '<div class="test-result test-fail">❌ FAIL: Arrowhead polygon not found</div>';
+      }
+    };
+
+    window.testDuplicateNodes = function() {
+      const resultDiv = document.getElementById('duplicate-test-result');
+      const userNodes = document.querySelectorAll('.user-node');
+      
+      if (userNodes.length <= 1) {
+        resultDiv.innerHTML = '<div class="test-result test-pass">✅ PASS: No duplicate user nodes found</div>';
+        resultDiv.innerHTML += `<div class="test-result">Found ${userNodes.length} user node(s)</div>`;
+      } else {
+        resultDiv.innerHTML = '<div class="test-result test-fail">❌ FAIL: Duplicate user nodes found</div>';
+        resultDiv.innerHTML += `<div class="test-result">Found ${userNodes.length} user node(s)</div>`;
+      }
+    };
+
+    window.testLargeArrowhead = function() {
+      const resultDiv = document.getElementById('large-arrowhead-test-result');
+      const markers = document.querySelectorAll('marker');
+      
+      let duplicateMarkers = 0;
+      const markerIds = [];
+      
+      markers.forEach(marker => {
+        const id = marker.id;
+        if (markerIds.includes(id)) {
+          duplicateMarkers++;
+        } else {
+          markerIds.push(id);
+        }
+      });
+      
+      if (duplicateMarkers === 0) {
+        resultDiv.innerHTML = '<div class="test-result test-pass">✅ PASS: No duplicate marker definitions found</div>';
+        resultDiv.innerHTML += `<div class="test-result">Found markers: ${markerIds.join(', ')}</div>`;
+      } else {
+        resultDiv.innerHTML = '<div class="test-result test-fail">❌ FAIL: Duplicate marker definitions found</div>';
+        resultDiv.innerHTML += `<div class="test-result">Duplicate markers: ${duplicateMarkers}</div>`;
+      }
+    };
+
+    window.toggleTheme = function() {
+      const link = document.getElementById('theme-link');
+      const currentHref = link.href;
+      
+      if (currentHref.includes('default.css')) {
+        link.href = 'themes/dark.css?v=045';
+        console.log('🌙 Switched to dark theme');
+      } else {
+        link.href = 'themes/default.css?v=045';
+        console.log('☀️ Switched to light theme');
+      }
+    };
+
+    window.runManualTests = async function() {
+      try {
+        // Create a test user node
+        const userData = {
+          id: 'test-user',
+          x: 100,
+          y: 100,
+          svg: 'user.svg',
+          label: 'Test User',
+          class: 'user-node',
+          scale: 0.5
+        };
+
+        const userNodeElement = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        userNodeElement.setAttribute('class', 'node user-node');
+        userNodeElement.setAttribute('transform', `translate(${userData.x}, ${userData.y}) scale(${userData.scale})`);
+        
+        // Create a simple rectangle as placeholder
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('width', '50');
+        rect.setAttribute('height', '50');
+        rect.setAttribute('fill', '#4CAF50');
+        rect.setAttribute('stroke', '#333');
+        rect.setAttribute('stroke-width', '2');
+        userNodeElement.appendChild(rect);
+        
+        layerManager.addToLayer('nodes', userNodeElement);
+        
+        // Create a test server node
+        const serverData = {
+          id: 'test-server',
+          x: 300,
+          y: 100,
+          svg: 'server.svg',
+          label: 'Test Server',
+          class: 'server-node',
+          scale: 0.5
+        };
+
+        const serverNodeElement = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        serverNodeElement.setAttribute('class', 'node server-node');
+        serverNodeElement.setAttribute('transform', `translate(${serverData.x}, ${serverData.y}) scale(${serverData.scale})`);
+        
+        const serverRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        serverRect.setAttribute('width', '60');
+        serverRect.setAttribute('height', '40');
+        serverRect.setAttribute('fill', '#2196F3');
+        serverRect.setAttribute('stroke', '#333');
+        serverRect.setAttribute('stroke-width', '2');
+        serverNodeElement.appendChild(serverRect);
+        
+        layerManager.addToLayer('nodes', serverNodeElement);
+
+        // Create a test edge
+        const edgeData = {
+          id: 'test-edge',
+          from: 'test-user',
+          to: 'test-server',
+          class: 'access-link'
+        };
+
+        const edgeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        edgeGroup.setAttribute('class', 'edge');
+        edgeGroup.setAttribute('id', edgeData.id);
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('class', edgeData.class);
+        path.setAttribute('d', `M ${userData.x + 25} ${userData.y + 25} L ${serverData.x + 30} ${serverData.y + 20}`);
+        path.setAttribute('marker-end', 'url(#arrowhead)');
+        path.setAttribute('fill', 'none');
+        
+        edgeGroup.appendChild(path);
+        layerManager.addToLayer('edges', edgeGroup);
+
+        console.log('✅ Manual test elements created successfully');
+        
+      } catch (error) {
+        console.error('❌ Error in manual test:', error);
+      }
+    };
+
+    // Run initial tests
+    setTimeout(() => {
+      window.testArrowheadColor();
+      window.testDuplicateNodes();
+      window.testLargeArrowhead();
+    }, 500);
+  </script>
+</body>
+</html>

@@ -141,7 +141,21 @@ export class EdgeRenderer {
 
   // Update the visual path between two nodes
   updatePath(fromNode, toNode) {
-    if (!fromNode || !toNode) return false;
+    if (!fromNode || !toNode) {
+      console.warn('EdgeRenderer.updatePath: Missing fromNode or toNode:', { fromNode: fromNode?.id, toNode: toNode?.id });
+      return false;
+    }
+    
+    // Ensure nodes have the required getGlobalCenter method
+    if (typeof fromNode.getGlobalCenter !== 'function') {
+      console.error('EdgeRenderer.updatePath: fromNode does not have getGlobalCenter method:', fromNode);
+      return false;
+    }
+    
+    if (typeof toNode.getGlobalCenter !== 'function') {
+      console.error('EdgeRenderer.updatePath: toNode does not have getGlobalCenter method:', toNode);
+      return false;
+    }
     
     const p1 = fromNode.getGlobalCenter();
     const p2 = toNode.getGlobalCenter();
@@ -244,7 +258,7 @@ export class EdgeRenderer {
     // Add both paths to the group
     group.appendChild(clickPath);
     group.appendChild(path);
-    svg.appendChild(group);
+    window.layerManager.addToLayer('edges', group);
     
     return new EdgeRenderer(edgeData, group, path, clickPath);
   }
@@ -337,7 +351,7 @@ export class Edge {
   }
   
   // Static methods for backward compatibility
-  static createEdge(edgeData, svg) {
+  static createEdge(edgeData, svg, layerManager) {
     // Create a group to hold both the visible path and invisible wider path
     const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     group.setAttribute('class', `edge ${edgeData.class}`);
@@ -355,13 +369,25 @@ export class Edge {
     // Create the visible path
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('class', edgeData.class);
-    path.setAttribute('marker-end', 'url(#arrow-end)');
+    path.setAttribute('marker-end', 'url(#arrowhead)');
     path.setAttribute('pointer-events', 'none'); // Don't interfere with click detection
     
     // Add both paths to the group
     group.appendChild(clickPath);
     group.appendChild(path);
-    svg.appendChild(group);
+    
+    // Use the passed layerManager or fallback to window.layerManager
+    const manager = layerManager || window.layerManager;
+    if (manager) {
+      manager.addToLayer('edges', group);
+    } else {
+      console.error('No layerManager available for edge creation');
+      // Fallback: add to edges layer directly
+      const edgesLayer = svg.querySelector('#edges-layer');
+      if (edgesLayer) {
+        edgesLayer.appendChild(group);
+      }
+    }
     
     return new Edge(edgeData, group);
   }
@@ -370,14 +396,31 @@ export class Edge {
     for (const edge of edgeList) {
       const fromNode = nodeMap.get(edge.from);
       const toNode = nodeMap.get(edge.to);
+      
+      if (!fromNode || !toNode) {
+        console.warn(`Edge ${edge.id}: Missing nodes - from: ${edge.from} (${fromNode?.id || 'undefined'}), to: ${edge.to} (${toNode?.id || 'undefined'})`);
+        continue;
+      }
+      
       edge.updatePath(fromNode, toNode);
     }
   }
 
-  static createEdgesFromLayout(edgeDataList, svg) {
+  static createEdgesFromLayout(edgeDataList, svg, layerManager) {
     const edgeList = [];
     for (const edgeData of edgeDataList) {
-      const edge = Edge.createEdge(edgeData, svg);
+      // Validate edge data before creating edge
+      if (!edgeData.from || !edgeData.to) {
+        console.warn('Skipping invalid edge data - missing from or to:', edgeData);
+        continue;
+      }
+      
+      if (edgeData.from === edgeData.to) {
+        console.warn('Skipping self-referencing edge:', edgeData);
+        continue;
+      }
+      
+      const edge = Edge.createEdge(edgeData, svg, layerManager);
       edgeList.push(edge);
     }
     return edgeList;

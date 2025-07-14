@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Layer Validation Test</title>
+    <script src="js/DiagramStateManager.js"></script>
+    <script src="js/LayerManager.js"></script>
+    <script src="js/Grid.js"></script>
+    <script src="js/Node.js"></script>
+    <script src="js/Edge.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/InteractionManager.js"></script>
+    <script src="js/ZoomPan.js"></script>
+    <script src="js/UndoRedo.js"></script>
+    <script src="js/ContextMenu.js"></script>
+    <script src="js/ImportExport.js"></script>
+    <script src="js/main.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .test-controls {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+        }
+        .test-results {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #e8f5e8;
+            border-radius: 5px;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        #diagram-container {
+            width: 800px;
+            height: 600px;
+            border: 1px solid #ccc;
+            position: relative;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Edge Layer Validation Test</h1>
+    
+    <div class="test-controls">
+        <button onclick="loadTestLayout()">Load Test Layout</button>
+        <button onclick="testEdgeCreation()">Test Edge Creation</button>
+        <button onclick="testLayerToggling()">Test Layer Toggling</button>
+        <button onclick="testRuntimeErrors()">Test Runtime Errors</button>
+        <button onclick="clearDiagram()">Clear Diagram</button>
+    </div>
+    
+    <div id="diagram-container"></div>
+    
+    <div class="test-results">
+        <h3>Test Results:</h3>
+        <div id="test-output"></div>
+    </div>
+
+    <script>
+        let testOutput = document.getElementById('test-output');
+        let diagramContainer = document.getElementById('diagram-container');
+        
+        function log(message, isError = false) {
+            const div = document.createElement('div');
+            div.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            div.className = isError ? 'error' : 'success';
+            testOutput.appendChild(div);
+            console.log(message);
+        }
+        
+        function clearOutput() {
+            testOutput.innerHTML = '';
+        }
+        
+        async function loadTestLayout() {
+            clearOutput();
+            log('Loading test layout...');
+            
+            try {
+                // Initialize the diagram
+                await initializeDiagram(diagramContainer);
+                
+                // Load the test layout
+                const layout = {
+                    "nodes": [
+                        {
+                            "id": "test-node-1",
+                            "x": 100,
+                            "y": 100,
+                            "svg": "user.svg",
+                            "label": "Test Node 1",
+                            "class": "user-node",
+                            "scale": 0.3
+                        },
+                        {
+                            "id": "test-node-2",
+                            "x": 300,
+                            "y": 200,
+                            "svg": "server.svg",
+                            "label": "Test Node 2",
+                            "class": "server-node",
+                            "scale": 0.3
+                        }
+                    ],
+                    "edges": [
+                        {
+                            "from": "test-node-1",
+                            "to": "test-node-2",
+                            "class": "access-link"
+                        }
+                    ]
+                };
+                
+                await loadLayout(layout);
+                
+                // Check if nodes and edges are in correct layers
+                validateLayerStructure();
+                
+                log('Test layout loaded successfully');
+            } catch (error) {
+                log(`Error loading test layout: ${error.message}`, true);
+                console.error(error);
+            }
+        }
+        
+        function validateLayerStructure() {
+            const svg = document.querySelector('#diagram-container svg');
+            if (!svg) {
+                log('No SVG found in diagram container', true);
+                return;
+            }
+            
+            const nodesLayer = svg.querySelector('.nodes-layer');
+            const edgesLayer = svg.querySelector('.edges-layer');
+            
+            if (!nodesLayer) {
+                log('Nodes layer not found', true);
+            } else {
+                const nodeCount = nodesLayer.querySelectorAll('g').length;
+                log(`Nodes layer found with ${nodeCount} nodes`);
+            }
+            
+            if (!edgesLayer) {
+                log('Edges layer not found', true);
+            } else {
+                const edgeCount = edgesLayer.querySelectorAll('g').length;
+                log(`Edges layer found with ${edgeCount} edges`);
+            }
+        }
+        
+        async function testEdgeCreation() {
+            clearOutput();
+            log('Testing edge creation...');
+            
+            try {
+                // Get existing nodes
+                const nodes = Object.values(window.nodeMap || {});
+                if (nodes.length < 2) {
+                    log('Need at least 2 nodes for edge creation test. Load test layout first.', true);
+                    return;
+                }
+                
+                const fromNode = nodes[0];
+                const toNode = nodes[1];
+                
+                // Test edge creation
+                log(`Creating edge from ${fromNode.id} to ${toNode.id}`);
+                
+                const edge = new Edge(fromNode, toNode, 'test-edge');
+                if (edge.element) {
+                    log('Edge created successfully');
+                    log(`Edge element tag: ${edge.element.tagName}`);
+                    log(`Edge parent layer: ${edge.element.parentElement?.className || 'unknown'}`);
+                } else {
+                    log('Edge element not created', true);
+                }
+                
+                // Validate edge is in correct layer
+                validateLayerStructure();
+                
+            } catch (error) {
+                log(`Error in edge creation test: ${error.message}`, true);
+                console.error(error);
+            }
+        }
+        
+        async function testLayerToggling() {
+            clearOutput();
+            log('Testing layer toggling...');
+            
+            try {
+                const layerManager = window.layerManager;
+                if (!layerManager) {
+                    log('LayerManager not found', true);
+                    return;
+                }
+                
+                // Test toggling edges layer
+                log('Toggling edges layer visibility...');
+                layerManager.toggleLayer('edges');
+                
+                const edgesLayer = document.querySelector('.edges-layer');
+                if (edgesLayer) {
+                    const isVisible = edgesLayer.style.display !== 'none';
+                    log(`Edges layer visibility: ${isVisible ? 'visible' : 'hidden'}`);
+                }
+                
+                // Toggle back
+                layerManager.toggleLayer('edges');
+                
+                // Test toggling nodes layer
+                log('Toggling nodes layer visibility...');
+                layerManager.toggleLayer('nodes');
+                
+                const nodesLayer = document.querySelector('.nodes-layer');
+                if (nodesLayer) {
+                    const isVisible = nodesLayer.style.display !== 'none';
+                    log(`Nodes layer visibility: ${isVisible ? 'visible' : 'hidden'}`);
+                }
+                
+                // Toggle back
+                layerManager.toggleLayer('nodes');
+                
+                log('Layer toggling test completed');
+                
+            } catch (error) {
+                log(`Error in layer toggling test: ${error.message}`, true);
+                console.error(error);
+            }
+        }
+        
+        async function testRuntimeErrors() {
+            clearOutput();
+            log('Testing runtime error handling...');
+            
+            try {
+                // Test edge creation with invalid nodes
+                log('Testing edge creation with null nodes...');
+                try {
+                    const edge = new Edge(null, null, 'invalid-edge');
+                    log('Edge creation with null nodes handled gracefully');
+                } catch (error) {
+                    log(`Expected error handled: ${error.message}`);
+                }
+                
+                // Test edge creation with DOM elements instead of Node objects
+                log('Testing edge creation with DOM elements...');
+                const div1 = document.createElement('div');
+                const div2 = document.createElement('div');
+                try {
+                    const edge = new Edge(div1, div2, 'dom-edge');
+                    log('Edge creation with DOM elements handled gracefully');
+                } catch (error) {
+                    log(`Expected error handled: ${error.message}`);
+                }
+                
+                // Test edge path update with invalid nodes
+                log('Testing edge path update with invalid nodes...');
+                if (window.Edge && window.Edge.redrawAllEdges) {
+                    try {
+                        window.Edge.redrawAllEdges();
+                        log('Edge redraw handled gracefully');
+                    } catch (error) {
+                        log(`Edge redraw error: ${error.message}`, true);
+                    }
+                }
+                
+                log('Runtime error testing completed');
+                
+            } catch (error) {
+                log(`Error in runtime error test: ${error.message}`, true);
+                console.error(error);
+            }
+        }
+        
+        function clearDiagram() {
+            clearOutput();
+            log('Clearing diagram...');
+            
+            try {
+                // Clear the diagram container
+                diagramContainer.innerHTML = '';
+                
+                // Reset global state
+                if (window.nodeMap) {
+                    window.nodeMap = {};
+                }
+                if (window.edgeMap) {
+                    window.edgeMap = {};
+                }
+                
+                log('Diagram cleared');
+                
+            } catch (error) {
+                log(`Error clearing diagram: ${error.message}`, true);
+                console.error(error);
+            }
+        }
+        
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            log('Page loaded, ready for testing');
+        });
+        
+        // Catch any unhandled errors
+        window.addEventListener('error', (event) => {
+            log(`Unhandled error: ${event.message}`, true);
+        });
+    </script>
+</body>
+</html>

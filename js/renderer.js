@@ -1,11 +1,11 @@
-// Version 112 - Updated GridManager to v002 for background rectangle management
+// Version 127 - Added grid toggle functionality
 import { Node } from './Node.js?v=065';
 import { Edge } from './Edge.js?v=011';
 import { ViewBoxManager } from './ViewBoxManager.js?v=002';
 import { DragManager } from './DragManager.js?v=051';
 import { InteractionManager } from './InteractionManager.js?v=079';
-import { LayerManager } from './LayerManager.js?v=001';
-import { GridManager } from './GridManager.js?v=002';
+import { LayerManager } from './LayerManager.js?v=011';
+import { GridManager } from './GridManager.js?v=020';
 import { generateGuid, clearGuidRegistry, initializeFromExisting } from './GuidManager.js';
 import { nodeStateManager } from './NodeStateManager.js?v=025';
 import { ContextMenu } from './ContextMenu.js?v=008';
@@ -83,7 +83,7 @@ async function duplicateSelectedNode() {
     }
     
     // Use the node's clone method to create a duplicate
-    const clonedNode = await nodeToClone.clone(svg, viewBoxManager.coordinateSystem, dragManager);
+    const clonedNode = await nodeToClone.clone(svg, viewBoxManager.coordinateSystem, dragManager, layerManager);
     
     // Add to node map
     nodeMap.set(clonedNode.id, clonedNode);
@@ -113,6 +113,17 @@ async function duplicateSelectedNode() {
 function completeEdgeCreation(fromNode, toNode) {
   console.log('🎯 completeEdgeCreation called with:', fromNode?.id, '->', toNode?.id);
   
+  // Validate input parameters
+  if (!fromNode || !toNode) {
+    console.error('⚠️ completeEdgeCreation: Missing fromNode or toNode:', { fromNode: fromNode?.id || 'undefined', toNode: toNode?.id || 'undefined' });
+    return;
+  }
+  
+  if (!fromNode.id || !toNode.id) {
+    console.error('⚠️ completeEdgeCreation: Nodes missing ID property:', { fromNode, toNode });
+    return;
+  }
+  
   // Prevent duplicate edges between the same nodes
   const existingEdge = edgeList.find(edge => 
     (edge.from === fromNode.id && edge.to === toNode.id) ||
@@ -137,21 +148,17 @@ function completeEdgeCreation(fromNode, toNode) {
   
   console.log('Creating new edge:', edgeData);
   
-  // Create the permanent edge
-  const edgeElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  // Set both the specific type class AND the general 'edge' class
-  edgeElement.setAttribute('class', `edge ${edgeData.class}`);
-  
-  // Add to edges layer instead of directly to SVG
-  layerManager.addToLayer('edges', edgeElement);
-  
-  const edge = new Edge(edgeData, edgeElement);
+  // Create the edge using the new Edge.createEdge method which properly handles layers
+  const edge = Edge.createEdge(edgeData, svg, layerManager);
   edgeList.push(edge);
   
   console.log('Number of edges:', edgeList.length);
   
-  // Update the new edge
-  edge.updatePath(fromNode, toNode);
+  // Update the new edge - with safety checks
+  const updateResult = edge.updatePath(fromNode, toNode);
+  if (!updateResult) {
+    console.error('⚠️ Failed to update edge path for new edge:', edgeId);
+  }
 }
 
 // Throttle redrawEdges to 1 per animation frame
@@ -186,8 +193,13 @@ async function loadLayout() {
   viewBoxManager = new ViewBoxManager(svg);
   dragManager = new DragManager(viewBoxManager);
   layerManager = new LayerManager(svg);
+  
+  // Make layerManager available globally for backward compatibility
+  window.layerManager = layerManager;
+  
+  // Initialize GridManager directly (no CSS loading check needed since it uses CSS variables)
+  console.log('🔄 Initializing GridManager with CSS variable support');
   gridManager = new GridManager(svg, layerManager);
-  interactionManager = new InteractionManager(svg, viewBoxManager, dragManager, nodeMap, layerManager);
   
   // Connect GridManager to ViewBoxManager for automatic grid updates
   viewBoxManager.onViewBoxChange((oldViewBox, newViewBox) => {
@@ -197,6 +209,8 @@ async function loadLayout() {
   // Initialize grid with current viewBox
   const currentViewBox = viewBoxManager.getCurrentViewBox();
   gridManager.updateGrid(currentViewBox.x, currentViewBox.y, currentViewBox.width, currentViewBox.height);
+  
+  interactionManager = new InteractionManager(svg, viewBoxManager, dragManager, nodeMap, layerManager);
   
   // Initialize NodeStateManager
   console.log('🔧 About to initialize NodeStateManager...');
@@ -260,19 +274,62 @@ async function loadLayout() {
     themeToggleButton.addEventListener('click', toggleTheme);
   }
 
-  // Add marker definitions for edges
-  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-  defs.innerHTML = `
-    <marker id="arrow-end" markerWidth="10" markerHeight="10" refX="10" refY="5"
-      orient="auto" markerUnits="strokeWidth">
-      <path d="M0,0 L10,5 L0,10 Z" class="arrow-marker"/>
-    </marker>
-    <marker id="temp-arrow-end" markerWidth="10" markerHeight="10" refX="10" refY="5"
-      orient="auto" markerUnits="strokeWidth">
-      <path d="M0,0 L10,5 L0,10 Z" class="temp-arrow-marker"/>
-    </marker>
-  `;
-  svg.appendChild(defs);
+  // Add event listener to the grid toggle button
+  const gridToggleButton = document.getElementById('toggle-grid');
+  if (gridToggleButton) {
+    gridToggleButton.addEventListener('click', () => {
+      if (gridManager) {
+        gridManager.toggleGrid();
+        // Update button text based on grid visibility
+        gridToggleButton.textContent = gridManager.isGridVisible() ? 'Hide Grid' : 'Show Grid';
+      }
+    });
+  }
+
+  // Setup edges toggle button
+  const edgesToggleButton = document.getElementById('toggle-edges');
+  if (edgesToggleButton) {
+    console.log('✅ Edges toggle button found, setting up event listener');
+    edgesToggleButton.addEventListener('click', () => {
+      console.log('🔄 Edges toggle button clicked');
+      if (layerManager) {
+        console.log('🔄 LayerManager available, toggling edges layer');
+        layerManager.toggleLayer('edges');
+        // Update button text based on layer visibility
+        const isVisible = layerManager.isLayerVisible('edges');
+        console.log('🔄 Edges layer visibility:', isVisible);
+        edgesToggleButton.textContent = isVisible ? 'Hide Edges' : 'Show Edges';
+      } else {
+        console.error('❌ LayerManager not available');
+      }
+    });
+  } else {
+    console.error('❌ Edges toggle button not found');
+  }
+
+  // Setup nodes toggle button
+  const nodesToggleButton = document.getElementById('toggle-nodes');
+  if (nodesToggleButton) {
+    console.log('✅ Nodes toggle button found, setting up event listener');
+    nodesToggleButton.addEventListener('click', () => {
+      console.log('🔄 Nodes toggle button clicked');
+      if (layerManager) {
+        console.log('🔄 LayerManager available, toggling nodes layer');
+        layerManager.toggleLayer('nodes');
+        // Update button text based on layer visibility
+        const isVisible = layerManager.isLayerVisible('nodes');
+        console.log('🔄 Nodes layer visibility:', isVisible);
+        nodesToggleButton.textContent = isVisible ? 'Hide Nodes' : 'Show Nodes';
+      } else {
+        console.error('❌ LayerManager not available');
+      }
+    });
+  } else {
+    console.error('❌ Nodes toggle button not found');
+  }
+
+  // Marker definitions are now handled in the HTML to avoid conflicts
+  // They use id="arrowhead" and are properly styled via CSS
 
   // Add reset view button handler
   const resetViewButton = document.getElementById('reset-view');
@@ -301,9 +358,16 @@ async function loadLayout() {
   }
 
   // Create edges as <path> with marker-end
-  edgeList = Edge.createEdgesFromLayout(layout.edges, svg);
+  edgeList = Edge.createEdgesFromLayout(layout.edges, svg, layerManager);
 
   redrawEdges();
+
+  // Update arrowhead color after layout loads
+  setTimeout(() => {
+    if (window.updateArrowheadColor) {
+      window.updateArrowheadColor();
+    }
+  }, 100);
 
   saveButton.addEventListener('click', () => {
     const updatedNodes = Array.from(nodeMap.values()).map(n => n.toData());
@@ -323,6 +387,15 @@ async function loadLayout() {
     a.click();
     URL.revokeObjectURL(url);
   });
+  
+  // Make key variables available globally for backward compatibility
+  window.nodeMap = nodeMap;
+  window.edgeList = edgeList;
+  window.layerManager = layerManager;
+  window.viewBoxManager = viewBoxManager;
+  window.dragManager = dragManager;
+  window.interactionManager = interactionManager;
+  
   } catch (error) {
     console.error('❌ Error in loadLayout:', error);
   }
@@ -386,10 +459,88 @@ async function createNode(nodeData) {
 function toggleTheme() {
   const link = document.getElementById('theme-link');
   const currentHref = link.href;
+  const themeButton = document.getElementById('theme-toggle');
+  
+  console.log('🎨 Theme toggle started, current theme:', currentHref);
+  
+  // Disable button and show loading state
+  themeButton.disabled = true;
+  const originalText = themeButton.textContent;
+  themeButton.textContent = 'Switching...';
+  
+  // Determine target theme and expected values
+  let targetTheme, expectedTestColor, expectedDiagramBg;
   if (currentHref.includes('default.css')) {
-    link.href = 'themes/dark.css?v=009';
+    targetTheme = 'dark';
+    expectedTestColor = '#363636';
+    expectedDiagramBg = '#2d2d2d';
+    console.log('🎨 Switching to dark theme');
   } else {
-    link.href = 'themes/default.css?v=006';
+    targetTheme = 'light';
+    expectedTestColor = '#e8e8e8';
+    expectedDiagramBg = '#ffffff';
+    console.log('🎨 Switching to light theme');
+  }
+  
+  // Wait for CSS to load with specific theme validation
+  const waitForCSSAndUpdate = () => {
+    const rootStyles = getComputedStyle(document.documentElement);
+    const testColor = rootStyles.getPropertyValue('--grid-level-0').trim();
+    const testBackground = rootStyles.getPropertyValue('--grid-background').trim();
+    const diagramBg = rootStyles.getPropertyValue('--diagram-background').trim();
+    const bodyBg = rootStyles.getPropertyValue('--body-background').trim();
+    
+    // Check if we have the expected theme colors
+    const hasCorrectTheme = (testColor === expectedTestColor && diagramBg === expectedDiagramBg);
+    
+    if (!testColor || !testBackground || !diagramBg || !bodyBg || !hasCorrectTheme) {
+      console.log(`🔄 Waiting for ${targetTheme} theme CSS to load...`, { 
+        testColor, 
+        testBackground, 
+        diagramBg, 
+        bodyBg,
+        expected: { testColor: expectedTestColor, diagramBg: expectedDiagramBg },
+        hasCorrectTheme
+      });
+      setTimeout(waitForCSSAndUpdate, 100); // Increased timeout for more reliable detection
+      return;
+    }
+    
+    console.log(`✅ ${targetTheme} theme CSS loaded - grid and diagram backgrounds will auto-update via CSS`);
+    
+    // Grid colors are now handled entirely by CSS variables - no JS updates needed
+    // Diagram background is handled entirely by CSS variables - no JS updates needed
+    
+    // Just re-enable the button
+    setTimeout(() => {
+      themeButton.disabled = false;
+      themeButton.textContent = originalText;
+      console.log(`✅ Theme switch to ${targetTheme} completed successfully!`);
+      
+      // Update arrowhead color for theme change
+      if (window.updateArrowheadColor) {
+        window.updateArrowheadColor();
+      }
+    }, 100); // Small delay to ensure CSS has been applied
+  };
+  
+  // Set up a load event listener for the CSS file
+  const handleCSSLoad = () => {
+    console.log(`🔄 CSS file loaded event fired, checking for ${targetTheme} theme...`);
+    setTimeout(waitForCSSAndUpdate, 50); // Small delay to ensure styles are applied
+  };
+  
+  // Add event listener before changing href
+  link.addEventListener('load', handleCSSLoad, { once: true });
+  
+  // Also set up a timeout fallback in case load event doesn't fire
+  setTimeout(waitForCSSAndUpdate, 200);
+  
+  // Change the CSS file
+  if (currentHref.includes('default.css')) {
+    link.href = 'themes/dark.css?v=048';
+  } else {
+    link.href = 'themes/default.css?v=048';
   }
 }
 
@@ -459,10 +610,10 @@ function downloadSVG() {
       /* Essential SVG styles for export */
       svg { background-color: inherit; }
       .node { cursor: default; } /* Remove cursor pointer for static SVG */
-      .edge { marker-end: url(#arrow-end); }
-      .temporary-edge { marker-end: url(#temp-arrow-end); }
-      .connection { marker-end: url(#arrow-end); }
-      .access-link { marker-end: url(#arrow-end); }
+      .edge { marker-end: url(#arrowhead); }
+      .temporary-edge { marker-end: url(#arrowhead); }
+      .connection { marker-end: url(#arrowhead); }
+      .access-link { marker-end: url(#arrowhead); }
     `;
     
     styleElement.textContent = allStyles;
@@ -554,10 +705,10 @@ function downloadPNG() {
       /* Essential SVG styles for export */
       svg { background-color: inherit; }
       .node { cursor: default; } /* Remove cursor pointer for static image */
-      .edge { marker-end: url(#arrow-end); }
-      .temporary-edge { marker-end: url(#temp-arrow-end); }
-      .connection { marker-end: url(#arrow-end); }
-      .access-link { marker-end: url(#arrow-end); }
+      .edge { marker-end: url(#arrowhead); }
+      .temporary-edge { marker-end: url(#arrowhead); }
+      .connection { marker-end: url(#arrowhead); }
+      .access-link { marker-end: url(#arrowhead); }
     `;
     
     styleElement.textContent = allStyles;

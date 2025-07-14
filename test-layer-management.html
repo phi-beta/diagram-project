@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Layer Management Test</title>
+    <link rel="stylesheet" href="themes/default.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+        .test-panel {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-width: 400px;
+        }
+        .test-button {
+            margin: 5px;
+            padding: 8px 15px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .test-button:hover {
+            background: #005999;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .status.pass {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.fail {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 3px;
+            padding: 10px;
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-panel">
+        <h3>Layer Management Test</h3>
+        <p>This test verifies that nodes and edges are correctly added to their respective layers and that layer toggling works properly.</p>
+        
+        <div>
+            <button class="test-button" onclick="runLayerTest()">Run Layer Test</button>
+            <button class="test-button" onclick="testNodeToggle()">Test Node Toggle</button>
+            <button class="test-button" onclick="testEdgeToggle()">Test Edge Toggle</button>
+            <button class="test-button" onclick="clearResults()">Clear Results</button>
+        </div>
+        
+        <div id="results"></div>
+        <div id="log" class="log"></div>
+    </div>
+
+    <div id="diagram-container" style="width: 100vw; height: 100vh;">
+        <svg id="diagram-svg" width="100%" height="100%" style="background: white;">
+            <!-- Layer structure -->
+            <g id="background-layer" class="layer"></g>
+            <g id="grid-layer" class="layer"></g>
+            <g id="edges-layer" class="layer"></g>
+            <g id="nodes-layer" class="layer"></g>
+            <g id="temp-layer" class="layer"></g>
+            <g id="ui-layer" class="layer"></g>
+            <g id="debug-layer" class="layer"></g>
+            
+            <!-- Arrowhead marker -->
+            <defs>
+                <marker id="arrow-end" markerWidth="10" markerHeight="10" 
+                        refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+                    <polygon points="0,0 0,6 9,3" fill="var(--edge-color)" />
+                </marker>
+            </defs>
+        </svg>
+    </div>
+
+    <script type="module">
+        import { LayerManager } from './js/LayerManager.js';
+        import { Node } from './js/Node.js';
+        import { Edge } from './js/Edge.js';
+
+        let layerManager;
+        let nodeMap = new Map();
+        let edgeList = [];
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function addResult(message, isPass) {
+            const resultsDiv = document.getElementById('results');
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `status ${isPass ? 'pass' : 'fail'}`;
+            statusDiv.textContent = message;
+            resultsDiv.appendChild(statusDiv);
+        }
+
+        window.clearResults = function() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('log').innerHTML = '';
+        }
+
+        window.runLayerTest = function() {
+            try {
+                log('Starting layer management test...');
+                
+                // Initialize LayerManager
+                const svg = document.getElementById('diagram-svg');
+                layerManager = new LayerManager(svg);
+                window.layerManager = layerManager; // Make it globally available
+                
+                log('LayerManager initialized');
+                
+                // Test 1: Create nodes and verify they're in the nodes layer
+                log('Test 1: Creating nodes...');
+                const nodeData1 = {
+                    id: 'test-node-1',
+                    x: 200,
+                    y: 200,
+                    svg: 'user.svg',
+                    label: 'Test Node 1',
+                    class: 'user-node'
+                };
+                
+                const nodeData2 = {
+                    id: 'test-node-2',
+                    x: 400,
+                    y: 200,
+                    svg: 'server.svg',
+                    label: 'Test Node 2',
+                    class: 'server-node'
+                };
+                
+                const node1 = new Node(nodeData1, layerManager);
+                const node2 = new Node(nodeData2, layerManager);
+                
+                nodeMap.set(nodeData1.id, node1);
+                nodeMap.set(nodeData2.id, node2);
+                
+                log('Nodes created');
+                
+                // Verify nodes are in the nodes layer
+                const nodesLayer = layerManager.getLayer('nodes');
+                const nodeElements = nodesLayer.querySelectorAll('g[data-node-id]');
+                
+                if (nodeElements.length >= 2) {
+                    addResult('✅ Nodes correctly added to nodes layer', true);
+                    log(`Found ${nodeElements.length} nodes in nodes layer`);
+                } else {
+                    addResult('❌ Nodes not found in nodes layer', false);
+                    log(`Expected 2+ nodes, found ${nodeElements.length}`);
+                    return;
+                }
+                
+                // Test 2: Create edges using the new Edge.createEdge method and verify they're in the edges layer
+                log('Test 2: Creating edges using Edge.createEdge...');
+                const edgeData = {
+                    id: 'test-edge-1',
+                    from: 'test-node-1',
+                    to: 'test-node-2',
+                    class: 'connection'
+                };
+                
+                // Use Edge.createEdge which should properly use LayerManager
+                const edge = Edge.createEdge(edgeData, svg);
+                edge.updatePath(node1, node2);
+                edgeList.push(edge);
+                
+                log('Edge created using Edge.createEdge');
+                
+                // Verify edge group is in the edges layer
+                const edgesLayer = layerManager.getLayer('edges');
+                const edgeGroups = edgesLayer.querySelectorAll('g[data-edge-id]');
+                
+                if (edgeGroups.length >= 1) {
+                    addResult('✅ Edge groups correctly added to edges layer', true);
+                    log(`Found ${edgeGroups.length} edge groups in edges layer`);
+                    
+                    // Also verify the edge group structure
+                    const edgeGroup = edgeGroups[0];
+                    const paths = edgeGroup.querySelectorAll('path');
+                    if (paths.length >= 2) {
+                        addResult('✅ Edge group has correct structure (invisible + visible paths)', true);
+                        log(`Edge group contains ${paths.length} paths (invisible + visible)`);
+                    } else {
+                        addResult('⚠️ Edge group structure may be incorrect', false);
+                        log(`Expected 2+ paths in edge group, found ${paths.length}`);
+                    }
+                } else {
+                    addResult('❌ Edge groups not found in edges layer', false);
+                    log(`Expected 1+ edge groups, found ${edgeGroups.length}`);
+                    
+                    // Check if there are any path elements directly in the edges layer (old behavior)
+                    const directPaths = edgesLayer.querySelectorAll('path');
+                    if (directPaths.length > 0) {
+                        addResult('⚠️ Found path elements directly in edges layer (old behavior)', false);
+                        log(`Found ${directPaths.length} direct path elements - this suggests old edge creation method is still being used`);
+                    }
+                    return;
+                }
+                
+                addResult('✅ All layer management tests passed!', true);
+                log('Layer management test completed successfully');
+                
+            } catch (error) {
+                addResult(`❌ Error: ${error.message}`, false);
+                log(`Error during test: ${error.message}`);
+                console.error(error);
+            }
+        }
+
+        window.testNodeToggle = function() {
+            try {
+                log('Testing node layer toggle...');
+                
+                if (!layerManager) {
+                    addResult('❌ LayerManager not initialized. Run layer test first.', false);
+                    return;
+                }
+                
+                // Toggle nodes layer visibility
+                const nodesLayer = layerManager.getLayer('nodes');
+                const isVisible = !nodesLayer.classList.contains('hidden');
+                
+                layerManager.toggleLayer('nodes');
+                
+                // Check if visibility changed
+                const isNowVisible = !nodesLayer.classList.contains('hidden');
+                
+                if (isVisible !== isNowVisible) {
+                    addResult('✅ Node layer toggle working correctly', true);
+                    log(`Node layer visibility: ${isVisible} → ${isNowVisible}`);
+                } else {
+                    addResult('❌ Node layer toggle not working', false);
+                    log('Node layer visibility did not change');
+                }
+                
+            } catch (error) {
+                addResult(`❌ Error: ${error.message}`, false);
+                log(`Error during node toggle test: ${error.message}`);
+                console.error(error);
+            }
+        }
+
+        window.testEdgeToggle = function() {
+            try {
+                log('Testing edge layer toggle...');
+                
+                if (!layerManager) {
+                    addResult('❌ LayerManager not initialized. Run layer test first.', false);
+                    return;
+                }
+                
+                // Toggle edges layer visibility
+                const edgesLayer = layerManager.getLayer('edges');
+                const isVisible = !edgesLayer.classList.contains('hidden');
+                
+                layerManager.toggleLayer('edges');
+                
+                // Check if visibility changed
+                const isNowVisible = !edgesLayer.classList.contains('hidden');
+                
+                if (isVisible !== isNowVisible) {
+                    addResult('✅ Edge layer toggle working correctly', true);
+                    log(`Edge layer visibility: ${isVisible} → ${isNowVisible}`);
+                } else {
+                    addResult('❌ Edge layer toggle not working', false);
+                    log('Edge layer visibility did not change');
+                }
+                
+            } catch (error) {
+                addResult(`❌ Error: ${error.message}`, false);
+                log(`Error during edge toggle test: ${error.message}`);
+                console.error(error);
+            }
+        }
+
+        // Auto-run test on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                runLayerTest();
+            }, 500);
+        });
+    </script>
+</body>
+</html>

@@ -104,6 +104,15 @@
             "action": "cancelEdgeCreation"
           }
         ]
+      },
+      {
+        "event": "cancelEdgeCreation",
+        "conditions": [
+          {
+            "state": "edgeCreation",
+            "action": "cancelEdgeCreation"
+          }
+        ]
       }
     ]
   },

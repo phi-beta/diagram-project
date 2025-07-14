@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SVG Marker CSS Debug</title>
+  <style>
+    /* Test if CSS can style SVG markers */
+    #arrowhead polygon {
+      fill: red !important;
+    }
+    
+    .arrowhead-fill {
+      fill: blue !important;
+    }
+    
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    
+    .debug {
+      margin: 10px 0;
+      padding: 10px;
+      background: #f0f0f0;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+  <h1>SVG Marker CSS Debug Test</h1>
+  
+  <div class="debug">
+    <h3>Expected Results:</h3>
+    <p>If CSS works with SVG markers:</p>
+    <ul>
+      <li>Arrowhead should be RED (from #arrowhead polygon selector)</li>
+      <li>If class selector works, it should be BLUE (from .arrowhead-fill selector)</li>
+    </ul>
+  </div>
+
+  <svg width="400" height="200" viewBox="0 0 400 200">
+    <defs>
+      <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+              refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" class="arrowhead-fill"/>
+      </marker>
+    </defs>
+    
+    <path d="M 50 100 L 300 100" stroke="black" stroke-width="2" 
+          fill="none" marker-end="url(#arrowhead)"/>
+    
+    <text x="175" y="80" text-anchor="middle">Test Edge</text>
+  </svg>
+
+  <div class="debug">
+    <h3>Actual Results:</h3>
+    <button onclick="inspectArrowhead()">Inspect Arrowhead</button>
+    <div id="results"></div>
+  </div>
+
+  <script>
+    function inspectArrowhead() {
+      const polygon = document.querySelector('#arrowhead polygon');
+      const results = document.getElementById('results');
+      
+      if (polygon) {
+        const computedStyles = window.getComputedStyle(polygon);
+        const actualFill = computedStyles.fill;
+        const classList = polygon.classList.toString();
+        
+        results.innerHTML = `
+          <p><strong>Polygon found:</strong> Yes</p>
+          <p><strong>Class list:</strong> ${classList || 'None'}</p>
+          <p><strong>Computed fill:</strong> ${actualFill}</p>
+          <p><strong>Direct fill attribute:</strong> ${polygon.getAttribute('fill') || 'None'}</p>
+        `;
+        
+        // Test if we can set fill directly
+        polygon.setAttribute('fill', 'green');
+        setTimeout(() => {
+          results.innerHTML += `<p><strong>After setting fill="green":</strong> ${window.getComputedStyle(polygon).fill}</p>`;
+        }, 100);
+      } else {
+        results.innerHTML = '<p><strong>Error:</strong> Polygon not found!</p>';
+      }
+    }
+    
+    // Auto-inspect on load
+    setTimeout(inspectArrowhead, 100);
+  </script>
+</body>
+</html>

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Load Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .test-container {
+            border: 1px solid #ccc;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        #diagram {
+            border: 1px solid #ddd;
+            margin: 20px 0;
+        }
+        .layer {
+            pointer-events: none;
+        }
+        .layer > * {
+            pointer-events: all;
+        }
+        
+        /* Edge styling */
+        .edge-path {
+            stroke: #666;
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrowhead);
+        }
+        
+        .edge-clickable {
+            stroke: transparent;
+            stroke-width: 10;
+            fill: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Edge Load Test</h1>
+    <div class="test-container">
+        <h2>Test Results</h2>
+        <div id="test-results"></div>
+        <button onclick="runTest()">Run Test</button>
+        <button onclick="clearTest()">Clear Test</button>
+    </div>
+    
+    <div class="test-container">
+        <h2>Diagram</h2>
+        <svg id="diagram" width="600" height="400" viewBox="0 0 600 400">
+            <!-- Background layer -->
+            <g id="background-layer" class="layer"></g>
+            
+            <!-- Grid layer -->
+            <g id="grid-layer" class="layer"></g>
+            
+            <!-- Edges layer -->
+            <g id="edges-layer" class="layer">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                            refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+                    </marker>
+                </defs>
+            </g>
+            
+            <!-- Nodes layer -->
+            <g id="nodes-layer" class="layer"></g>
+            
+            <!-- Temporary layer -->
+            <g id="temp-layer" class="layer"></g>
+        </svg>
+    </div>
+
+    <script type="module">
+        import { Edge } from './js/Edge.js';
+        import { Node } from './js/Node.js';
+        import { LayerManager } from './js/LayerManager.js';
+        
+        let testResults = document.getElementById('test-results');
+        let svg = document.getElementById('diagram');
+        let layerManager = null;
+        let nodeMap = new Map();
+        let edgeList = [];
+        
+        function logStatus(message, type = 'success') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            testResults.appendChild(div);
+            console.log(message);
+        }
+        
+        function clearTest() {
+            testResults.innerHTML = '';
+            svg.querySelector('#nodes-layer').innerHTML = '';
+            svg.querySelector('#edges-layer > *:not(defs)').remove();
+            nodeMap.clear();
+            edgeList.length = 0;
+        }
+        
+        // Mock Node class for testing
+        class MockNode {
+            constructor(id, x, y, radius = 20) {
+                this.id = id;
+                this.x = x;
+                this.y = y;
+                this.radius = radius;
+                this.element = this.createElement();
+            }
+            
+            createElement() {
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.setAttribute('data-node-id', this.id);
+                
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', this.x);
+                circle.setAttribute('cy', this.y);
+                circle.setAttribute('r', this.radius);
+                circle.setAttribute('fill', '#4CAF50');
+                circle.setAttribute('stroke', '#333');
+                circle.setAttribute('stroke-width', '2');
+                
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', this.x);
+                text.setAttribute('y', this.y + 5);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('font-family', 'Arial');
+                text.setAttribute('font-size', '12');
+                text.setAttribute('fill', 'white');
+                text.textContent = this.id;
+                
+                g.appendChild(circle);
+                g.appendChild(text);
+                
+                return g;
+            }
+            
+            getGlobalCenter() {
+                return {
+                    x: this.x,
+                    y: this.y,
+                    radius: this.radius
+                };
+            }
+        }
+        
+        async function runTest() {
+            clearTest();
+            logStatus('Starting edge load test...');
+            
+            try {
+                // Initialize layer manager
+                layerManager = new LayerManager(svg);
+                logStatus('LayerManager initialized');
+                
+                // Create test nodes
+                const node1 = new MockNode('node1', 150, 150);
+                const node2 = new MockNode('node2', 450, 250);
+                
+                // Add nodes to the diagram
+                layerManager.addToLayer('nodes', node1.element);
+                layerManager.addToLayer('nodes', node2.element);
+                
+                nodeMap.set('node1', node1);
+                nodeMap.set('node2', node2);
+                
+                logStatus('Created 2 test nodes');
+                
+                // Create test edge data
+                const edgeData = {
+                    from: 'node1',
+                    to: 'node2',
+                    class: 'test-edge',
+                    id: 'test-edge-1'
+                };
+                
+                // Test edge creation using Edge.createEdge
+                logStatus('Creating edge using Edge.createEdge...');
+                const edge = Edge.createEdge(edgeData, svg);
+                edgeList.push(edge);
+                
+                logStatus('Edge created successfully');
+                
+                // Test edge path update
+                logStatus('Updating edge path...');
+                const updateResult = edge.updatePath(node1, node2);
+                
+                if (updateResult !== false) {
+                    logStatus('Edge path updated successfully');
+                } else {
+                    logStatus('Edge path update failed', 'error');
+                }
+                
+                // Verify edge is in correct layer
+                const edgesLayer = svg.querySelector('#edges-layer');
+                const edgeElements = edgesLayer.querySelectorAll('g');
+                
+                logStatus(`Found ${edgeElements.length} edge elements in edges layer`);
+                
+                if (edgeElements.length > 0) {
+                    const edgeElement = edgeElements[0];
+                    const pathElement = edgeElement.querySelector('path');
+                    
+                    if (pathElement) {
+                        const pathData = pathElement.getAttribute('d');
+                        logStatus(`Edge path data: ${pathData}`);
+                        
+                        // Check if path has proper coordinates
+                        if (pathData && pathData.includes('M') && pathData.includes('L')) {
+                            logStatus('Edge path contains proper coordinates');
+                        } else {
+                            logStatus('Edge path missing proper coordinates', 'warning');
+                        }
+                    } else {
+                        logStatus('No path element found in edge', 'error');
+                    }
+                } else {
+                    logStatus('No edge elements found in edges layer', 'error');
+                }
+                
+                // Test redrawing all edges
+                logStatus('Testing redrawAllEdges...');
+                Edge.redrawAllEdges(edgeList, nodeMap);
+                logStatus('redrawAllEdges completed');
+                
+                // Test layer toggling
+                logStatus('Testing layer visibility toggling...');
+                layerManager.toggleLayer('edges');
+                const edgesLayerAfterToggle = svg.querySelector('#edges-layer');
+                const isHidden = edgesLayerAfterToggle.style.display === 'none';
+                logStatus(`Edges layer visibility after toggle: ${isHidden ? 'hidden' : 'visible'}`);
+                
+                // Toggle back
+                layerManager.toggleLayer('edges');
+                const isVisibleAgain = edgesLayerAfterToggle.style.display !== 'none';
+                logStatus(`Edges layer visibility after toggle back: ${isVisibleAgain ? 'visible' : 'hidden'}`);
+                
+                logStatus('All tests completed successfully!');
+                
+            } catch (error) {
+                logStatus(`Test failed with error: ${error.message}`, 'error');
+                console.error('Test error:', error);
+            }
+        }
+        
+        // Make functions available globally
+        window.runTest = runTest;
+        window.clearTest = clearTest;
+        
+        // Auto-run test on page load
+        window.addEventListener('load', () => {
+            setTimeout(runTest, 500);
+        });
+    </script>
+</body>
+</html>

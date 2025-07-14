@@ -165,7 +165,15 @@ export class InteractionManager {
       // Try using NodeStateManager first to transition selected nodes to edgeSource state
       if (this.selectedNode && !this.isCreatingEdge && !this.dragManager.isAnyNodeDragging()) {
         console.log(`🚀 SHIFT KEY EDGE CREATION: Starting edge creation from ${this.selectedNode.id}`);
+        console.log(`🔍 SHIFT KEY STATE CHECK: shiftDown=${this.shiftDown}, actualShiftPressed=${e.shiftKey}`);
         debugEdgeCreation('🚀 Starting edge creation from:', this.selectedNode.id);
+        
+        // Double check that shift is actually pressed
+        if (!e.shiftKey) {
+          console.log(`⚠️ SHIFT KEY MISMATCH: event.shiftKey=${e.shiftKey}, this.shiftDown=${this.shiftDown}`);
+          this.shiftDown = false; // Reset state
+          return;
+        }
         
         // Try to use NodeStateManager to transition selected node to edgeSource
         const handled = nodeStateManager.handleShiftKeyEdgeCreation();
@@ -198,6 +206,7 @@ export class InteractionManager {
   handleKeyUp(e) {
     if (e.key === 'Shift') {
       console.log(`⌨️ SHIFT KEY UP: was creating edge=${this.isCreatingEdge}, from=${this.edgeStartNode?.id || 'null'}`);
+      console.log(`🔍 SHIFT KEY STATE CHECK: shiftDown=${this.shiftDown}, actualShiftPressed=${e.shiftKey}`);
       this.shiftDown = false;
       
       // Cancel edge creation if Shift key is released during edge creation
@@ -206,8 +215,18 @@ export class InteractionManager {
         
         // Try to use DiagramStateManager first
         if (diagramStateManager.isInEdgeCreationMode()) {
-          diagramStateManager.handleShiftKeyReleased();
-        } else {
+          // Use the specific shift key released handler
+          const handled = diagramStateManager.handleShiftKeyReleased();
+          
+          if (!handled) {
+            // Fall back to direct cancellation
+            diagramStateManager.cancelEdgeCreation('shiftKeyReleased');
+          }
+        }
+        
+        // Always clean up local state regardless of DiagramStateManager success
+        if (this.isCreatingEdge) {
+          console.log('🧹 Force cleaning up local edge creation state');
           this.cancelEdgeCreation();
         }
       }
@@ -297,10 +316,17 @@ export class InteractionManager {
         } else {
           this.cancelEdgeCreation();
         }
-      } else if (!isCreatingEdge && !mouseOverSelectedNode) {
+      } else if (!isCreatingEdge && !mouseOverSelectedNode && this.selectedNode) {
         // Start edge creation when mouse moves away from the selected node
-        console.log(`🚀 MOUSE MOVE EDGE CREATION: Starting edge creation from ${this.selectedNode?.id} - mouse moved away from node`);
+        console.log(`🚀 MOUSE MOVE EDGE CREATION: Starting edge creation from ${this.selectedNode.id} - mouse moved away from node`);
+        console.log(`🔍 SHIFT KEY STATE: shiftDown=${this.shiftDown} (should be true for edge creation)`);
         debugEdgeCreation('🚀 STARTING EDGE CREATION - mouse away from selected node');
+        
+        // Double-check shift key state before starting edge creation
+        if (!this.shiftDown) {
+          console.log(`⚠️ SKIPPING EDGE CREATION: Shift key is not pressed`);
+          return;
+        }
         
         // Try to use DiagramStateManager first
         if (diagramStateManager.getCurrentState() !== 'unknown') {
@@ -444,7 +470,25 @@ export class InteractionManager {
     
     // PRIORITY: Handle edge completion first if we're creating an edge
     const isCreatingEdge = this.isCreatingEdge || diagramStateManager.isInEdgeCreationMode();
-    const edgeStartNode = this.edgeStartNode || diagramStateManager.getEdgeSourceNode();
+    let edgeStartNode = this.edgeStartNode || diagramStateManager.getEdgeSourceNode();
+    
+    // Convert DOM element to Node object if necessary
+    if (edgeStartNode && edgeStartNode.tagName) {
+      const nodeId = edgeStartNode.getAttribute('data-node-id');
+      if (nodeId && this.nodeMap) {
+        const nodeObject = this.nodeMap.get(nodeId);
+        if (nodeObject) {
+          console.log(`🔄 Converted DOM element to Node instance for ${nodeId}`);
+          edgeStartNode = nodeObject;
+        } else {
+          console.warn(`⚠️ No Node object found for DOM element with ID ${nodeId}`);
+          edgeStartNode = null;
+        }
+      } else {
+        console.warn(`⚠️ DOM element has no data-node-id attribute:`, edgeStartNode);
+        edgeStartNode = null;
+      }
+    }
     
     if (isCreatingEdge && edgeStartNode && node && node !== edgeStartNode) {
       debugEdgeCreation('🎯 COMPLETING EDGE:', edgeStartNode.id, '->', node.id);
@@ -517,6 +561,12 @@ export class InteractionManager {
   startEdgeCreation(fromNode) {
     debugEdgeCreation('🚀 InteractionManager.startEdgeCreation called with:', fromNode ? fromNode.id : 'null');
     
+    // Validate input parameter
+    if (!fromNode || !fromNode.id) {
+      console.error('⚠️ startEdgeCreation: Invalid fromNode:', fromNode);
+      return;
+    }
+    
     // Try to use DiagramStateManager first
     if (diagramStateManager.getCurrentState() !== 'unknown') {
       debugEdgeCreation('🎯 Using DiagramStateManager for edge creation');
@@ -538,6 +588,12 @@ export class InteractionManager {
    */
   legacyStartEdgeCreation(fromNode) {
     debugEdgeCreation('Starting edge creation from:', fromNode ? fromNode.id : 'null');
+    
+    // Validate input parameter
+    if (!fromNode || !fromNode.id) {
+      console.error('⚠️ legacyStartEdgeCreation: Invalid fromNode:', fromNode);
+      return;
+    }
     
     // Cancel any existing edge creation before starting a new one
     if (this.isCreatingEdge) {
@@ -566,7 +622,7 @@ export class InteractionManager {
     this.temporaryEdge.setAttribute('stroke-dasharray', '5,5');
     this.temporaryEdge.setAttribute('fill', 'none');
     this.temporaryEdge.setAttribute('pointer-events', 'none');
-    this.temporaryEdge.setAttribute('marker-end', 'url(#arrowhead)'); // Add arrowhead
+    this.temporaryEdge.setAttribute('marker-end', 'url(#temp-arrowhead)'); // Add temporary arrowhead
     
     // Add to temp layer if LayerManager is available, otherwise fallback to SVG root
     if (this.layerManager) {
@@ -719,7 +775,13 @@ export class InteractionManager {
     // Keep the origin node selected after edge completion
     this.deselectAllNodes();
     this.selectedNode = fromNode;
-    fromNode.select();
+    
+    // Validate that fromNode has select method before calling it
+    if (fromNode && typeof fromNode.select === 'function') {
+      fromNode.select();
+    } else {
+      console.error('⚠️ fromNode does not have select method:', fromNode);
+    }
     
     console.log(`✅ Edge creation completed: ${fromNode.id} -> ${toNode.id}, origin node ${fromNode.id} remains selected`);
     

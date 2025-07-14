@@ -1,6 +1,6 @@
 /* Background colors for light theme */
 body {
-  background-color: #f8f9fa;
+  background-color: var(--body-background, #f8f9fa);
   margin: 0;
   padding: 10px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
@@ -43,9 +43,30 @@ body {
 }
 
 #diagram {
-  background-color: #ffffff;
+  background-color: var(--diagram-background, #ffffff);
   border: 1px solid #dee2e6;
   border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+/* Force style recalculation during theme updates */
+#diagram.theme-updating {
+  background-color: var(--diagram-background, #ffffff) !important;
+}
+
+/* Grid colors for light theme - hierarchical levels from finest to coarsest */
+:root {
+  --body-background: #f8f9fa;
+  --diagram-background: #ffffff;
+  --grid-background: var(--diagram-background); /* Same as diagram background for perfect sync */
+  --grid-level-0: #e8e8e8;  /* Finest grid - very light gray */
+  --grid-level-1: #d0d0d0;  /* Fine grid - light gray */
+  --grid-level-2: #b8b8b8;  /* Medium-fine grid - medium-light gray */
+  --grid-level-3: #909090;  /* Medium grid - medium gray */
+  --grid-level-4: #606060;  /* Medium-coarse grid - dark gray */
+  --grid-level-5: #404040;  /* Coarsest grid - very dark gray */
+  --edge-color: #000000;    /* Default edge color - black */
+  --arrowhead-color: #000000; /* Default arrowhead color - black */
 }
 
 .user-node svg {
@@ -57,7 +78,7 @@ body {
   stroke-width: 1;
 }
 .access-link {
-  stroke: black;
+  stroke: var(--edge-color, #000000);
   stroke-width: 2;
   filter: drop-shadow(0 0 2px #dfd3d3);
   stroke-linecap: round;
@@ -65,10 +86,9 @@ body {
 }
 
 .connection {
-  stroke: #333;
+  stroke: var(--edge-color, #000000);
   stroke-width: 2;
   fill: none;
-  marker-end: url(#arrow-end);
   filter: drop-shadow(0 0 2px #dfd3d3);
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -80,8 +100,28 @@ body {
    filter: drop-shadow(0 0 2px #dfd3d3)
 }
 
+/* Arrowhead styling - target markers directly */
+#arrowhead polygon {
+  fill: #000000 !important; /* Black for light theme */
+}
+
+#temp-arrowhead polygon {
+  fill: #ff6b6b !important; /* Orange color for temporary edges */
+}
+
+/* Legacy class-based styling as fallback */
+.arrowhead-fill {
+  fill: #000000; /* Black for light theme */
+}
+
+/* Temporary arrowhead styling */
+.temp-arrowhead-fill {
+  fill: #ff6b6b; /* Orange color for temporary edges */
+}
+
 .temp-arrow-marker {
   fill: #ff6b6b;
+  opacity: 0.8;
 }
 
 /* Selection and interaction states */

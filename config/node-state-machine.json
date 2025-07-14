@@ -129,6 +129,11 @@
             "state": "edgeTarget",
             "condition": "inEdgeCreationMode",
             "action": "completeEdge"
+          },
+          {
+            "state": "edgeTarget",
+            "condition": "!inEdgeCreationMode",
+            "action": "resetToIdle"
           }
         ]
       },
@@ -171,6 +176,10 @@
           {
             "state": "edgeSource",
             "action": "cancelEdgeCreation"
+          },
+          {
+            "state": "selected",
+            "action": "resetToIdle"
           }
         ]
       },

@@ -428,7 +428,7 @@ export class DiagramStateManager {
     this.temporaryEdge.setAttribute('stroke-dasharray', '5,5');
     this.temporaryEdge.setAttribute('fill', 'none');
     this.temporaryEdge.setAttribute('pointer-events', 'none');
-    this.temporaryEdge.setAttribute('marker-end', 'url(#arrowhead)'); // Add arrowhead
+    this.temporaryEdge.setAttribute('marker-end', 'url(#temp-arrowhead)'); // Use temp arrowhead for orange color
     
     // Add a simple visible path (from source node center to a default location)
     this.temporaryEdge.setAttribute('d', 'M 100 100 L 200 200');
@@ -643,11 +643,15 @@ export class DiagramStateManager {
   startEdgeCreation(sourceNode, reason = 'manual') {
     debugEdgeCreation(`🚀 DiagramStateManager.startEdgeCreation called from ${sourceNode?.id} (${reason})`);
 
+    // Get the actual shift key state from InteractionManager
+    const shiftKeyDown = this.interactionManager ? this.interactionManager.shiftDown : false;
+
     return this.handleEvent('nodeSelectedForEdge', {
       sourceNode,
       reason,
-      shiftKeyDown: true,
-      mouseMovedAwayFromNode: reason === 'mouseMoved'
+      shiftKeyDown,
+      mouseMovedAwayFromNode: reason === 'mouseMoved',
+      clickedDifferentNode: reason === 'nodeClicked'
     });
   }
 
@@ -685,6 +689,12 @@ export class DiagramStateManager {
           console.log(`🔄 EXPLICIT CANCEL: Node ${nodeId} cancelEdgeCreation handled: ${handled}`);
         }, 0);
       }
+    }
+
+    // Also clean up InteractionManager state
+    if (this.interactionManager && this.interactionManager.cleanupLocalEdgeState) {
+      console.log('🧹 EXPLICIT Cleaning up InteractionManager edge state');
+      this.interactionManager.cleanupLocalEdgeState();
     }
 
     return this.handleEvent('cancelEdgeCreation', {
@@ -778,8 +788,32 @@ export class DiagramStateManager {
     }
 
     // Use the generic event handler to process background click
-    return this.handleEvent('backgroundClick', {
+    return this.handleEvent('backgroundClicked', {
       timestamp: Date.now()
+    });
+  }
+
+  /**
+   * Handle shift key released during edge creation
+   */
+  handleShiftKeyReleased() {
+    console.log('🚫 EXPLICIT DiagramStateManager.handleShiftKeyReleased');
+    debugEdgeCreation('🚫 DiagramStateManager.handleShiftKeyReleased');
+    
+    if (!this.isInEdgeCreationMode()) {
+      console.log('⚠️ Not in edge creation mode, ignoring shift key release');
+      return false;
+    }
+    
+    // Clean up InteractionManager state when shift key is released
+    if (this.interactionManager && this.interactionManager.cleanupLocalEdgeState) {
+      console.log('🧹 EXPLICIT Cleaning up InteractionManager edge state (shift key released)');
+      this.interactionManager.cleanupLocalEdgeState();
+    }
+    
+    return this.handleEvent('shiftKeyReleased', {
+      reason: 'shiftKeyReleased',
+      sourceNode: this.edgeSourceNode
     });
   }
 }

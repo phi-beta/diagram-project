@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pure CSS Theme Synchronization Test</title>
+    <link rel="stylesheet" href="themes/default.css?v=044" id="theme-link">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .controls button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+        
+        .controls button:hover {
+            background: #0056b3;
+        }
+        
+        .controls button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .info {
+            margin-left: auto;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .test-container {
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #diagram {
+            width: 100%;
+            height: 600px;
+            display: block;
+        }
+        
+        .status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .validation-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+        }
+        
+        .validation-item {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .validation-pass {
+            background: rgba(40, 167, 69, 0.1);
+            color: #28a745;
+        }
+        
+        .validation-fail {
+            background: rgba(220, 53, 69, 0.1);
+            color: #dc3545;
+        }
+        
+        .validation-warning {
+            background: rgba(255, 193, 7, 0.1);
+            color: #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <h1>Pure CSS Theme Synchronization Test</h1>
+    <p>This test validates that grid and diagram backgrounds are perfectly synchronized using only CSS variables, without any JavaScript color updates.</p>
+    
+    <div class="controls">
+        <button id="toggle-theme">Toggle Theme</button>
+        <button id="force-refresh">Force Refresh</button>
+        <button id="validate-sync">Validate Synchronization</button>
+        <div class="info">
+            <span id="current-theme">Light Theme</span> | 
+            <span id="sync-status">Checking...</span>
+        </div>
+    </div>
+    
+    <div class="test-container">
+        <svg id="diagram" xmlns="http://www.w3.org/2000/svg">
+            <!-- Will be populated by LayerManager -->
+        </svg>
+        <div class="status" id="status">Initializing...</div>
+    </div>
+    
+    <div class="validation-panel">
+        <h3>Synchronization Validation</h3>
+        <div id="validation-results">
+            <div class="validation-item validation-warning">⏳ Initializing validation...</div>
+        </div>
+    </div>
+
+    <script>
+        let gridManager, layerManager;
+        let currentTheme = 'light';
+        let validationInterval;
+        
+        // Theme URLs
+        const themeUrls = {
+            light: 'themes/default.css?v=044',
+            dark: 'themes/dark.css?v=044'
+        };
+        
+        // Expected colors for validation
+        const expectedColors = {
+            light: {
+                diagram: 'rgb(255, 255, 255)',
+                body: 'rgb(248, 249, 250)',
+                gridLevel0: '#e8e8e8'
+            },
+            dark: {
+                diagram: 'rgb(45, 45, 45)',
+                body: 'rgb(30, 30, 30)',
+                gridLevel0: '#363636'
+            }
+        };
+        
+        // Initialize the test
+        async function initializeTest() {
+            try {
+                document.getElementById('status').textContent = 'Loading modules...';
+                
+                // Import modules
+                const { LayerManager } = await import('./js/LayerManager.js?v=011');
+                const { GridManager } = await import('./js/GridManager.js?v=019');
+                
+                // Initialize SVG layers
+                const svg = document.getElementById('diagram');
+                layerManager = new LayerManager(svg);
+                
+                document.getElementById('status').textContent = 'Initializing grid...';
+                
+                // Initialize grid manager
+                gridManager = new GridManager(svg, layerManager);
+                
+                // Set up viewport
+                const viewBox = { x: -400, y: -300, width: 800, height: 600 };
+                svg.setAttribute('viewBox', `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`);
+                gridManager.updateGrid(viewBox.x, viewBox.y, viewBox.width, viewBox.height);
+                
+                document.getElementById('status').textContent = 'Ready - Pure CSS Theme Sync Active';
+                
+                // Start validation
+                startValidation();
+                
+            } catch (error) {
+                console.error('❌ Test initialization failed:', error);
+                document.getElementById('status').textContent = 'Error: ' + error.message;
+            }
+        }
+        
+        // Toggle theme
+        async function toggleTheme() {
+            const button = document.getElementById('toggle-theme');
+            const originalText = button.textContent;
+            
+            button.disabled = true;
+            button.textContent = 'Switching...';
+            
+            try {
+                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                const themeUrl = themeUrls[newTheme];
+                
+                // Switch theme CSS
+                const link = document.getElementById('theme-link');
+                link.href = themeUrl;
+                
+                // Wait for CSS to load
+                await new Promise((resolve) => {
+                    const checkTheme = () => {
+                        const testColor = getComputedStyle(document.documentElement).getPropertyValue('--grid-level-0').trim();
+                        if (testColor === expectedColors[newTheme].gridLevel0) {
+                            resolve();
+                        } else {
+                            setTimeout(checkTheme, 50);
+                        }
+                    };
+                    checkTheme();
+                });
+                
+                currentTheme = newTheme;
+                document.getElementById('current-theme').textContent = 
+                    currentTheme === 'light' ? 'Light Theme' : 'Dark Theme';
+                
+                // Validate immediately after theme change
+                validateSynchronization();
+                
+            } catch (error) {
+                console.error('❌ Theme toggle failed:', error);
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+        
+        // Force refresh
+        function forceRefresh() {
+            location.reload();
+        }
+        
+        // Validate synchronization
+        function validateSynchronization() {
+            const results = document.getElementById('validation-results');
+            const validationItems = [];
+            
+            try {
+                // Get computed styles
+                const diagramBg = getComputedStyle(document.getElementById('diagram')).backgroundColor;
+                const bodyBg = getComputedStyle(document.body).backgroundColor;
+                const gridBg = getComputedStyle(document.documentElement).getPropertyValue('--grid-background').trim();
+                const diagramVar = getComputedStyle(document.documentElement).getPropertyValue('--diagram-background').trim();
+                
+                // Check if grid background matches diagram background
+                const gridBgResolved = gridBg === 'var(--diagram-background)' || gridBg === diagramVar;
+                
+                // Validate diagram background
+                const expectedDiagram = expectedColors[currentTheme].diagram;
+                const diagramMatch = diagramBg === expectedDiagram;
+                
+                validationItems.push({
+                    test: 'Diagram Background Color',
+                    expected: expectedDiagram,
+                    actual: diagramBg,
+                    passed: diagramMatch
+                });
+                
+                // Validate body background
+                const expectedBody = expectedColors[currentTheme].body;
+                const bodyMatch = bodyBg === expectedBody;
+                
+                validationItems.push({
+                    test: 'Body Background Color',
+                    expected: expectedBody,
+                    actual: bodyBg,
+                    passed: bodyMatch
+                });
+                
+                // Validate grid-diagram synchronization
+                validationItems.push({
+                    test: 'Grid-Diagram Sync',
+                    expected: 'var(--diagram-background)',
+                    actual: gridBg,
+                    passed: gridBgResolved
+                });
+                
+                // Check CSS variables are loaded
+                const gridLevel0 = getComputedStyle(document.documentElement).getPropertyValue('--grid-level-0').trim();
+                const expectedLevel0 = expectedColors[currentTheme].gridLevel0;
+                const variablesLoaded = gridLevel0 === expectedLevel0;
+                
+                validationItems.push({
+                    test: 'CSS Variables Loaded',
+                    expected: expectedLevel0,
+                    actual: gridLevel0,
+                    passed: variablesLoaded
+                });
+                
+                // Render results
+                results.innerHTML = validationItems.map(item => {
+                    const status = item.passed ? 'validation-pass' : 'validation-fail';
+                    const icon = item.passed ? '✅' : '❌';
+                    
+                    return `
+                        <div class="validation-item ${status}">
+                            ${icon} ${item.test}: Expected "${item.expected}", Got "${item.actual}"
+                        </div>
+                    `;
+                }).join('');
+                
+                // Update sync status
+                const allPassed = validationItems.every(item => item.passed);
+                const syncStatus = document.getElementById('sync-status');
+                syncStatus.textContent = allPassed ? 'Perfect Sync ✅' : 'Sync Issues ❌';
+                
+            } catch (error) {
+                console.error('❌ Validation failed:', error);
+                results.innerHTML = `
+                    <div class="validation-item validation-fail">
+                        ❌ Validation Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        // Start continuous validation
+        function startValidation() {
+            validateSynchronization();
+            validationInterval = setInterval(validateSynchronization, 2000);
+        }
+        
+        // Event listeners
+        document.getElementById('toggle-theme').addEventListener('click', toggleTheme);
+        document.getElementById('force-refresh').addEventListener('click', forceRefresh);
+        document.getElementById('validate-sync').addEventListener('click', validateSynchronization);
+        
+        // Initialize on load
+        window.addEventListener('load', initializeTest);
+        
+        // Cleanup on unload
+        window.addEventListener('beforeunload', () => {
+            if (validationInterval) {
+                clearInterval(validationInterval);
+            }
+        });
+    </script>
+</body>
+</html>

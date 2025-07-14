@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS Loading Test</title>
+  <link rel="stylesheet" href="themes/default.css?v=042" id="theme-link">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .status { margin: 10px 0; padding: 10px; border-radius: 5px; }
+    .loading { background: #fff3cd; border: 1px solid #ffeaa7; }
+    .success { background: #d4edda; border: 1px solid #c3e6cb; }
+    .error { background: #f8d7da; border: 1px solid #f5c6cb; }
+    #test-output { background: #f8f9fa; padding: 15px; border: 1px solid #e9ecef; margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <h1>CSS Loading Test</h1>
+  <div id="status" class="status loading">Testing CSS variable loading...</div>
+  
+  <button id="theme-toggle">Toggle Theme</button>
+  <button id="test-again">Test Again</button>
+  
+  <div id="test-output"></div>
+  
+  <script>
+    let testCount = 0;
+    
+    function logMessage(message, type = 'info') {
+      const output = document.getElementById('test-output');
+      const timestamp = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+      div.style.color = type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : '#007bff';
+      output.appendChild(div);
+      output.scrollTop = output.scrollHeight;
+    }
+    
+    function testCSSVariables() {
+      testCount++;
+      logMessage(`=== CSS Test #${testCount} Started ===`);
+      
+      const rootStyles = getComputedStyle(document.documentElement);
+      const testColor = rootStyles.getPropertyValue('--grid-level-0').trim();
+      const testBackground = rootStyles.getPropertyValue('--grid-background').trim();
+      const bodyBg = rootStyles.getPropertyValue('--background-color').trim();
+      
+      logMessage(`Grid Level 0 Color: "${testColor}"`);
+      logMessage(`Grid Background: "${testBackground}"`);
+      logMessage(`Body Background: "${bodyBg}"`);
+      
+      const status = document.getElementById('status');
+      
+      if (testColor && testBackground) {
+        status.textContent = '✅ CSS variables loaded successfully!';
+        status.className = 'status success';
+        logMessage('✅ CSS variables are available', 'success');
+        
+        // Test all grid levels
+        for (let i = 0; i < 6; i++) {
+          const color = rootStyles.getPropertyValue(`--grid-level-${i}`).trim();
+          logMessage(`Grid Level ${i}: "${color}"`);
+        }
+        
+        // Apply background to body to test theme
+        if (bodyBg) {
+          document.body.style.backgroundColor = bodyBg;
+          logMessage(`Applied background color: ${bodyBg}`, 'success');
+        }
+        
+      } else {
+        status.textContent = '❌ CSS variables not loaded yet';
+        status.className = 'status error';
+        logMessage('❌ CSS variables missing', 'error');
+        
+        // Try again after a delay
+        setTimeout(() => {
+          logMessage('🔄 Retrying CSS variable detection...');
+          testCSSVariables();
+        }, 100);
+      }
+    }
+    
+    function toggleTheme() {
+      const link = document.getElementById('theme-link');
+      const currentHref = link.href;
+      
+      logMessage('🎨 Theme toggle started');
+      logMessage(`Current theme: ${currentHref}`);
+      
+      if (currentHref.includes('default.css')) {
+        link.href = 'themes/dark.css?v=042';
+        logMessage('🌙 Switching to dark theme');
+      } else {
+        link.href = 'themes/default.css?v=042';
+        logMessage('☀️ Switching to light theme');
+      }
+      
+      // Wait for CSS to load and then test
+      const waitForCSSAndTest = () => {
+        const rootStyles = getComputedStyle(document.documentElement);
+        const testColor = rootStyles.getPropertyValue('--grid-level-0').trim();
+        const testBackground = rootStyles.getPropertyValue('--grid-background').trim();
+        
+        if (!testColor || !testBackground) {
+          logMessage('🔄 Waiting for new theme CSS to load...');
+          setTimeout(waitForCSSAndTest, 50);
+          return;
+        }
+        
+        logMessage('✅ New theme CSS loaded, testing variables', 'success');
+        testCSSVariables();
+      };
+      
+      setTimeout(waitForCSSAndTest, 100);
+    }
+    
+    // Test immediately when page loads
+    document.addEventListener('DOMContentLoaded', () => {
+      logMessage('📄 DOM Content Loaded');
+      testCSSVariables();
+    });
+    
+    // Test when window is fully loaded
+    window.addEventListener('load', () => {
+      logMessage('🪟 Window Load Event');
+      testCSSVariables();
+    });
+    
+    // Event listeners
+    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+    document.getElementById('test-again').addEventListener('click', testCSSVariables);
+    
+    logMessage('🚀 Test page initialized');
+  </script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arrowhead Color Fix Test</title>
+  <link rel="stylesheet" href="themes/default.css?v=046" id="theme-link">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background-color: var(--diagram-background, #ffffff);
+    }
+    button {
+      margin: 5px;
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+    .result {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 3px;
+      background-color: #f0f0f0;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <h1>Arrowhead Color Fix Test</h1>
+  
+  <div class="test-section">
+    <h2>Test Controls</h2>
+    <button onclick="testArrowheadColor()">Check Arrowhead Color</button>
+    <button onclick="toggleTheme()">Toggle Theme</button>
+    <button onclick="updateArrowheadColors()">Force Update Arrowhead Colors</button>
+  </div>
+
+  <div class="test-section">
+    <h2>Test Results</h2>
+    <div id="test-results"></div>
+  </div>
+
+  <svg id="diagram" width="800" height="300" viewBox="0 0 800 300">
+    <!-- Layer 2: Edges -->
+    <g id="edges-layer" class="layer">
+      <defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" class="arrowhead-fill"/>
+        </marker>
+      </defs>
+      
+      <!-- Test edge 1 -->
+      <path class="access-link" d="M 100 100 L 300 100" marker-end="url(#arrowhead)" fill="none"/>
+      
+      <!-- Test edge 2 -->
+      <path class="connection" d="M 100 150 L 300 150" marker-end="url(#arrowhead)" fill="none"/>
+      
+      <!-- Test edge 3 -->
+      <path class="access-link" d="M 400 100 L 600 100" marker-end="url(#arrowhead)" fill="none"/>
+    </g>
+    
+    <!-- Labels -->
+    <g id="labels">
+      <text x="200" y="90" text-anchor="middle" fill="var(--edge-color, #000000)">access-link</text>
+      <text x="200" y="140" text-anchor="middle" fill="var(--edge-color, #000000)">connection</text>
+      <text x="500" y="90" text-anchor="middle" fill="var(--edge-color, #000000)">access-link</text>
+    </g>
+  </svg>
+
+  <script>
+    // Function to update arrowhead colors based on current theme
+    function updateArrowheadColors() {
+      const rootStyles = getComputedStyle(document.documentElement);
+      const arrowheadColor = rootStyles.getPropertyValue('--arrowhead-color').trim();
+      
+      const arrowheadPolygon = document.querySelector('#arrowhead polygon');
+      if (arrowheadPolygon && arrowheadColor) {
+        arrowheadPolygon.setAttribute('fill', arrowheadColor);
+        console.log('🎨 Updated arrowhead color to:', arrowheadColor);
+        
+        // Update test results
+        const results = document.getElementById('test-results');
+        results.innerHTML = `<div class="result">✅ Arrowhead color updated to: ${arrowheadColor}</div>`;
+      } else {
+        console.error('❌ Could not update arrowhead color');
+        const results = document.getElementById('test-results');
+        results.innerHTML = `<div class="result">❌ Could not update arrowhead color</div>`;
+      }
+    }
+
+    // Test arrowhead color
+    function testArrowheadColor() {
+      const results = document.getElementById('test-results');
+      const rootStyles = getComputedStyle(document.documentElement);
+      const arrowheadColor = rootStyles.getPropertyValue('--arrowhead-color').trim();
+      const edgeColor = rootStyles.getPropertyValue('--edge-color').trim();
+      
+      const arrowheadPolygon = document.querySelector('#arrowhead polygon');
+      const actualFill = arrowheadPolygon ? arrowheadPolygon.getAttribute('fill') : 'NOT FOUND';
+      
+      results.innerHTML = `
+        <div class="result">
+          CSS --arrowhead-color: ${arrowheadColor || 'NOT DEFINED'}<br>
+          CSS --edge-color: ${edgeColor || 'NOT DEFINED'}<br>
+          Actual polygon fill: ${actualFill}<br>
+          Colors match: ${arrowheadColor === actualFill ? '✅ YES' : '❌ NO'}
+        </div>
+      `;
+    }
+
+    // Toggle theme
+    function toggleTheme() {
+      const link = document.getElementById('theme-link');
+      const currentHref = link.href;
+      
+      if (currentHref.includes('default.css')) {
+        link.href = 'themes/dark.css?v=046';
+        console.log('🌙 Switched to dark theme');
+      } else {
+        link.href = 'themes/default.css?v=046';
+        console.log('☀️ Switched to light theme');
+      }
+      
+      // Update arrowhead colors after theme change
+      setTimeout(() => {
+        updateArrowheadColors();
+        testArrowheadColor();
+      }, 200);
+    }
+
+    // Update arrowhead colors when page loads
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        updateArrowheadColors();
+        testArrowheadColor();
+      }, 100);
+    });
+
+    // Make functions available globally
+    window.updateArrowheadColors = updateArrowheadColors;
+    window.testArrowheadColor = testArrowheadColor;
+  </script>
+</body>
+</html>

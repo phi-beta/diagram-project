@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive Edge Fix Validation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #fafafa;
+        }
+        .test-results {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .status {
+            margin: 5px 0;
+            padding: 8px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        iframe {
+            width: 100%;
+            height: 400px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .summary {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+        .summary h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .metric {
+            display: inline-block;
+            margin: 10px 20px 10px 0;
+            padding: 10px 15px;
+            background-color: white;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+        .metric-value {
+            font-weight: bold;
+            font-size: 18px;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Comprehensive Edge Fix Validation</h1>
+        <p>This test validates all the edge creation and layer management fixes that were implemented.</p>
+        
+        <div class="test-section">
+            <h2>📋 Test Control Panel</h2>
+            <button onclick="runAllTests()">🚀 Run All Tests</button>
+            <button onclick="clearAllResults()">🧹 Clear Results</button>
+            <button onclick="testMainApplication()">🎯 Test Main Application</button>
+            <button onclick="testEdgeCreation()">🔗 Test Edge Creation</button>
+            <button onclick="testLayerManagement()">📚 Test Layer Management</button>
+            <button onclick="testErrorHandling()">⚠️ Test Error Handling</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>📊 Test Results</h2>
+            <div id="test-results" class="test-results"></div>
+        </div>
+        
+        <div class="test-grid">
+            <div class="test-section">
+                <h3>🎨 Main Application</h3>
+                <iframe src="index.html" id="main-app"></iframe>
+            </div>
+            <div class="test-section">
+                <h3>🔍 Edge Layer Test</h3>
+                <iframe src="test-edge-load.html" id="edge-test"></iframe>
+            </div>
+        </div>
+        
+        <div class="summary">
+            <h3>📈 Test Summary</h3>
+            <div id="test-summary">
+                <div class="metric">
+                    <div>Total Tests</div>
+                    <div class="metric-value" id="total-tests">0</div>
+                </div>
+                <div class="metric">
+                    <div>Passed</div>
+                    <div class="metric-value" id="passed-tests">0</div>
+                </div>
+                <div class="metric">
+                    <div>Failed</div>
+                    <div class="metric-value" id="failed-tests">0</div>
+                </div>
+                <div class="metric">
+                    <div>Warnings</div>
+                    <div class="metric-value" id="warning-tests">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let testResults = document.getElementById('test-results');
+        let testCounts = {
+            total: 0,
+            passed: 0,
+            failed: 0,
+            warnings: 0
+        };
+        
+        function updateTestCounts() {
+            document.getElementById('total-tests').textContent = testCounts.total;
+            document.getElementById('passed-tests').textContent = testCounts.passed;
+            document.getElementById('failed-tests').textContent = testCounts.failed;
+            document.getElementById('warning-tests').textContent = testCounts.warnings;
+        }
+        
+        function logStatus(message, type = 'success') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            testResults.appendChild(div);
+            testResults.scrollTop = testResults.scrollHeight;
+            
+            testCounts.total++;
+            if (type === 'success') testCounts.passed++;
+            else if (type === 'error') testCounts.failed++;
+            else if (type === 'warning') testCounts.warnings++;
+            
+            updateTestCounts();
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function clearAllResults() {
+            testResults.innerHTML = '';
+            testCounts = { total: 0, passed: 0, failed: 0, warnings: 0 };
+            updateTestCounts();
+        }
+        
+        async function testMainApplication() {
+            logStatus('🎯 Testing main application...', 'info');
+            
+            try {
+                // Test if main application loads
+                const mainApp = document.getElementById('main-app');
+                if (mainApp.contentWindow) {
+                    logStatus('Main application iframe loaded successfully');
+                    
+                    // Wait for the application to initialize
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    // Try to access the application's global variables
+                    try {
+                        const appWindow = mainApp.contentWindow;
+                        if (appWindow.layerManager) {
+                            logStatus('LayerManager is available in main application');
+                        } else {
+                            logStatus('LayerManager not found in main application', 'warning');
+                        }
+                        
+                        if (appWindow.nodeMap) {
+                            const nodeCount = appWindow.nodeMap.size || Object.keys(appWindow.nodeMap).length;
+                            logStatus(`Found ${nodeCount} nodes in main application`);
+                        } else {
+                            logStatus('NodeMap not found in main application', 'warning');
+                        }
+                        
+                        if (appWindow.edgeList) {
+                            logStatus(`Found ${appWindow.edgeList.length} edges in main application`);
+                        } else {
+                            logStatus('EdgeList not found in main application', 'warning');
+                        }
+                        
+                    } catch (error) {
+                        logStatus(`Cannot access main application internals: ${error.message}`, 'warning');
+                    }
+                } else {
+                    logStatus('Main application iframe not accessible', 'error');
+                }
+                
+            } catch (error) {
+                logStatus(`Main application test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testEdgeCreation() {
+            logStatus('🔗 Testing edge creation...', 'info');
+            
+            try {
+                // Test edge creation using the Edge module
+                const response = await fetch('js/Edge.js');
+                if (response.ok) {
+                    logStatus('Edge.js module is accessible');
+                    
+                    // Test if the module exports are available
+                    const edgeModule = await import('./js/Edge.js');
+                    
+                    if (edgeModule.Edge) {
+                        logStatus('Edge class is available');
+                        
+                        // Test static methods
+                        if (typeof edgeModule.Edge.createEdge === 'function') {
+                            logStatus('Edge.createEdge method is available');
+                        } else {
+                            logStatus('Edge.createEdge method not found', 'error');
+                        }
+                        
+                        if (typeof edgeModule.Edge.createEdgesFromLayout === 'function') {
+                            logStatus('Edge.createEdgesFromLayout method is available');
+                        } else {
+                            logStatus('Edge.createEdgesFromLayout method not found', 'error');
+                        }
+                        
+                        if (typeof edgeModule.Edge.redrawAllEdges === 'function') {
+                            logStatus('Edge.redrawAllEdges method is available');
+                        } else {
+                            logStatus('Edge.redrawAllEdges method not found', 'error');
+                        }
+                        
+                    } else {
+                        logStatus('Edge class not found in module', 'error');
+                    }
+                    
+                } else {
+                    logStatus('Edge.js module is not accessible', 'error');
+                }
+                
+            } catch (error) {
+                logStatus(`Edge creation test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testLayerManagement() {
+            logStatus('📚 Testing layer management...', 'info');
+            
+            try {
+                // Test layer management using the LayerManager module
+                const response = await fetch('js/LayerManager.js');
+                if (response.ok) {
+                    logStatus('LayerManager.js module is accessible');
+                    
+                    const layerModule = await import('./js/LayerManager.js');
+                    
+                    if (layerModule.LayerManager) {
+                        logStatus('LayerManager class is available');
+                        
+                        // Create a test SVG element
+                        const testSVG = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                        testSVG.innerHTML = `
+                            <g id="edges-layer" class="layer"></g>
+                            <g id="nodes-layer" class="layer"></g>
+                        `;
+                        
+                        // Test LayerManager initialization
+                        const layerManager = new layerModule.LayerManager(testSVG);
+                        logStatus('LayerManager initialized successfully');
+                        
+                        // Test layer methods
+                        if (typeof layerManager.addToLayer === 'function') {
+                            logStatus('LayerManager.addToLayer method is available');
+                        } else {
+                            logStatus('LayerManager.addToLayer method not found', 'error');
+                        }
+                        
+                        if (typeof layerManager.toggleLayer === 'function') {
+                            logStatus('LayerManager.toggleLayer method is available');
+                        } else {
+                            logStatus('LayerManager.toggleLayer method not found', 'error');
+                        }
+                        
+                        // Test adding elements to layers
+                        const testElement = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                        layerManager.addToLayer('edges', testElement);
+                        
+                        const edgesLayer = testSVG.querySelector('#edges-layer');
+                        if (edgesLayer && edgesLayer.contains(testElement)) {
+                            logStatus('Element successfully added to edges layer');
+                        } else {
+                            logStatus('Failed to add element to edges layer', 'error');
+                        }
+                        
+                        // Test layer toggling
+                        layerManager.toggleLayer('edges');
+                        if (edgesLayer.style.display === 'none') {
+                            logStatus('Layer toggling works - layer hidden');
+                        } else {
+                            logStatus('Layer toggling failed - layer not hidden', 'error');
+                        }
+                        
+                        layerManager.toggleLayer('edges');
+                        if (edgesLayer.style.display !== 'none') {
+                            logStatus('Layer toggling works - layer shown');
+                        } else {
+                            logStatus('Layer toggling failed - layer not shown', 'error');
+                        }
+                        
+                    } else {
+                        logStatus('LayerManager class not found in module', 'error');
+                    }
+                    
+                } else {
+                    logStatus('LayerManager.js module is not accessible', 'error');
+                }
+                
+            } catch (error) {
+                logStatus(`Layer management test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testErrorHandling() {
+            logStatus('⚠️ Testing error handling...', 'info');
+            
+            try {
+                // Test error handling in Edge module
+                const edgeModule = await import('./js/Edge.js');
+                
+                if (edgeModule.Edge) {
+                    // Test edge creation with invalid data
+                    logStatus('Testing edge creation with null data...');
+                    try {
+                        // This should handle null gracefully
+                        const edge = edgeModule.Edge.createEdge(null, null);
+                        logStatus('Edge creation with null data handled gracefully');
+                    } catch (error) {
+                        logStatus(`Expected error handled: ${error.message}`, 'warning');
+                    }
+                    
+                    // Test redrawAllEdges with empty lists
+                    logStatus('Testing redrawAllEdges with empty data...');
+                    try {
+                        edgeModule.Edge.redrawAllEdges([], new Map());
+                        logStatus('redrawAllEdges with empty data handled gracefully');
+                    } catch (error) {
+                        logStatus(`redrawAllEdges error: ${error.message}`, 'error');
+                    }
+                    
+                    // Test createEdgesFromLayout with invalid edges
+                    logStatus('Testing createEdgesFromLayout with invalid edges...');
+                    try {
+                        const testSVG = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                        testSVG.innerHTML = '<g id="edges-layer" class="layer"></g>';
+                        
+                        const invalidEdges = [
+                            { from: null, to: 'node2' },
+                            { from: 'node1', to: null },
+                            { from: 'node1', to: 'node1' }, // self-reference
+                            { from: 'node1', to: 'node2', class: 'valid' } // valid edge
+                        ];
+                        
+                        const results = edgeModule.Edge.createEdgesFromLayout(invalidEdges, testSVG);
+                        logStatus(`createEdgesFromLayout filtered ${invalidEdges.length - results.length} invalid edges`);
+                        
+                        if (results.length === 1) {
+                            logStatus('Invalid edge filtering works correctly');
+                        } else {
+                            logStatus(`Expected 1 valid edge, got ${results.length}`, 'warning');
+                        }
+                        
+                    } catch (error) {
+                        logStatus(`createEdgesFromLayout error: ${error.message}`, 'error');
+                    }
+                    
+                } else {
+                    logStatus('Edge class not available for error handling tests', 'error');
+                }
+                
+            } catch (error) {
+                logStatus(`Error handling test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runAllTests() {
+            logStatus('🚀 Starting comprehensive test suite...', 'info');
+            clearAllResults();
+            
+            await testMainApplication();
+            await testEdgeCreation();
+            await testLayerManagement();
+            await testErrorHandling();
+            
+            logStatus('✅ All tests completed!', 'info');
+            
+            // Generate summary
+            const successRate = testCounts.total > 0 ? Math.round((testCounts.passed / testCounts.total) * 100) : 0;
+            logStatus(`📊 Test Summary: ${testCounts.passed}/${testCounts.total} passed (${successRate}% success rate)`, 'info');
+            
+            if (testCounts.failed > 0) {
+                logStatus(`❌ ${testCounts.failed} tests failed`, 'error');
+            }
+            
+            if (testCounts.warnings > 0) {
+                logStatus(`⚠️ ${testCounts.warnings} warnings`, 'warning');
+            }
+        }
+        
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(runAllTests, 1000);
+        });
+    </script>
+</body>
+</html>

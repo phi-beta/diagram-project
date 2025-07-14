@@ -3,7 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Infinite Grid Test</title>
+    <title>Infinite Grid Test<            <div class="control-group">
+                <label for="gridVisible">Show Grid:</label>
+                <input type="checkbox" id="gridVisible" checked>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <h3>🎛️ Dynamic Opacity Controls</h3>
+            <div class="control-group">
+                <label for="dynamicOpacity">Dynamic Opacity:</label>
+                <input type="checkbox" id="dynamicOpacity" checked>
+            </div>
+            <div class="control-group">
+                <label for="targetSpacing">Target Spacing (px):</label>
+                <input type="range" id="targetSpacing" min="20" max="100" step="5" value="40">
+                <span id="targetSpacingValue">40</span>
+            </div>
+            <div class="control-group">
+                <label for="fadeRange">Fade Range (sharpness):</label>
+                <input type="range" id="fadeRange" min="0.1" max="2.0" step="0.1" value="0.5">
+                <span id="fadeRangeValue">0.5</span>
+            </div>
+            <div class="control-group">
+                <label for="minOpacity">Min Opacity:</label>
+                <input type="range" id="minOpacity" min="0" max="0.5" step="0.05" value="0.05">
+                <span id="minOpacityValue">0.05</span>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <h3>🔧 Infinite Grid Controls</h3>
+            <div class="control-group">
+                <label for="gridMultiplier">Grid Multiplier:</label>
+                <select id="gridMultiplier">
+                    <option value="2">2x (dense)</option>
+                    <option value="3">3x</option>
+                    <option value="4">4x</option>
+                    <option value="5" selected>5x (default)</option>
+                    <option value="10">10x (sparse)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="maxLevels">Max Visible Levels:</label>
+                <select id="maxLevels">
+                    <option value="2">2 levels</option>
+                    <option value="3">3 levels</option>
+                    <option value="4" selected>4 levels</option>
+                    <option value="5">5 levels</option>
+                    <option value="6">6 levels</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <button id="forceRecalc">Recalculate Levels</button>
+            </div>le>
     <link rel="stylesheet" href="themes/default.css?v=039">
     <style>
         body {
@@ -135,7 +188,7 @@
                 <input type="number" id="gridSize" value="20" min="5" max="100" step="5">
             </div>
             <div class="control-group">
-                <label for="gridColor">Grid Color:</label>
+                <label for="gridColor">Base Grid Color:</label>
                 <input type="color" id="gridColor" value="#e0e0e0">
             </div>
             <div class="control-group">
@@ -143,9 +196,19 @@
                 <input type="color" id="backgroundColor" value="#fafafa">
             </div>
             <div class="control-group">
-                <label for="gridOpacity">Grid Opacity:</label>
+                <label for="gridOpacity">Minor Grid Opacity:</label>
                 <input type="range" id="gridOpacity" min="0" max="1" step="0.1" value="0.5">
                 <span id="opacityValue">0.5</span>
+            </div>
+            <div class="control-group">
+                <label for="majorOpacity">Major Grid Opacity:</label>
+                <input type="range" id="majorOpacity" min="0" max="1" step="0.1" value="0.8">
+                <span id="majorOpacityValue">0.8</span>
+            </div>
+            <div class="control-group">
+                <label for="superOpacity">Super Grid Opacity:</label>
+                <input type="range" id="superOpacity" min="0" max="1" step="0.1" value="1.0">
+                <span id="superOpacityValue">1.0</span>
             </div>
             <div class="control-group">
                 <label for="gridVisible">Grid Visible:</label>
@@ -172,8 +235,13 @@
                     <li>✅ Grid should appear in all visible areas, even when zoomed out</li>
                     <li>✅ Grid should follow pan operations and cover newly visible areas</li>
                     <li>✅ Grid should maintain consistent spacing regardless of zoom level</li>
+                    <li>✅ <strong>Dynamic Opacity: Grid lines fade in/out based on zoom level for optimal visibility</strong></li>
+                    <li>✅ <strong>Grid lines at ~40px viewport spacing should be most visible (configurable)</strong></li>
+                    <li>✅ <strong>All grid levels have equal intensity when at the same proportional size</strong></li>
+                    <li>✅ <strong>Smooth opacity transitions as you zoom in/out</strong></li>
                     <li>✅ Grid controls should update grid appearance in real-time</li>
                     <li>✅ Grid should be infinite (no edges or boundaries)</li>
+                    <li>✅ <strong>Toggle between dynamic and static opacity modes</strong></li>
                 </ul>
             </div>
         </div>
@@ -232,7 +300,12 @@
         <div class="status">
             <div class="status-item">Current ViewBox: <span id="currentViewBox">0, 0, 800, 500</span></div>
             <div class="status-item">Zoom Level: <span id="zoomLevel">100%</span></div>
-            <div class="status-item">Grid Size: <span id="currentGridSize">20px</span></div>
+            <div class="status-item">Dynamic Opacity: <span id="dynamicOpacityStatus">Enabled</span></div>
+            <div class="status-item">Active Levels: <span id="activeLevels">4</span></div>
+            <div class="status-item">Level Range: <span id="levelRange">-1 to 2</span></div>
+            <div class="status-item">Base Grid: <span id="currentGridSize">20px</span></div>
+            <div class="status-item">Major Grid: <span id="majorGridSize">100px</span></div>
+            <div class="status-item">Super Grid: <span id="superGridSize">500px</span></div>
             <div class="status-item">Background Color: <span id="currentBackgroundColor">#fafafa</span></div>
             <div class="status-item">Grid Coverage: <span id="gridCoverage">Calculating...</span></div>
         </div>
@@ -242,7 +315,7 @@
         import { ViewBoxManager } from './js/ViewBoxManager.js?v=021';
         import { InteractionManager } from './js/InteractionManager.js?v=079';
         import { LayerManager } from './js/LayerManager.js?v=001';
-        import { GridManager } from './js/GridManager.js?v=002';
+        import { GridManager } from './js/GridManager.js?v=012';
         
         // Initialize the diagram
         const svg = document.getElementById('diagram');
@@ -271,13 +344,13 @@
         
         // Connect GridManager to ViewBoxManager for automatic grid updates
         viewBoxManager.onViewBoxChange((oldViewBox, newViewBox) => {
-            gridManager.updateGrid(newViewBox.x, newViewBox.y, newViewBox.width, newViewBox.height);
+            gridManager.updateGrid(newViewBox.x, newViewBox.y, newViewBox.width, newViewBox.height, newViewBox.zoom);
             updateStatus();
         });
         
         // Initialize grid with current viewBox
         const currentViewBox = viewBoxManager.getCurrentViewBox();
-        gridManager.updateGrid(currentViewBox.x, currentViewBox.y, currentViewBox.width, currentViewBox.height);
+        gridManager.updateGrid(currentViewBox.x, currentViewBox.y, currentViewBox.width, currentViewBox.height, currentViewBox.zoom);
         
         // Update status display
         function updateStatus() {
@@ -287,6 +360,9 @@
             document.getElementById('currentViewBox').textContent = 
                 `${Math.round(viewBox.x)}, ${Math.round(viewBox.y)}, ${Math.round(viewBox.width)}, ${Math.round(viewBox.height)}`;
             document.getElementById('zoomLevel').textContent = `${Math.round(viewBox.zoom * 100)}%`;
+            document.getElementById('dynamicOpacityStatus').textContent = gridConfig.enableDynamicOpacity ? 'Enabled' : 'Disabled';
+            document.getElementById('activeLevels').textContent = gridConfig.activeLevels;
+            document.getElementById('levelRange').textContent = gridConfig.levelRange;
             document.getElementById('currentGridSize').textContent = `${gridConfig.size}px`;
             document.getElementById('currentBackgroundColor').textContent = gridConfig.backgroundColor;
             document.getElementById('gridCoverage').textContent = 
@@ -313,8 +389,61 @@
             document.getElementById('opacityValue').textContent = opacity.toFixed(1);
         });
         
+        document.getElementById('majorOpacity').addEventListener('input', (e) => {
+            const opacity = parseFloat(e.target.value);
+            gridManager.setMajorGridOpacity(opacity);
+            document.getElementById('majorOpacityValue').textContent = opacity.toFixed(1);
+        });
+        
+        document.getElementById('superOpacity').addEventListener('input', (e) => {
+            const opacity = parseFloat(e.target.value);
+            gridManager.setSuperGridOpacity(opacity);
+            document.getElementById('superOpacityValue').textContent = opacity.toFixed(1);
+        });
+        
         document.getElementById('gridVisible').addEventListener('change', (e) => {
             gridManager.setVisible(e.target.checked);
+        });
+        
+        // Dynamic opacity controls
+        document.getElementById('dynamicOpacity').addEventListener('change', (e) => {
+            gridManager.setDynamicOpacityEnabled(e.target.checked);
+        });
+        
+        document.getElementById('targetSpacing').addEventListener('input', (e) => {
+            const spacing = parseInt(e.target.value);
+            gridManager.setTargetGridSpacing(spacing);
+            document.getElementById('targetSpacingValue').textContent = spacing;
+        });
+        
+        document.getElementById('fadeRange').addEventListener('input', (e) => {
+            const range = parseFloat(e.target.value);
+            gridManager.setOpacityFadeRange(range);
+            document.getElementById('fadeRangeValue').textContent = range.toFixed(1);
+        });
+        
+        document.getElementById('minOpacity').addEventListener('input', (e) => {
+            const opacity = parseFloat(e.target.value);
+            gridManager.setMinVisibleOpacity(opacity);
+            document.getElementById('minOpacityValue').textContent = opacity.toFixed(2);
+        });
+        
+        // Infinite grid controls
+        document.getElementById('gridMultiplier').addEventListener('change', (e) => {
+            gridManager.setGridMultiplier(parseInt(e.target.value));
+            updateStatus();
+        });
+        
+        document.getElementById('maxLevels').addEventListener('change', (e) => {
+            gridManager.setMaxVisibleLevels(parseInt(e.target.value));
+            updateStatus();
+        });
+        
+        document.getElementById('forceRecalc').addEventListener('click', () => {
+            gridManager.forceRecalculation();
+            const currentViewBox = viewBoxManager.getCurrentViewBox();
+            gridManager.updateGrid(currentViewBox.x, currentViewBox.y, currentViewBox.width, currentViewBox.height, currentViewBox.zoom);
+            updateStatus();
         });
         
         document.getElementById('resetView').addEventListener('click', () => {

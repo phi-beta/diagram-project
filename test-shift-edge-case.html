@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Shift Key Edge Creation Edge Case</title>
+    <link rel="stylesheet" href="themes/default.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .instructions {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-steps {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .test-steps h3 {
+            margin-top: 0;
+            color: #2c5282;
+        }
+        .test-steps ol {
+            margin: 10px 0;
+        }
+        .test-steps li {
+            margin: 5px 0;
+        }
+        .expected {
+            background: #f0fff4;
+            padding: 10px;
+            border-left: 4px solid #48bb78;
+            margin: 10px 0;
+        }
+        .svg-container {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="instructions">
+        <h1>Test: Shift Key Edge Creation Edge Case</h1>
+        <p>This test verifies that edge creation is properly cancelled when the Shift key is released during the edge creation process.</p>
+        
+        <div class="test-steps">
+            <h3>Test Steps:</h3>
+            <ol>
+                <li>Click on a node to select it</li>
+                <li>Hold down the Shift key and click on another node to create an edge</li>
+                <li>Keep holding Shift and move the mouse away from the second node (a new temporary edge should start)</li>
+                <li><strong>Release the Shift key</strong> (this should cancel the edge creation)</li>
+                <li>Move the mouse around - no temporary edge should be following the cursor</li>
+            </ol>
+        </div>
+        
+        <div class="expected">
+            <strong>Expected Result:</strong> When you release the Shift key in step 4, the temporary edge should disappear and edge creation mode should be cancelled completely.
+        </div>
+    </div>
+
+    <div class="svg-container">
+        <svg id="svg" width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+            <!-- Marker definitions -->
+            <defs>
+                <!-- Regular arrowhead marker -->
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="black" />
+                </marker>
+                
+                <!-- Temporary edge arrowhead marker (orange) -->
+                <marker id="temp-arrowhead" markerWidth="10" markerHeight="7" 
+                        refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#ff6b6b" />
+                </marker>
+            </defs>
+            
+            <!-- Background -->
+            <rect width="100%" height="100%" fill="#f9f9f9"/>
+            
+            <!-- Grid pattern -->
+            <defs>
+                <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                    <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e0e0e0" stroke-width="1"/>
+                </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid)"/>
+            
+            <!-- Layers -->
+            <g id="background-layer"></g>
+            <g id="grid-layer"></g>
+            <g id="edges-layer"></g>
+            <g id="nodes-layer"></g>
+            <g id="temp-layer"></g>
+            <g id="ui-layer"></g>
+            <g id="debug-layer"></g>
+        </svg>
+    </div>
+
+    <!-- Load modules -->
+    <script type="module">
+        import { CoordinateSystem } from './js/CoordinateSystem.js';
+        import { Node } from './js/Node.js';
+        import { Edge } from './js/Edge.js';
+        import { LayerManager } from './js/LayerManager.js';
+        import { DragManager } from './js/DragManager.js';
+        import { GridManager } from './js/GridManager.js';
+        import { ViewBoxManager } from './js/ViewBoxManager.js';
+        import { InteractionManager } from './js/InteractionManager.js';
+        import { GuidRegistry } from './js/GuidRegistry.js';
+        import { NodeStateManager } from './js/NodeStateManager.js';
+        import { DiagramStateManager } from './js/DiagramStateManager.js';
+
+        // Create initial layout data
+        const initialData = {
+            nodes: [
+                { id: 'node1', x: 200, y: 200, svg: 'user.svg', label: 'Node 1', type: 'user' },
+                { id: 'node2', x: 500, y: 200, svg: 'server.svg', label: 'Node 2', type: 'server' },
+                { id: 'node3', x: 350, y: 400, svg: 'user.svg', label: 'Node 3', type: 'user' }
+            ],
+            edges: []
+        };
+
+        // Initialize core components
+        const svg = document.getElementById('svg');
+        const layerManager = new LayerManager(svg);
+        const coordinateSystem = new CoordinateSystem(svg);
+        const dragManager = new DragManager(svg);
+        const gridManager = new GridManager(svg, layerManager, coordinateSystem);
+        const viewBoxManager = new ViewBoxManager(svg, coordinateSystem);
+        const guidRegistry = new GuidRegistry();
+        const nodeStateManager = new NodeStateManager();
+        const diagramStateManager = new DiagramStateManager();
+
+        // Initialize grid
+        await gridManager.initializeGrid();
+
+        // Set up global references
+        window.layerManager = layerManager;
+        window.coordinateSystem = coordinateSystem;
+        window.dragManager = dragManager;
+        window.gridManager = gridManager;
+        window.viewBoxManager = viewBoxManager;
+        window.guidRegistry = guidRegistry;
+        window.nodeStateManager = nodeStateManager;
+        window.diagramStateManager = diagramStateManager;
+
+        // Initialize state managers
+        await nodeStateManager.initialize();
+        await diagramStateManager.initialize();
+
+        // Create interaction manager
+        const interactionManager = new InteractionManager(
+            svg,
+            layerManager,
+            coordinateSystem,
+            dragManager,
+            gridManager,
+            viewBoxManager,
+            nodeStateManager,
+            diagramStateManager
+        );
+
+        // Create nodes
+        const nodeMap = new Map();
+        for (const nodeData of initialData.nodes) {
+            const node = new Node(nodeData, layerManager, coordinateSystem, dragManager, interactionManager);
+            nodeMap.set(nodeData.id, node);
+            layerManager.addToLayer('nodes', node.element);
+        }
+
+        // Create edges
+        for (const edgeData of initialData.edges) {
+            const edge = new Edge(edgeData, layerManager, coordinateSystem);
+            layerManager.addToLayer('edges', edge.element);
+        }
+
+        // Register nodes with state manager
+        for (const [nodeId, node] of nodeMap) {
+            await nodeStateManager.registerNode(nodeId, node.element);
+        }
+
+        // Update grid and view
+        viewBoxManager.updateViewBox();
+        gridManager.updateGrid();
+
+        console.log('✅ Edge creation test page loaded successfully');
+        console.log('🔍 To test: Select node → Shift+click another node → keep Shift+move mouse → release Shift');
+    </script>
+</body>
+</html>

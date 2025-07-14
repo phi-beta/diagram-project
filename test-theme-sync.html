@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Theme Synchronization Test</title>
+  <link rel="stylesheet" href="themes/default.css?v=043" id="theme-link">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .test-container { display: flex; gap: 20px; margin: 20px 0; }
+    .test-box { 
+      width: 200px; 
+      height: 150px; 
+      border: 2px solid #ccc; 
+      padding: 10px; 
+      border-radius: 5px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    .grid-test { 
+      background: var(--grid-background, #fafafa); 
+      border-color: var(--grid-level-0, #e8e8e8);
+    }
+    .diagram-test { 
+      background: var(--diagram-background, #ffffff);
+      border-color: var(--diagram-background, #ffffff);
+    }
+    .body-test { 
+      background: var(--body-background, #f8f9fa);
+      border-color: var(--body-background, #f8f9fa);
+    }
+    .status { margin: 10px 0; padding: 10px; border-radius: 5px; }
+    .success { background: #d4edda; border: 1px solid #c3e6cb; }
+    .warning { background: #fff3cd; border: 1px solid #ffeaa7; }
+    .error { background: #f8d7da; border: 1px solid #f5c6cb; }
+    #log { background: #f8f9fa; padding: 15px; border: 1px solid #e9ecef; margin: 20px 0; max-height: 400px; overflow-y: auto; }
+    .log-entry { margin: 2px 0; font-family: monospace; font-size: 12px; }
+    .log-success { color: #28a745; }
+    .log-warning { color: #ffc107; }
+    .log-error { color: #dc3545; }
+    .log-info { color: #007bff; }
+    button { 
+      padding: 10px 20px; 
+      margin: 5px; 
+      border: none; 
+      border-radius: 5px; 
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:disabled { 
+      opacity: 0.5; 
+      cursor: not-allowed; 
+    }
+    #theme-toggle { 
+      background: #007bff; 
+      color: white; 
+    }
+    #theme-toggle:hover:not(:disabled) { 
+      background: #0056b3; 
+    }
+  </style>
+</head>
+<body>
+  <h1>Theme Synchronization Test</h1>
+  
+  <div class="status success">
+    <strong>Test Purpose:</strong> Verify that grid and diagram backgrounds switch themes synchronously.
+  </div>
+  
+  <div class="test-container">
+    <div class="test-box grid-test">
+      <h3>Grid Background</h3>
+      <p>Uses: --grid-background</p>
+      <div id="grid-color"></div>
+    </div>
+    
+    <div class="test-box diagram-test">
+      <h3>Diagram Background</h3>
+      <p>Uses: --diagram-background</p>
+      <div id="diagram-color"></div>
+    </div>
+    
+    <div class="test-box body-test">
+      <h3>Body Background</h3>
+      <p>Uses: --body-background</p>
+      <div id="body-color"></div>
+    </div>
+  </div>
+  
+  <div>
+    <button id="theme-toggle">Toggle Theme</button>
+    <button id="test-sync">Test Synchronization</button>
+    <button id="clear-log">Clear Log</button>
+  </div>
+  
+  <div id="sync-status" class="status warning">
+    <strong>Status:</strong> <span id="sync-result">Ready for testing</span>
+  </div>
+  
+  <div id="log"></div>
+  
+  <script>
+    let testCount = 0;
+    let expectedTheme = 'light'; // Start with light theme
+    
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('log');
+      const timestamp = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.textContent = `[${timestamp}] ${message}`;
+      logDiv.appendChild(entry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+      
+      console.log(`[${type.toUpperCase()}] ${message}`);
+    }
+    
+    function updateColorDisplays() {
+      const rootStyles = getComputedStyle(document.documentElement);
+      const gridBg = rootStyles.getPropertyValue('--grid-background').trim();
+      const diagramBg = rootStyles.getPropertyValue('--diagram-background').trim();
+      const bodyBg = rootStyles.getPropertyValue('--body-background').trim();
+      
+      document.getElementById('grid-color').textContent = gridBg;
+      document.getElementById('diagram-color').textContent = diagramBg;
+      document.getElementById('body-color').textContent = bodyBg;
+    }
+    
+    function testSynchronization() {
+      testCount++;
+      log(`=== Synchronization Test #${testCount} ===`, 'info');
+      
+      const rootStyles = getComputedStyle(document.documentElement);
+      const gridBg = rootStyles.getPropertyValue('--grid-background').trim();
+      const diagramBg = rootStyles.getPropertyValue('--diagram-background').trim();
+      const bodyBg = rootStyles.getPropertyValue('--body-background').trim();
+      const gridLevel0 = rootStyles.getPropertyValue('--grid-level-0').trim();
+      
+      log(`Grid Background: ${gridBg}`, 'info');
+      log(`Diagram Background: ${diagramBg}`, 'info');
+      log(`Body Background: ${bodyBg}`, 'info');
+      log(`Grid Level 0: ${gridLevel0}`, 'info');
+      
+      // Check if all backgrounds are from the same theme
+      const isLightTheme = (gridBg === '#fafafa' && diagramBg === '#ffffff' && bodyBg === '#f8f9fa');
+      const isDarkTheme = (gridBg === '#1a1a1a' && diagramBg === '#2d2d2d' && bodyBg === '#1e1e1e');
+      
+      const statusDiv = document.getElementById('sync-status');
+      const resultSpan = document.getElementById('sync-result');
+      
+      if (isLightTheme && expectedTheme === 'light') {
+        log('✅ All backgrounds are synchronized (Light Theme)', 'success');
+        statusDiv.className = 'status success';
+        resultSpan.textContent = 'Synchronized (Light Theme)';
+      } else if (isDarkTheme && expectedTheme === 'dark') {
+        log('✅ All backgrounds are synchronized (Dark Theme)', 'success');
+        statusDiv.className = 'status success';
+        resultSpan.textContent = 'Synchronized (Dark Theme)';
+      } else if (isLightTheme || isDarkTheme) {
+        const actualTheme = isLightTheme ? 'light' : 'dark';
+        log(`⚠️ Backgrounds are synchronized but expected ${expectedTheme}, got ${actualTheme}`, 'warning');
+        statusDiv.className = 'status warning';
+        resultSpan.textContent = `Synchronized but wrong theme (Expected: ${expectedTheme}, Got: ${actualTheme})`;
+      } else {
+        log('❌ Backgrounds are NOT synchronized', 'error');
+        statusDiv.className = 'status error';
+        resultSpan.textContent = 'NOT synchronized - Mixed themes detected';
+      }
+      
+      updateColorDisplays();
+    }
+    
+    function toggleTheme() {
+      const link = document.getElementById('theme-link');
+      const currentHref = link.href;
+      const themeButton = document.getElementById('theme-toggle');
+      
+      // Disable button and show loading state
+      themeButton.disabled = true;
+      themeButton.textContent = 'Switching...';
+      
+      // Determine target theme
+      let targetTheme, expectedColors;
+      if (currentHref.includes('default.css')) {
+        targetTheme = 'dark';
+        expectedTheme = 'dark';
+        expectedColors = {
+          gridBg: '#1a1a1a',
+          diagramBg: '#2d2d2d',
+          bodyBg: '#1e1e1e',
+          gridLevel0: '#363636'
+        };
+        log('🎨 Switching to dark theme...', 'info');
+      } else {
+        targetTheme = 'light';
+        expectedTheme = 'light';
+        expectedColors = {
+          gridBg: '#fafafa',
+          diagramBg: '#ffffff',
+          bodyBg: '#f8f9fa',
+          gridLevel0: '#e8e8e8'
+        };
+        log('🎨 Switching to light theme...', 'info');
+      }
+      
+      // Wait for CSS to load with specific theme validation
+      const waitForCSSAndUpdate = () => {
+        const rootStyles = getComputedStyle(document.documentElement);
+        const gridBg = rootStyles.getPropertyValue('--grid-background').trim();
+        const diagramBg = rootStyles.getPropertyValue('--diagram-background').trim();
+        const bodyBg = rootStyles.getPropertyValue('--body-background').trim();
+        const gridLevel0 = rootStyles.getPropertyValue('--grid-level-0').trim();
+        
+        // Check if we have the expected theme colors
+        const hasCorrectTheme = (
+          gridBg === expectedColors.gridBg &&
+          diagramBg === expectedColors.diagramBg &&
+          bodyBg === expectedColors.bodyBg &&
+          gridLevel0 === expectedColors.gridLevel0
+        );
+        
+        if (!hasCorrectTheme) {
+          log(`🔄 Waiting for ${targetTheme} theme CSS to load...`, 'info');
+          setTimeout(waitForCSSAndUpdate, 100);
+          return;
+        }
+        
+        log(`✅ ${targetTheme} theme CSS loaded successfully!`, 'success');
+        
+        // Re-enable button
+        themeButton.disabled = false;
+        themeButton.textContent = 'Toggle Theme';
+        
+        // Test synchronization
+        setTimeout(testSynchronization, 100);
+      };
+      
+      // Set up a load event listener for the CSS file
+      const handleCSSLoad = () => {
+        log(`🔄 CSS file loaded event fired, checking for ${targetTheme} theme...`, 'info');
+        setTimeout(waitForCSSAndUpdate, 50);
+      };
+      
+      // Add event listener before changing href
+      link.addEventListener('load', handleCSSLoad, { once: true });
+      
+      // Also set up a timeout fallback
+      setTimeout(waitForCSSAndUpdate, 200);
+      
+      // Change the CSS file
+      if (currentHref.includes('default.css')) {
+        link.href = 'themes/dark.css?v=043';
+      } else {
+        link.href = 'themes/default.css?v=043';
+      }
+    }
+    
+    // Event listeners
+    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+    document.getElementById('test-sync').addEventListener('click', testSynchronization);
+    document.getElementById('clear-log').addEventListener('click', () => {
+      document.getElementById('log').innerHTML = '';
+      log('Log cleared', 'info');
+    });
+    
+    // Initial test
+    document.addEventListener('DOMContentLoaded', () => {
+      log('🚀 Theme Synchronization Test initialized', 'info');
+      setTimeout(testSynchronization, 500);
+    });
+  </script>
+</body>
+</html>

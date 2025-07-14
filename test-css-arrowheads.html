@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS-Based Arrowhead Color Test</title>
+  <link rel="stylesheet" href="themes/default.css?v=047" id="theme-link">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: var(--body-background, #f8f9fa);
+      color: var(--edge-color, #000000);
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background-color: var(--diagram-background, #ffffff);
+    }
+    button {
+      margin: 5px;
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+    .result {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 3px;
+      background-color: #f0f0f0;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    #diagram {
+      border: 1px solid #ccc;
+      background-color: var(--diagram-background, #ffffff);
+    }
+  </style>
+</head>
+<body>
+  <h1>CSS-Based Arrowhead Color Test</h1>
+  
+  <div class="test-section">
+    <h2>Test Controls</h2>
+    <button onclick="toggleTheme()">Toggle Theme</button>
+    <button onclick="createTemporaryEdge()">Create Temporary Edge</button>
+    <button onclick="removeTemporaryEdge()">Remove Temporary Edge</button>
+    <button onclick="testArrowheadColors()">Test Arrowhead Colors</button>
+  </div>
+
+  <div class="test-section">
+    <h2>Test Results</h2>
+    <div id="test-results"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>Visual Test</h2>
+    <p>Regular edges should have arrowheads matching the theme (black/white).</p>
+    <p>Temporary edges should have orange arrowheads regardless of theme.</p>
+    
+    <svg id="diagram" width="800" height="400" viewBox="0 0 800 400">
+      <!-- Edges layer -->
+      <g id="edges-layer" class="layer">
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                  refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="arrowhead-fill"/>
+          </marker>
+          <marker id="temp-arrowhead" markerWidth="10" markerHeight="7" 
+                  refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="temp-arrowhead-fill"/>
+          </marker>
+        </defs>
+        
+        <!-- Regular edges -->
+        <path class="access-link" d="M 50 100 L 300 100" marker-end="url(#arrowhead)" fill="none"/>
+        <path class="connection" d="M 50 150 L 300 150" marker-end="url(#arrowhead)" fill="none"/>
+        
+        <!-- Temporary edge placeholder -->
+        <g id="temp-edge-container">
+          <!-- Temporary edge will be added here -->
+        </g>
+      </g>
+      
+      <!-- Labels -->
+      <g id="labels">
+        <text x="175" y="90" text-anchor="middle" fill="var(--edge-color, #000000)">Regular Edge (access-link)</text>
+        <text x="175" y="140" text-anchor="middle" fill="var(--edge-color, #000000)">Regular Edge (connection)</text>
+        <text x="175" y="240" text-anchor="middle" fill="var(--edge-color, #000000)" id="temp-label" style="display: none;">Temporary Edge</text>
+      </g>
+    </svg>
+  </div>
+
+  <script>
+    let tempEdge = null;
+    
+    function toggleTheme() {
+      const link = document.getElementById('theme-link');
+      const currentHref = link.href;
+      
+      if (currentHref.includes('default.css')) {
+        link.href = 'themes/dark.css?v=047';
+        console.log('🌙 Switched to dark theme');
+      } else {
+        link.href = 'themes/default.css?v=047';
+        console.log('☀️ Switched to light theme');
+      }
+      
+      // Test colors after theme change
+      setTimeout(() => {
+        testArrowheadColors();
+      }, 200);
+    }
+    
+    function createTemporaryEdge() {
+      removeTemporaryEdge(); // Remove any existing temporary edge
+      
+      const container = document.getElementById('temp-edge-container');
+      tempEdge = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      tempEdge.setAttribute('class', 'temporary-edge');
+      tempEdge.setAttribute('d', 'M 50 200 L 300 200');
+      tempEdge.setAttribute('marker-end', 'url(#temp-arrowhead)');
+      tempEdge.setAttribute('fill', 'none');
+      tempEdge.setAttribute('stroke', '#ff6b6b');
+      tempEdge.setAttribute('stroke-width', '2');
+      tempEdge.setAttribute('stroke-dasharray', '5,5');
+      
+      container.appendChild(tempEdge);
+      document.getElementById('temp-label').style.display = 'block';
+      
+      console.log('✅ Temporary edge created');
+    }
+    
+    function removeTemporaryEdge() {
+      if (tempEdge) {
+        tempEdge.remove();
+        tempEdge = null;
+        document.getElementById('temp-label').style.display = 'none';
+        console.log('✅ Temporary edge removed');
+      }
+    }
+    
+    function testArrowheadColors() {
+      const results = document.getElementById('test-results');
+      const rootStyles = getComputedStyle(document.documentElement);
+      
+      // Get CSS variable values
+      const arrowheadColor = rootStyles.getPropertyValue('--arrowhead-color').trim();
+      const edgeColor = rootStyles.getPropertyValue('--edge-color').trim();
+      
+      // Test regular arrowhead
+      const regularArrowhead = document.querySelector('#arrowhead polygon');
+      const regularComputedFill = regularArrowhead ? window.getComputedStyle(regularArrowhead).fill : 'NOT FOUND';
+      
+      // Test temporary arrowhead
+      const tempArrowhead = document.querySelector('#temp-arrowhead polygon');
+      const tempComputedFill = tempArrowhead ? window.getComputedStyle(tempArrowhead).fill : 'NOT FOUND';
+      
+      // Check if theme colors are correct
+      const currentTheme = document.getElementById('theme-link').href.includes('dark.css') ? 'dark' : 'light';
+      const expectedArrowheadColor = currentTheme === 'dark' ? '#ffffff' : '#000000';
+      const expectedEdgeColor = currentTheme === 'dark' ? '#ffffff' : '#000000';
+      
+      results.innerHTML = `
+        <div class="result">
+          <strong>Theme:</strong> ${currentTheme}<br>
+          <strong>CSS Variables:</strong><br>
+          &nbsp;&nbsp;--arrowhead-color: ${arrowheadColor || 'NOT DEFINED'}<br>
+          &nbsp;&nbsp;--edge-color: ${edgeColor || 'NOT DEFINED'}<br>
+          <br>
+          <strong>Regular Arrowhead:</strong><br>
+          &nbsp;&nbsp;Expected: ${expectedArrowheadColor}<br>
+          &nbsp;&nbsp;Computed: ${regularComputedFill}<br>
+          &nbsp;&nbsp;Match: ${arrowheadColor === expectedArrowheadColor ? '✅ YES' : '❌ NO'}<br>
+          <br>
+          <strong>Temporary Arrowhead:</strong><br>
+          &nbsp;&nbsp;Expected: orange (#ff6b6b or #ff7675)<br>
+          &nbsp;&nbsp;Computed: ${tempComputedFill}<br>
+          &nbsp;&nbsp;Is Orange: ${tempComputedFill.includes('255, 107, 107') || tempComputedFill.includes('255, 118, 117') ? '✅ YES' : '❌ NO'}<br>
+        </div>
+      `;
+    }
+    
+    // Initial test
+    setTimeout(() => {
+      testArrowheadColors();
+    }, 100);
+  </script>
+</body>
+</html>

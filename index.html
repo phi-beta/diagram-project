@@ -7,10 +7,45 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Diagram Project</title>
-  <link rel="stylesheet" href="themes/default.css?v=006" id="theme-link">
+  <link rel="stylesheet" href="themes/default.css?v=048" id="theme-link">
+  <script>
+    // Ensure CSS is loaded before proceeding with initialization
+    function ensureCSSLoaded(callback) {
+      const testElement = document.createElement('div');
+      testElement.style.position = 'absolute';
+      testElement.style.visibility = 'hidden';
+      document.body.appendChild(testElement);
+      
+      const checkCSS = () => {
+        const rootStyles = getComputedStyle(document.documentElement);
+        const testColor = rootStyles.getPropertyValue('--grid-level-0').trim();
+        const testBackground = rootStyles.getPropertyValue('--grid-background').trim();
+        const diagramBg = rootStyles.getPropertyValue('--diagram-background').trim();
+        const bodyBg = rootStyles.getPropertyValue('--body-background').trim();
+        
+        if (testColor && testBackground && diagramBg && bodyBg) {
+          console.log('✅ CSS variables detected, proceeding with initialization');
+          document.body.removeChild(testElement);
+          callback();
+        } else {
+          console.log('🔄 Waiting for CSS variables...', { testColor, testBackground, diagramBg, bodyBg });
+          setTimeout(checkCSS, 50);
+        }
+      };
+      
+      // Start checking after a brief delay to let CSS load
+      setTimeout(checkCSS, 100);
+    }
+    
+    // Store the callback for later use
+    window.ensureCSSLoaded = ensureCSSLoaded;
+  </script>
 </head>
 <body>
   <button id="theme-toggle">Toggle Theme</button>
+  <button id="toggle-grid">Hide Grid</button>
+  <button id="toggle-edges">Hide Edges</button>
+  <button id="toggle-nodes">Hide Nodes</button>
   <button id="download-svg">Download SVG</button>
   <button id="download-png">Download PNG</button>
   <div id="viewport-indicators">
@@ -34,7 +69,11 @@
       <defs>
         <marker id="arrowhead" markerWidth="10" markerHeight="7" 
                 refX="9" refY="3.5" orient="auto">
-          <polygon points="0 0, 10 3.5, 0 7" fill="var(--edge-color, #666)"/>
+          <polygon points="0 0, 10 3.5, 0 7"/>
+        </marker>
+        <marker id="temp-arrowhead" markerWidth="10" markerHeight="7" 
+                refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#ff6b6b"/>
         </marker>
       </defs>
       <!-- All edges will be added here -->
@@ -73,6 +112,34 @@
       KEYBOARD: true,
       MOUSE: true
     };
-  </script>    <script type="module" src="js/renderer.js?v=108"></script>
+  </script>    <script type="module" src="js/renderer.js?v=127"></script>
+  <script src="test-fixes.js"></script>
+  <script>
+    // Function to update arrowhead color based on current theme
+    function updateArrowheadColor() {
+      const rootStyles = getComputedStyle(document.documentElement);
+      const arrowheadColor = rootStyles.getPropertyValue('--arrowhead-color').trim();
+      
+      const arrowheadPolygon = document.querySelector('#arrowhead polygon');
+      if (arrowheadPolygon && arrowheadColor) {
+        arrowheadPolygon.setAttribute('fill', arrowheadColor);
+      }
+    }
+
+    // Update arrowhead color when CSS is loaded
+    function ensureArrowheadColor() {
+      setTimeout(updateArrowheadColor, 50);
+    }
+
+    // Update on page load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', ensureArrowheadColor);
+    } else {
+      ensureArrowheadColor();
+    }
+
+    // Store function globally for theme changes
+    window.updateArrowheadColor = updateArrowheadColor;
+  </script>
 </body>
 </html>

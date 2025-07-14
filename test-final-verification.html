@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final Fix Verification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            margin: 8px 0;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .test-results {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            background-color: #f8f9fa;
+        }
+        .summary {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .metric {
+            display: inline-block;
+            margin: 5px 10px;
+            padding: 5px 10px;
+            background-color: white;
+            border-radius: 3px;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Edge & Node Duplication Fix Verification</h1>
+    
+    <div class="test-container">
+        <h2>Test Control Panel</h2>
+        <button onclick="runAllTests()">🚀 Run All Tests</button>
+        <button onclick="testEdgeLoading()">📍 Test Edge Loading</button>
+        <button onclick="testNodeDuplication()">📍 Test Node Duplication</button>
+        <button onclick="testEdgeCreation()">📍 Test Edge Creation</button>
+        <button onclick="clearResults()">🧹 Clear Results</button>
+        <button onclick="reloadPage()">🔄 Reload Page</button>
+    </div>
+    
+    <div class="test-container">
+        <h2>Test Results</h2>
+        <div id="test-results" class="test-results"></div>
+    </div>
+    
+    <div class="test-container">
+        <h2>Main Application</h2>
+        <iframe src="index.html" width="100%" height="500" style="border: 1px solid #ddd; border-radius: 5px;"></iframe>
+    </div>
+    
+    <div class="summary">
+        <h3>Summary</h3>
+        <div id="summary-metrics">
+            <div class="metric">Total Tests: <span id="total-tests">0</span></div>
+            <div class="metric">Passed: <span id="passed-tests">0</span></div>
+            <div class="metric">Failed: <span id="failed-tests">0</span></div>
+            <div class="metric">Warnings: <span id="warning-tests">0</span></div>
+        </div>
+    </div>
+
+    <script>
+        let testResults = document.getElementById('test-results');
+        let testCounts = { total: 0, passed: 0, failed: 0, warnings: 0 };
+        
+        function updateSummary() {
+            document.getElementById('total-tests').textContent = testCounts.total;
+            document.getElementById('passed-tests').textContent = testCounts.passed;
+            document.getElementById('failed-tests').textContent = testCounts.failed;
+            document.getElementById('warning-tests').textContent = testCounts.warnings;
+        }
+        
+        function logStatus(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            testResults.appendChild(div);
+            testResults.scrollTop = testResults.scrollHeight;
+            
+            testCounts.total++;
+            if (type === 'success') testCounts.passed++;
+            else if (type === 'error') testCounts.failed++;
+            else if (type === 'warning') testCounts.warnings++;
+            
+            updateSummary();
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function clearResults() {
+            testResults.innerHTML = '';
+            testCounts = { total: 0, passed: 0, failed: 0, warnings: 0 };
+            updateSummary();
+        }
+        
+        function reloadPage() {
+            window.location.reload();
+        }
+        
+        async function waitForApp() {
+            return new Promise(resolve => setTimeout(resolve, 3000));
+        }
+        
+        async function testEdgeLoading() {
+            logStatus('🔍 Testing edge loading on app startup...', 'info');
+            
+            await waitForApp();
+            
+            try {
+                const iframe = document.querySelector('iframe');
+                const iframeWindow = iframe.contentWindow;
+                
+                if (!iframeWindow) {
+                    logStatus('❌ Cannot access iframe window', 'error');
+                    return false;
+                }
+                
+                // Check if layerManager is available
+                if (iframeWindow.layerManager) {
+                    logStatus('✅ LayerManager available in app', 'success');
+                } else {
+                    logStatus('❌ LayerManager not available in app', 'error');
+                    return false;
+                }
+                
+                // Check if nodeMap is available
+                if (iframeWindow.nodeMap) {
+                    logStatus(`✅ NodeMap available with ${iframeWindow.nodeMap.size} nodes`, 'success');
+                } else {
+                    logStatus('❌ NodeMap not available in app', 'error');
+                    return false;
+                }
+                
+                // Check if edgeList is available
+                if (iframeWindow.edgeList) {
+                    logStatus(`✅ EdgeList available with ${iframeWindow.edgeList.length} edges`, 'success');
+                } else {
+                    logStatus('❌ EdgeList not available in app', 'error');
+                    return false;
+                }
+                
+                // Check if edges are actually visible in the DOM
+                const svg = iframeWindow.document.getElementById('diagram');
+                if (svg) {
+                    const edgesLayer = svg.querySelector('#edges-layer');
+                    if (edgesLayer) {
+                        const edgeElements = edgesLayer.querySelectorAll('g.edge');
+                        logStatus(`✅ Found ${edgeElements.length} edge elements in DOM`, 'success');
+                        
+                        if (edgeElements.length > 0) {
+                            logStatus('✅ Edges are visible on load', 'success');
+                            return true;
+                        } else {
+                            logStatus('⚠️ No edges found in DOM', 'warning');
+                            return false;
+                        }
+                    } else {
+                        logStatus('❌ Edges layer not found', 'error');
+                        return false;
+                    }
+                } else {
+                    logStatus('❌ SVG diagram not found', 'error');
+                    return false;
+                }
+                
+            } catch (error) {
+                logStatus(`❌ Error testing edge loading: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function testNodeDuplication() {
+            logStatus('🔍 Testing node duplication...', 'info');
+            
+            await waitForApp();
+            
+            try {
+                const iframe = document.querySelector('iframe');
+                const iframeWindow = iframe.contentWindow;
+                
+                if (!iframeWindow || !iframeWindow.nodeMap || iframeWindow.nodeMap.size === 0) {
+                    logStatus('❌ No nodes available for duplication', 'error');
+                    return false;
+                }
+                
+                const firstNode = Array.from(iframeWindow.nodeMap.values())[0];
+                logStatus(`🔄 Attempting to duplicate node: ${firstNode.id}`, 'info');
+                
+                const svg = iframeWindow.document.getElementById('diagram');
+                const clonedNode = await firstNode.clone(
+                    svg,
+                    iframeWindow.viewBoxManager.coordinateSystem,
+                    iframeWindow.dragManager,
+                    iframeWindow.layerManager
+                );
+                
+                if (clonedNode) {
+                    logStatus(`✅ Node duplicated successfully: ${clonedNode.id}`, 'success');
+                    
+                    // Check if the cloned node is in the DOM
+                    const nodesLayer = svg.querySelector('#nodes-layer');
+                    const clonedElement = nodesLayer.querySelector(`[data-node-id="${clonedNode.id}"]`);
+                    
+                    if (clonedElement) {
+                        logStatus('✅ Cloned node found in DOM', 'success');
+                        return true;
+                    } else {
+                        logStatus('❌ Cloned node not found in DOM', 'error');
+                        return false;
+                    }
+                } else {
+                    logStatus('❌ Node duplication returned null', 'error');
+                    return false;
+                }
+                
+            } catch (error) {
+                logStatus(`❌ Node duplication failed: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function testEdgeCreation() {
+            logStatus('🔍 Testing edge creation from scratch...', 'info');
+            
+            await waitForApp();
+            
+            try {
+                const iframe = document.querySelector('iframe');
+                const iframeWindow = iframe.contentWindow;
+                
+                if (!iframeWindow || !iframeWindow.nodeMap || iframeWindow.nodeMap.size < 2) {
+                    logStatus('❌ Need at least 2 nodes for edge creation', 'error');
+                    return false;
+                }
+                
+                const nodes = Array.from(iframeWindow.nodeMap.values());
+                const fromNode = nodes[0];
+                const toNode = nodes[1];
+                
+                logStatus(`🔄 Creating edge from ${fromNode.id} to ${toNode.id}`, 'info');
+                
+                // Import Edge class from the iframe context
+                const EdgeModule = await iframeWindow.eval(`import('./js/Edge.js')`);
+                const Edge = EdgeModule.Edge;
+                
+                const edgeData = {
+                    id: 'test-edge-' + Date.now(),
+                    from: fromNode.id,
+                    to: toNode.id,
+                    class: 'test-connection'
+                };
+                
+                const svg = iframeWindow.document.getElementById('diagram');
+                const edge = Edge.createEdge(edgeData, svg, iframeWindow.layerManager);
+                
+                if (edge) {
+                    logStatus(`✅ Edge created: ${edge.id}`, 'success');
+                    
+                    // Test edge path update
+                    const updateResult = edge.updatePath(fromNode, toNode);
+                    if (updateResult !== false) {
+                        logStatus('✅ Edge path updated successfully', 'success');
+                        
+                        // Check if edge is in DOM
+                        const edgesLayer = svg.querySelector('#edges-layer');
+                        const edgeElement = edgesLayer.querySelector(`[data-edge-id="${edge.id}"]`);
+                        
+                        if (edgeElement) {
+                            logStatus('✅ Edge found in DOM', 'success');
+                            return true;
+                        } else {
+                            logStatus('❌ Edge not found in DOM', 'error');
+                            return false;
+                        }
+                    } else {
+                        logStatus('❌ Edge path update failed', 'error');
+                        return false;
+                    }
+                } else {
+                    logStatus('❌ Edge creation returned null', 'error');
+                    return false;
+                }
+                
+            } catch (error) {
+                logStatus(`❌ Edge creation failed: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function runAllTests() {
+            logStatus('🚀 Starting comprehensive test suite...', 'info');
+            clearResults();
+            
+            const results = {
+                edgeLoading: await testEdgeLoading(),
+                nodeDuplication: await testNodeDuplication(),
+                edgeCreation: await testEdgeCreation()
+            };
+            
+            logStatus('📊 Test Results Summary:', 'info');
+            logStatus(`  Edge Loading: ${results.edgeLoading ? '✅ PASS' : '❌ FAIL'}`, results.edgeLoading ? 'success' : 'error');
+            logStatus(`  Node Duplication: ${results.nodeDuplication ? '✅ PASS' : '❌ FAIL'}`, results.nodeDuplication ? 'success' : 'error');
+            logStatus(`  Edge Creation: ${results.edgeCreation ? '✅ PASS' : '❌ FAIL'}`, results.edgeCreation ? 'success' : 'error');
+            
+            const allPassed = Object.values(results).every(result => result === true);
+            logStatus(`🎯 Overall Result: ${allPassed ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED'}`, allPassed ? 'success' : 'error');
+            
+            if (allPassed) {
+                logStatus('🎉 All fixes are working correctly!', 'success');
+            } else {
+                logStatus('⚠️ Some issues remain, check the individual test results above', 'warning');
+            }
+            
+            return results;
+        }
+        
+        // Auto-run tests when page loads
+        window.addEventListener('load', () => {
+            setTimeout(runAllTests, 2000);
+        });
+    </script>
+</body>
+</html>

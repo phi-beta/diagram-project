@@ -180,7 +180,9 @@ export class NodeRenderer {
     // Set both the specific type class AND the general 'node' class
     g.setAttribute('class', `node ${nodeData.class}`);
     g.innerHTML = nodeData.svg;
-    svg.appendChild(g);
+    
+    // Add to nodes layer via LayerManager
+    window.layerManager.addToLayer('nodes', g);
     
     const renderer = new NodeRenderer(nodeData, g);
     renderer.updateTransform();
@@ -1220,7 +1222,7 @@ export class Node {
   }
 
   // Clone method for backward compatibility (used by renderer.js)
-  async clone(svg, coordinateSystem = null, dragManager = null) {
+  async clone(svg, coordinateSystem = null, dragManager = null, layerManager = null) {
     // Create a duplicate of the node data with new GUID
     const duplicatedNodeData = this.nodeData.duplicate();
     
@@ -1246,8 +1248,18 @@ export class Node {
     const scale = duplicatedNodeData.scale ?? 1;
     g.setAttribute('transform', `translate(${duplicatedNodeData.x}, ${duplicatedNodeData.y}) scale(${scale})`);
     
-    // Append to SVG
-    svg.appendChild(g);
+    // Add to nodes layer via LayerManager
+    const manager = layerManager || window.layerManager;
+    if (manager) {
+      manager.addToLayer('nodes', g);
+    } else {
+      console.error('No layerManager available for node cloning');
+      // Fallback: add to nodes layer directly
+      const nodesLayer = svg.querySelector('#nodes-layer');
+      if (nodesLayer) {
+        nodesLayer.appendChild(g);
+      }
+    }
     
     // Create new Node instance with the duplicated data and new element
     const clonedNode = new Node(duplicatedNodeData.toData(), g);
