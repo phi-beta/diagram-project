@@ -2,13 +2,15 @@
 import { Node } from './Node.js?v=065';
 import { Edge } from './Edge.js?v=011';
 import { ViewBoxManager } from './ViewBoxManager.js?v=002';
-import { DragManager } from './DragManager.js?v=051';
+import { DragManager } from './DragManager.js?v=052';
 import { InteractionManager } from './InteractionManager.js?v=082';
 import { LayerManager } from './LayerManager.js?v=011';
 import { GridManager } from './GridManager.js?v=020';
+import { ScreenLayoutManager } from './ScreenLayoutManager.js?v=001';
+import { ScreenLayoutUI } from './ScreenLayoutUI.js?v=001';
 import { generateGuid, clearGuidRegistry, initializeFromExisting } from './GuidManager.js';
 import { nodeStateManager } from './NodeStateManager.js?v=025';
-import { ContextMenu } from './ContextMenu.js?v=008';
+import { EnhancedContextMenu } from './EnhancedContextMenu.js';
 import { DiagramStateManager, diagramStateManager } from './DiagramStateManager.js?v=010';
 
 // Global variables for diagram state
@@ -23,6 +25,8 @@ let dragManager = null;
 let layerManager = null;
 let gridManager = null;
 let interactionManager = null;
+let screenLayoutManager = null;
+let screenLayoutUI = null;
 // Use singleton instance instead of creating new one
 // let diagramStateManager = null;
 
@@ -210,7 +214,7 @@ async function loadLayout() {
   const currentViewBox = viewBoxManager.getCurrentViewBox();
   gridManager.updateGrid(currentViewBox.x, currentViewBox.y, currentViewBox.width, currentViewBox.height);
   
-  interactionManager = new InteractionManager(svg, viewBoxManager, dragManager, nodeMap, layerManager);
+  interactionManager = new InteractionManager(svg, viewBoxManager, dragManager, nodeMap, layerManager, edgeList);
   
   // Initialize NodeStateManager
   console.log('🔧 About to initialize NodeStateManager...');
@@ -243,6 +247,21 @@ async function loadLayout() {
   } catch (error) {
     console.error('❌ DiagramStateManager initialization failed:', error);
     console.warn('⚠️ DiagramStateManager initialization failed, falling back to legacy behavior:', error);
+  }
+  
+  // Initialize ScreenLayoutManager
+  console.log('🔧 About to initialize ScreenLayoutManager...');
+  try {
+    screenLayoutManager = new ScreenLayoutManager(svg, viewBoxManager);
+    await screenLayoutManager.loadLayouts();
+    
+    // Initialize UI
+    screenLayoutUI = new ScreenLayoutUI(screenLayoutManager);
+    
+    console.log('✅ ScreenLayoutManager initialized successfully');
+  } catch (error) {
+    console.error('❌ ScreenLayoutManager initialization failed:', error);
+    console.warn('⚠️ ScreenLayoutManager initialization failed, continuing without layout selection:', error);
   }
   console.log('🔧 DiagramStateManager initialization complete, proceeding...');
   
@@ -346,6 +365,18 @@ async function loadLayout() {
   const downloadPngButton = document.getElementById('download-png');
   if (downloadPngButton) {
     downloadPngButton.addEventListener('click', downloadPNG);
+  }
+
+  // Add screen layout button handler
+  const screenLayoutButton = document.getElementById('screen-layout-btn');
+  if (screenLayoutButton) {
+    screenLayoutButton.addEventListener('click', () => {
+      if (screenLayoutUI) {
+        screenLayoutUI.toggle();
+      } else {
+        console.warn('⚠️ Screen layout UI not initialized');
+      }
+    });
   }
 
   // Initialize GUID registry with existing data to avoid collisions
@@ -460,6 +491,10 @@ async function createNode(nodeData) {
   
   return node;
 }
+
+// Export createNode to global scope for use by context menu actions
+window.createNode = createNode;
+window.duplicateSelectedNode = duplicateSelectedNode;
 
 function toggleTheme() {
   const link = document.getElementById('theme-link');
@@ -897,7 +932,28 @@ export const renderer = {
     // Initialize GridManager
     gridManager = new GridManager(svg);
     
-    interactionManager = new InteractionManager(svg, viewBoxManager, dragManager, nodeMap, layerManager);
+    interactionManager = new InteractionManager(svg, viewBoxManager, dragManager, nodeMap, layerManager, edgeList);
+    
+    // Initialize ScreenLayoutManager
+    screenLayoutManager = new ScreenLayoutManager(svg, viewBoxManager);
+    await screenLayoutManager.loadLayouts();
+    
+    // Initialize UI
+    screenLayoutUI = new ScreenLayoutUI(screenLayoutManager);
+    
+    return {
+      success: true,
+      nodeMap,
+      edgeList,
+      svg,
+      viewBoxManager,
+      dragManager,
+      layerManager,
+      gridManager,
+      interactionManager,
+      screenLayoutManager,
+      screenLayoutUI
+    };
     
     // Initialize coordinate system (needed for node center calculations)
     const coordinateSystem = viewBoxManager.coordinateSystem;
@@ -960,5 +1016,102 @@ export const renderer = {
   
   getNodeMap: () => nodeMap,
   getEdgeList: () => edgeList,
-  getSvg: () => svg
+  getSvg: () => svg,
+  getScreenLayoutManager: () => screenLayoutManager,
+  getScreenLayoutUI: () => screenLayoutUI
 };
+
+/**
+ * Initialize the renderer with all components
+ * @returns {Promise<Object>} Initialization result with all components
+ */
+export async function initializeRenderer() {
+  try {
+    // Initialize all components
+    svg = document.getElementById('diagram');
+    if (!svg) {
+      throw new Error('SVG element not found');
+    }
+    
+    // Initialize managers
+    viewBoxManager = new ViewBoxManager(svg);
+    dragManager = new DragManager(viewBoxManager);
+    layerManager = new LayerManager(svg);
+    
+    // Make layerManager available globally for backward compatibility
+    window.layerManager = layerManager;
+    
+    // Initialize GridManager
+    gridManager = new GridManager(svg, layerManager);
+    
+    // Connect GridManager to ViewBoxManager for automatic grid updates
+    viewBoxManager.onViewBoxChange((oldViewBox, newViewBox) => {
+      gridManager.updateGrid(newViewBox.x, newViewBox.y, newViewBox.width, newViewBox.height);
+    });
+    
+    // Initialize grid with current viewBox
+    const currentViewBox = viewBoxManager.getCurrentViewBox();
+    gridManager.updateGrid(currentViewBox.x, currentViewBox.y, currentViewBox.width, currentViewBox.height);
+    
+    interactionManager = new InteractionManager(svg, viewBoxManager, dragManager, nodeMap, layerManager, edgeList);
+    
+    // Initialize NodeStateManager
+    try {
+      await nodeStateManager.initialize(interactionManager, 'config/node-state-machine.json');
+      console.log('✅ NodeStateManager initialized successfully');
+    } catch (error) {
+      console.warn('⚠️ NodeStateManager initialization failed, falling back to legacy behavior:', error);
+    }
+    
+    // Initialize DiagramStateManager (singleton)
+    try {
+      const diagramComponents = {
+        interactionManager,
+        nodeStateManager,
+        dragManager,
+        viewBoxManager,
+        svg,
+        nodeMap,
+        layerManager
+      };
+      await diagramStateManager.initialize(diagramComponents);
+      console.log('✅ DiagramStateManager initialized successfully');
+    } catch (error) {
+      console.warn('⚠️ DiagramStateManager initialization failed, falling back to legacy behavior:', error);
+    }
+    
+    // Initialize ScreenLayoutManager
+    try {
+      screenLayoutManager = new ScreenLayoutManager(svg, viewBoxManager);
+      await screenLayoutManager.loadLayouts();
+      
+      // Initialize UI
+      screenLayoutUI = new ScreenLayoutUI(screenLayoutManager);
+      
+      console.log('✅ ScreenLayoutManager initialized successfully');
+    } catch (error) {
+      console.warn('⚠️ ScreenLayoutManager initialization failed, continuing without layout selection:', error);
+    }
+    
+    return {
+      success: true,
+      nodeMap,
+      edgeList,
+      svg,
+      viewBoxManager,
+      dragManager,
+      layerManager,
+      gridManager,
+      interactionManager,
+      screenLayoutManager,
+      screenLayoutUI,
+      diagramStateManager
+    };
+  } catch (error) {
+    console.error('❌ Renderer initialization failed:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Coordinate Transformation</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; }
+        .controls { padding: 10px; background: #f0f0f0; }
+        svg { border: 1px solid #ccc; width: 100%; height: 500px; }
+        button { margin: 5px; padding: 5px 10px; }
+        .debug { background: #fff; padding: 10px; margin: 10px; border-radius: 5px; font-family: monospace; font-size: 12px; }
+        .crosshair { stroke: red; stroke-width: 2; fill: none; }
+        .node { fill: blue; stroke: black; stroke-width: 2; }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button onclick="zoomIn()">Zoom In</button>
+        <button onclick="zoomOut()">Zoom Out</button>
+        <button onclick="resetZoom()">Reset Zoom</button>
+        <span id="zoom-info">Zoom: 1.0</span>
+    </div>
+    
+    <svg id="canvas" viewBox="0 0 800 600">
+        <rect width="100%" height="100%" fill="#f8f8f8"/>
+        <!-- Crosshair to show mouse position -->
+        <line id="crosshair-h" class="crosshair" x1="0" y1="0" x2="0" y2="0"/>
+        <line id="crosshair-v" class="crosshair" x1="0" y1="0" x2="0" y2="0"/>
+        <!-- Node that follows mouse -->
+        <circle id="node" class="node" cx="400" cy="300" r="10"/>
+    </svg>
+    
+    <div class="debug" id="debug">Move mouse over SVG to see coordinate transformation</div>
+
+    <script type="module">
+        import { CoordinateSystem } from './js/CoordinateSystem.js?v=003';
+        
+        const svg = document.getElementById('canvas');
+        const node = document.getElementById('node');
+        const debug = document.getElementById('debug');
+        const zoomInfo = document.getElementById('zoom-info');
+        const crosshairH = document.getElementById('crosshair-h');
+        const crosshairV = document.getElementById('crosshair-v');
+        
+        const coordinateSystem = new CoordinateSystem(svg);
+        
+        let currentZoom = 1.0;
+        
+        function updateDebug(event) {
+            const rect = svg.getBoundingClientRect();
+            const viewBox = svg.viewBox.baseVal;
+            const viewBoxPos = coordinateSystem.screenToViewBox(event.clientX, event.clientY);
+            
+            // Update crosshair to show calculated position
+            crosshairH.setAttribute('x1', viewBoxPos.x - 20);
+            crosshairH.setAttribute('y1', viewBoxPos.y);
+            crosshairH.setAttribute('x2', viewBoxPos.x + 20);
+            crosshairH.setAttribute('y2', viewBoxPos.y);
+            
+            crosshairV.setAttribute('x1', viewBoxPos.x);
+            crosshairV.setAttribute('y1', viewBoxPos.y - 20);
+            crosshairV.setAttribute('x2', viewBoxPos.x);
+            crosshairV.setAttribute('y2', viewBoxPos.y + 20);
+            
+            // Update node to follow mouse
+            node.setAttribute('cx', viewBoxPos.x);
+            node.setAttribute('cy', viewBoxPos.y);
+            
+            debug.innerHTML = `
+                <strong>Coordinate Transformation Test</strong><br>
+                Screen: (${event.clientX}, ${event.clientY})<br>
+                ViewBox: (${viewBoxPos.x.toFixed(1)}, ${viewBoxPos.y.toFixed(1)})<br>
+                Node: (${parseFloat(node.getAttribute('cx')).toFixed(1)}, ${parseFloat(node.getAttribute('cy')).toFixed(1)})<br>
+                Zoom: ${currentZoom.toFixed(2)}<br>
+                SVG Rect: ${rect.width.toFixed(1)}x${rect.height.toFixed(1)}<br>
+                ViewBox Rect: ${viewBox.width.toFixed(1)}x${viewBox.height.toFixed(1)}<br>
+                Scale: ${(viewBox.width / rect.width).toFixed(3)}<br>
+                <br>
+                <strong>Expected:</strong> Red crosshair and blue node should be exactly at mouse cursor
+            `;
+        }
+        
+        function zoomIn() {
+            currentZoom *= 1.2;
+            updateViewBox();
+        }
+        
+        function zoomOut() {
+            currentZoom /= 1.2;
+            updateViewBox();
+        }
+        
+        function resetZoom() {
+            currentZoom = 1.0;
+            updateViewBox();
+        }
+        
+        function updateViewBox() {
+            const centerX = 400;
+            const centerY = 300;
+            const baseWidth = 800;
+            const baseHeight = 600;
+            
+            const width = baseWidth / currentZoom;
+            const height = baseHeight / currentZoom;
+            
+            const x = centerX - width / 2;
+            const y = centerY - height / 2;
+            
+            svg.setAttribute('viewBox', `${x} ${y} ${width} ${height}`);
+            zoomInfo.textContent = `Zoom: ${currentZoom.toFixed(2)}`;
+        }
+        
+        // Mouse move handler
+        svg.addEventListener('mousemove', updateDebug);
+        
+        // Make functions global for buttons
+        window.zoomIn = zoomIn;
+        window.zoomOut = zoomOut;
+        window.resetZoom = resetZoom;
+    </script>
+</body>
+</html>

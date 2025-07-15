@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Zoom-Drag Behavior</title>
+    <style>
+        body { 
+            margin: 0; 
+            font-family: Arial, sans-serif; 
+            background-color: #f0f0f0;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .toolbar {
+            background: #333;
+            color: white;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toolbar button {
+            padding: 8px 16px;
+            background: #555;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .toolbar button:hover {
+            background: #777;
+        }
+        .toolbar button:active {
+            background: #999;
+        }
+        .info {
+            background: #444;
+            color: #ccc;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        .canvas-container {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+        svg {
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+        .node {
+            cursor: pointer;
+            transition: stroke-width 0.1s ease;
+        }
+        .node:hover {
+            stroke-width: 3px;
+        }
+        .node.dragging {
+            stroke-width: 4px;
+            stroke: #ff6b6b;
+        }
+        .instructions {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 5px;
+            max-width: 300px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .instructions ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 5px 0;
+        }
+        .debug-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-family: monospace;
+            line-height: 1.2;
+            max-width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="toolbar">
+            <button onclick="createNode()">Create Node</button>
+            <button onclick="zoomIn()">Zoom In (+)</button>
+            <button onclick="zoomOut()">Zoom Out (-)</button>
+            <button onclick="resetZoom()">Reset Zoom</button>
+            <button onclick="clearNodes()">Clear All</button>
+            <div class="info">
+                <span id="zoom-level">Zoom: 100%</span>
+                <span style="margin-left: 20px;" id="node-count">Nodes: 0</span>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <svg id="canvas" viewBox="0 0 800 600">
+                <defs>
+                    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#ddd" stroke-width="1"/>
+                    </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid)"/>
+            </svg>
+            
+            <div class="instructions">
+                <h3>Test Zoom-Drag Behavior</h3>
+                <ol>
+                    <li>Click "Create Node" to add a node</li>
+                    <li>Drag the node - it should follow cursor exactly</li>
+                    <li>Use zoom buttons to change zoom level</li>
+                    <li>Try dragging again - should still follow cursor</li>
+                    <li>Test at different zoom levels (25%, 200%, etc.)</li>
+                </ol>
+                <p><strong>Expected:</strong> Node follows cursor exactly at all zoom levels</p>
+            </div>
+            
+            <div class="debug-info" id="debug-info">
+                Debug info will appear here...
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { CoordinateSystem } from './js/CoordinateSystem.js?v=003';
+        
+        const svg = document.getElementById('canvas');
+        const zoomLevel = document.getElementById('zoom-level');
+        const nodeCount = document.getElementById('node-count');
+        const debugInfo = document.getElementById('debug-info');
+        
+        const coordinateSystem = new CoordinateSystem(svg);
+        
+        let currentZoom = 1.0;
+        let nodes = [];
+        let dragState = null;
+        let nodeIdCounter = 0;
+        
+        function updateDebugInfo(event, type) {
+            if (!event) return;
+            
+            const rect = svg.getBoundingClientRect();
+            const viewBox = svg.viewBox.baseVal;
+            
+            const scaleX = viewBox.width / rect.width;
+            const scaleY = viewBox.height / rect.height;
+            
+            const screenX = event.clientX;
+            const screenY = event.clientY;
+            
+            const svgCoords = coordinateSystem.screenToViewBox(screenX, screenY);
+            
+            debugInfo.innerHTML = `
+                <strong>Event: ${type}</strong><br>
+                Screen: (${screenX.toFixed(1)}, ${screenY.toFixed(1)})<br>
+                ViewBox: (${viewBox.x.toFixed(1)}, ${viewBox.y.toFixed(1)}, ${viewBox.width.toFixed(1)}, ${viewBox.height.toFixed(1)})<br>
+                Scale: (${scaleX.toFixed(3)}, ${scaleY.toFixed(3)})<br>
+                SVG Coords: (${svgCoords.x.toFixed(1)}, ${svgCoords.y.toFixed(1)})<br>
+                Zoom: ${currentZoom.toFixed(2)}<br>
+                ${dragState ? `
+                    <strong>DRAGGING:</strong><br>
+                    Node: ${dragState.nodeId}<br>
+                    Start Screen: (${dragState.startScreenX.toFixed(1)}, ${dragState.startScreenY.toFixed(1)})<br>
+                    Start Node: (${dragState.startNodeX.toFixed(1)}, ${dragState.startNodeY.toFixed(1)})<br>
+                    Current Node: (${dragState.element.getAttribute('cx')}, ${dragState.element.getAttribute('cy')})<br>
+                    Delta: (${(screenX - dragState.startScreenX).toFixed(1)}, ${(screenY - dragState.startScreenY).toFixed(1)})
+                ` : ''}
+            `;
+        }
+        
+        function createNode() {
+            const centerX = 400;
+            const centerY = 300;
+            const radius = 20;
+            const nodeId = `node-${++nodeIdCounter}`;
+            
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('id', nodeId);
+            circle.setAttribute('cx', centerX);
+            circle.setAttribute('cy', centerY);
+            circle.setAttribute('r', radius);
+            circle.setAttribute('fill', '#4CAF50');
+            circle.setAttribute('stroke', '#333');
+            circle.setAttribute('stroke-width', '2');
+            circle.setAttribute('class', 'node');
+            
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', centerX);
+            text.setAttribute('y', centerY + 4);
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('fill', 'white');
+            text.setAttribute('font-size', '12');
+            text.setAttribute('pointer-events', 'none');
+            text.textContent = nodeId;
+            
+            svg.appendChild(circle);
+            svg.appendChild(text);
+            
+            nodes.push({ id: nodeId, circle, text });
+            updateNodeCount();
+            
+            // Add event listeners
+            circle.addEventListener('mousedown', (e) => startDrag(e, nodeId, circle, text));
+        }
+        
+        function startDrag(e, nodeId, circle, text) {
+            dragState = {
+                nodeId: nodeId,
+                element: circle,
+                textElement: text,
+                startScreenX: e.clientX,
+                startScreenY: e.clientY,
+                startNodeX: parseFloat(circle.getAttribute('cx')),
+                startNodeY: parseFloat(circle.getAttribute('cy'))
+            };
+            
+            circle.classList.add('dragging');
+            updateDebugInfo(e, 'mousedown');
+            e.preventDefault();
+        }
+        
+        function updateDrag(e) {
+            if (!dragState) return;
+            
+            // Use CoordinateSystem approach (same as fixed DragManager)
+            const currentScreenPos = coordinateSystem.screenToViewBox(e.clientX, e.clientY);
+            const startScreenPos = coordinateSystem.screenToViewBox(dragState.startScreenX, dragState.startScreenY);
+            
+            const viewBoxDeltaX = currentScreenPos.x - startScreenPos.x;
+            const viewBoxDeltaY = currentScreenPos.y - startScreenPos.y;
+            
+            const newX = dragState.startNodeX + viewBoxDeltaX;
+            const newY = dragState.startNodeY + viewBoxDeltaY;
+            
+            dragState.element.setAttribute('cx', newX);
+            dragState.element.setAttribute('cy', newY);
+            dragState.textElement.setAttribute('x', newX);
+            dragState.textElement.setAttribute('y', newY + 4);
+            
+            updateDebugInfo(e, 'mousemove');
+        }
+        
+        function stopDrag(e) {
+            if (!dragState) return;
+            
+            dragState.element.classList.remove('dragging');
+            updateDebugInfo(e, 'mouseup');
+            dragState = null;
+        }
+        
+        function zoomIn() {
+            currentZoom *= 1.2;
+            updateViewBox();
+        }
+        
+        function zoomOut() {
+            currentZoom /= 1.2;
+            updateViewBox();
+        }
+        
+        function resetZoom() {
+            currentZoom = 1.0;
+            updateViewBox();
+        }
+        
+        function updateViewBox() {
+            const centerX = 400;
+            const centerY = 300;
+            const baseWidth = 800;
+            const baseHeight = 600;
+            
+            const width = baseWidth / currentZoom;
+            const height = baseHeight / currentZoom;
+            
+            const x = centerX - width / 2;
+            const y = centerY - height / 2;
+            
+            svg.setAttribute('viewBox', `${x} ${y} ${width} ${height}`);
+            zoomLevel.textContent = `Zoom: ${Math.round(currentZoom * 100)}%`;
+        }
+        
+        function clearNodes() {
+            nodes.forEach(node => {
+                node.circle.remove();
+                node.text.remove();
+            });
+            nodes = [];
+            updateNodeCount();
+        }
+        
+        function updateNodeCount() {
+            nodeCount.textContent = `Nodes: ${nodes.length}`;
+        }
+        
+        // Global event listeners
+        document.addEventListener('mousemove', updateDrag);
+        document.addEventListener('mouseup', stopDrag);
+        
+        // Make functions global for buttons
+        window.createNode = createNode;
+        window.zoomIn = zoomIn;
+        window.zoomOut = zoomOut;
+        window.resetZoom = resetZoom;
+        window.clearNodes = clearNodes;
+        
+        // Initialize
+        updateDebugInfo({ clientX: 0, clientY: 0 }, 'init');
+    </script>
+</body>
+</html>

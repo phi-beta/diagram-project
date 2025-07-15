@@ -506,7 +506,7 @@ export class NodeRenderer {
               this.startScale = this.nodeData.scale ?? 1;
             } else {
               if (this.dragManager) {
-                this.dragManager.startDrag(this, mousePos.x, mousePos.y);
+                this.dragManager.startDrag(this, mousePos.x, mousePos.y, e);
               } else {
                 this.dragStartMousePos = { x: mousePos.x, y: mousePos.y };
                 this.dragStartNodePos = { x: this.nodeData.x, y: this.nodeData.y };
@@ -580,7 +580,7 @@ export class NodeRenderer {
     } else {
       // Use DragManager for movement operations
       if (this.dragManager) {
-        this.dragManager.startDrag(this, mousePos.x, mousePos.y);
+        this.dragManager.startDrag(this, mousePos.x, mousePos.y, e);
       } else {
         // Fallback to old method if dragManager not available
         this.dragStartMousePos = { x: mousePos.x, y: mousePos.y };
@@ -620,7 +620,7 @@ export class NodeRenderer {
           } else {
             // Initialize dragging parameters
             if (this.dragManager) {
-              this.dragManager.startDrag(this, mousePos.x, mousePos.y);
+              this.dragManager.startDrag(this, mousePos.x, mousePos.y, e);
             } else {
               this.dragStartMousePos = { x: mousePos.x, y: mousePos.y };
               this.dragStartNodePos = { x: this.nodeData.x, y: this.nodeData.y };
@@ -669,7 +669,7 @@ export class NodeRenderer {
         if (this.dragManager) {
           // Stop current drag and start new one
           this.dragManager.stopDrag(this);
-          this.dragManager.startDrag(this, mouseXInSvg, mouseYInSvg);
+          this.dragManager.startDrag(this, mouseXInSvg, mouseYInSvg, e);
         } else {
           // Fallback to old method
           this.dragStartMousePos = { x: mouseXInSvg, y: mouseYInSvg };
@@ -715,7 +715,7 @@ export class NodeRenderer {
     } else {
       // Use DragManager for movement operations
       if (this.dragManager) {
-        this.dragManager.updateDrag(this, mouseXInSvg, mouseYInSvg);
+        this.dragManager.updateDrag(this, mouseXInSvg, mouseYInSvg, e);
       } else {
         // Fallback to old method
         const deltaX = mouseXInSvg - this.dragStartMousePos.x;
@@ -1222,6 +1222,9 @@ export class Node {
     // Set external dependencies
     this.coordinateSystem = coordinateSystem;
     this.dragManager = dragManager;
+    
+    // Debug logging
+    console.log(`📦 Node ${this.id} makeDraggable called with dragManager:`, dragManager ? `ID: ${dragManager.id}` : 'null');
     
     // Setup event listeners using the new API
     this.nodeRenderer.setupEventListeners(svg, getShiftDown, selectCallback, scheduleRedrawCallback, isEdgeCreationMode, cancelEdgeCreationCallback, startEdgeCreationCallback, getMousePositionInViewBox, getJustCompletedEdge);

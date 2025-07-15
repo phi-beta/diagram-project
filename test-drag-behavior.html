@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drag Behavior Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        
+        .test-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .instructions {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .instructions h3 {
+            margin: 0 0 10px 0;
+            color: #0056b3;
+        }
+        
+        .controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .controls button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 0 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .controls button:hover {
+            background: #0056b3;
+        }
+        
+        .iframe-container {
+            border: 2px solid #007acc;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 600px;
+            margin: 20px 0;
+        }
+        
+        .iframe-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .test-steps {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .test-steps ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .test-steps li {
+            margin: 10px 0;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .pass {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .fail {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🖱️ Drag Behavior Test - Zoom Level Independence</h1>
+        
+        <div class="instructions">
+            <h3>🎯 Test Objective</h3>
+            <p>Verify that nodes follow the mouse cursor exactly at all zoom levels. Previously, dragging would feel "off" at different zoom levels due to coordinate transformation issues.</p>
+        </div>
+        
+        <div class="test-steps">
+            <h4>📋 Test Steps</h4>
+            <ol>
+                <li><strong>Create a Node:</strong> Double-click on the canvas to create a node</li>
+                <li><strong>Test at Default Zoom:</strong> Drag the node around - it should follow the mouse exactly</li>
+                <li><strong>Zoom In:</strong> Use mouse wheel or pinch to zoom in (200-300%)</li>
+                <li><strong>Test at High Zoom:</strong> Drag the node again - it should still follow the mouse exactly</li>
+                <li><strong>Zoom Out:</strong> Use mouse wheel or pinch to zoom out (50-25%)</li>
+                <li><strong>Test at Low Zoom:</strong> Drag the node again - it should still follow the mouse exactly</li>
+                <li><strong>Pan Around:</strong> Middle-click and drag to pan the view</li>
+                <li><strong>Test After Pan:</strong> Drag the node again - it should still follow the mouse exactly</li>
+            </ol>
+        </div>
+        
+        <div class="controls">
+            <button onclick="runTest()">🚀 Run Test</button>
+            <button onclick="resetTest()">🔄 Reset Test</button>
+            <button onclick="location.reload()">🔄 Reload Page</button>
+        </div>
+        
+        <div class="test-container">
+            <h2>✅ Expected Behavior</h2>
+            <p><strong>PASS:</strong> The node follows the mouse cursor exactly at all zoom levels and pan positions.</p>
+            <p><strong>FAIL:</strong> The node lags behind or jumps ahead of the mouse cursor, especially at high or low zoom levels.</p>
+            
+            <div id="test-results">
+                <h3>📊 Test Results</h3>
+                <div>Default Zoom Drag: <span class="status pending">Not Tested</span></div>
+                <div>High Zoom Drag: <span class="status pending">Not Tested</span></div>
+                <div>Low Zoom Drag: <span class="status pending">Not Tested</span></div>
+                <div>After Pan Drag: <span class="status pending">Not Tested</span></div>
+            </div>
+        </div>
+        
+        <div class="iframe-container">
+            <iframe src="index.html" title="Diagram Project - Drag Test"></iframe>
+        </div>
+    </div>
+    
+    <script>
+        let testStep = 0;
+        const testSteps = [
+            'Default Zoom Drag',
+            'High Zoom Drag', 
+            'Low Zoom Drag',
+            'After Pan Drag'
+        ];
+        
+        function runTest() {
+            alert('Manual test: Follow the test steps above and observe the drag behavior at different zoom levels.');
+        }
+        
+        function resetTest() {
+            testStep = 0;
+            const resultElements = document.querySelectorAll('#test-results .status');
+            resultElements.forEach(el => {
+                el.textContent = 'Not Tested';
+                el.className = 'status pending';
+            });
+        }
+        
+        function updateTestResult(stepIndex, passed) {
+            const resultElements = document.querySelectorAll('#test-results .status');
+            if (resultElements[stepIndex]) {
+                resultElements[stepIndex].textContent = passed ? 'PASS' : 'FAIL';
+                resultElements[stepIndex].className = passed ? 'status pass' : 'status fail';
+            }
+        }
+        
+        // Auto-refresh iframe for development
+        setInterval(() => {
+            const iframe = document.querySelector('iframe');
+            if (iframe) {
+                iframe.contentWindow.location.reload();
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

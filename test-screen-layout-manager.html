@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test: Screen Layout Manager</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .test-info {
+            background-color: #2a2a2a;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .test-info h3 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+        
+        .test-info ul {
+            margin: 10px 0;
+        }
+        
+        .test-info li {
+            margin: 5px 0;
+        }
+        
+        .success {
+            background-color: #4CAF50;
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .error {
+            background-color: #f44336;
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .test-results {
+            background-color: #2a2a2a;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .test-results h3 {
+            margin-top: 0;
+        }
+        
+        .pass {
+            color: #4CAF50;
+        }
+        
+        .fail {
+            color: #f44336;
+        }
+        
+        .info {
+            color: #2196F3;
+        }
+        
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #2a2a2a;
+            border-radius: 5px;
+        }
+        
+        .svg-container {
+            border: 2px solid #333;
+            border-radius: 5px;
+            background-color: #1a1a1a;
+            transition: all 0.3s ease;
+        }
+        
+        svg {
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+            transition: all 0.3s ease;
+        }
+        
+        .node {
+            cursor: pointer;
+        }
+        
+        .node.selected {
+            stroke: #4CAF50;
+            stroke-width: 3;
+        }
+        
+        .temporary-edge {
+            stroke: #ff6b6b;
+            stroke-width: 2;
+            stroke-dasharray: 5,5;
+            fill: none;
+            pointer-events: none;
+        }
+        
+        .edge {
+            stroke: #666;
+            stroke-width: 2;
+            fill: none;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Screen Layout Manager Test</h1>
+            <p>Testing the screen layout selection functionality</p>
+        </div>
+        
+        <div class="test-info">
+            <h3>Test Instructions:</h3>
+            <ul>
+                <li>Look for the Screen Layout selector in the top-right corner</li>
+                <li>Click the gear icon to expand the layout options</li>
+                <li>Try different category filters (Mobile, Desktop, TV, etc.)</li>
+                <li>Select different layouts and observe the canvas size changes</li>
+                <li>Try the "Custom" layout and enter your own dimensions</li>
+                <li>Use the "Save Custom" button to save your custom layout</li>
+            </ul>
+        </div>
+        
+        <div class="test-results">
+            <h3>Test Results:</h3>
+            <div id="test-results">
+                <div class="info">⏳ Initializing system...</div>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <div class="svg-container">
+                <svg id="diagram" width="800" height="600" viewBox="0 0 800 600">
+                    <!-- Layer 0: Background -->
+                    <g id="background-layer" class="layer">
+                        <rect width="100%" height="100%" fill="#1a1a1a"/>
+                    </g>
+                    
+                    <!-- Layer 1: Grid -->
+                    <g id="grid-layer" class="layer">
+                        <defs>
+                            <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                                <rect width="50" height="50" fill="none" stroke="#333" stroke-width="1"/>
+                            </pattern>
+                        </defs>
+                        <rect width="100%" height="100%" fill="url(#grid)"/>
+                    </g>
+                    
+                    <!-- Layer 2: Edges -->
+                    <g id="edges-layer" class="layer">
+                        <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                                    refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+                            </marker>
+                        </defs>
+                    </g>
+                    
+                    <!-- Layer 3: Nodes -->
+                    <g id="nodes-layer" class="layer">
+                        <!-- Test nodes -->
+                        <g class="node" data-node-id="node1">
+                            <circle cx="200" cy="200" r="40" fill="#4CAF50" stroke="#333" stroke-width="2"/>
+                            <text x="200" y="205" text-anchor="middle" fill="#000" font-size="12">Node 1</text>
+                        </g>
+                        
+                        <g class="node" data-node-id="node2">
+                            <circle cx="400" cy="200" r="40" fill="#2196F3" stroke="#333" stroke-width="2"/>
+                            <text x="400" y="205" text-anchor="middle" fill="#000" font-size="12">Node 2</text>
+                        </g>
+                        
+                        <g class="node" data-node-id="node3">
+                            <circle cx="600" cy="200" r="40" fill="#FF9800" stroke="#333" stroke-width="2"/>
+                            <text x="600" y="205" text-anchor="middle" fill="#000" font-size="12">Node 3</text>
+                        </g>
+                        
+                        <g class="node" data-node-id="node4">
+                            <circle cx="300" cy="350" r="40" fill="#9C27B0" stroke="#333" stroke-width="2"/>
+                            <text x="300" y="355" text-anchor="middle" fill="#000" font-size="12">Node 4</text>
+                        </g>
+                        
+                        <g class="node" data-node-id="node5">
+                            <circle cx="500" cy="350" r="40" fill="#F44336" stroke="#333" stroke-width="2"/>
+                            <text x="500" y="355" text-anchor="middle" fill="#000" font-size="12">Node 5</text>
+                        </g>
+                    </g>
+                    
+                    <!-- Layer 4: Temporary Elements -->
+                    <g id="temp-layer" class="layer"></g>
+                    
+                    <!-- Layer 5: UI Overlays -->
+                    <g id="ui-layer" class="layer"></g>
+                    
+                    <!-- Layer 6: Debug -->
+                    <g id="debug-layer" class="layer"></g>
+                </svg>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { ScreenLayoutManager } from './js/ScreenLayoutManager.js?v=001';
+        import { ScreenLayoutUI } from './js/ScreenLayoutUI.js?v=001';
+        import { ViewBoxManager } from './js/ViewBoxManager.js?v=002';
+        
+        // Test state
+        let testResults = [];
+        let screenLayoutManager = null;
+        let screenLayoutUI = null;
+        
+        // Get test results div
+        const testResultsDiv = document.getElementById('test-results');
+        
+        // Initialize the screen layout system
+        async function initializeSystem() {
+            try {
+                logTestResult('INIT', 'INFO', 'Initializing screen layout system...');
+                
+                // Get SVG element
+                const svg = document.getElementById('diagram');
+                if (!svg) {
+                    throw new Error('SVG element not found');
+                }
+                
+                // Initialize ViewBoxManager (required for ScreenLayoutManager)
+                const viewBoxManager = new ViewBoxManager(svg);
+                
+                // Initialize ScreenLayoutManager
+                screenLayoutManager = new ScreenLayoutManager(svg, viewBoxManager);
+                const layoutsLoaded = await screenLayoutManager.loadLayouts();
+                
+                if (layoutsLoaded) {
+                    logTestResult('LAYOUTS', 'PASS', 'Screen layouts loaded successfully');
+                    
+                    // Initialize UI
+                    screenLayoutUI = new ScreenLayoutUI(screenLayoutManager);
+                    logTestResult('UI', 'PASS', 'Screen layout UI initialized');
+                    
+                    // Test layout switching
+                    testLayoutSwitching();
+                    
+                } else {
+                    logTestResult('LAYOUTS', 'FAIL', 'Failed to load screen layouts');
+                }
+                
+            } catch (error) {
+                logTestResult('INIT', 'FAIL', `Initialization failed: ${error.message}`);
+                console.error('❌ System initialization failed:', error);
+            }
+        }
+        
+        function testLayoutSwitching() {
+            // Test different layouts
+            const layouts = screenLayoutManager.getLayouts();
+            const testLayouts = ['phone', 'tablet', 'desktop', 'tv-fullhd'];
+            
+            let currentTestIndex = 0;
+            
+            function testNextLayout() {
+                if (currentTestIndex >= testLayouts.length) {
+                    logTestResult('LAYOUT_TEST', 'PASS', 'All layout tests completed');
+                    return;
+                }
+                
+                const layoutId = testLayouts[currentTestIndex];
+                const layout = layouts[layoutId];
+                
+                if (layout) {
+                    const success = screenLayoutManager.setLayout(layoutId);
+                    if (success) {
+                        logTestResult('LAYOUT_SWITCH', 'PASS', 
+                            `Successfully switched to ${layout.name} (${layout.width}×${layout.height})`);
+                        
+                        // Verify dimensions
+                        const currentDimensions = screenLayoutManager.getCurrentDimensions();
+                        if (currentDimensions.width === layout.width && currentDimensions.height === layout.height) {
+                            logTestResult('LAYOUT_VERIFY', 'PASS', 
+                                `Dimensions verified: ${currentDimensions.width}×${currentDimensions.height}`);
+                        } else {
+                            logTestResult('LAYOUT_VERIFY', 'FAIL', 
+                                `Dimension mismatch: expected ${layout.width}×${layout.height}, got ${currentDimensions.width}×${currentDimensions.height}`);
+                        }
+                    } else {
+                        logTestResult('LAYOUT_SWITCH', 'FAIL', `Failed to switch to ${layout.name}`);
+                    }
+                } else {
+                    logTestResult('LAYOUT_SWITCH', 'FAIL', `Layout ${layoutId} not found`);
+                }
+                
+                currentTestIndex++;
+                setTimeout(testNextLayout, 1000); // Test next layout after 1 second
+            }
+            
+            // Start testing
+            setTimeout(testNextLayout, 1000);
+        }
+        
+        function logTestResult(category, level, message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const result = {
+                timestamp,
+                category,
+                level,
+                message
+            };
+            
+            testResults.push(result);
+            updateTestResultsDisplay();
+            
+            // Also log to console
+            const consoleMessage = `[${timestamp}] ${category}: ${message}`;
+            switch (level) {
+                case 'PASS':
+                    console.log(`✅ ${consoleMessage}`);
+                    break;
+                case 'FAIL':
+                    console.error(`❌ ${consoleMessage}`);
+                    break;
+                case 'INFO':
+                    console.info(`ℹ️ ${consoleMessage}`);
+                    break;
+                default:
+                    console.log(consoleMessage);
+            }
+        }
+        
+        function updateTestResultsDisplay() {
+            if (testResults.length === 0) {
+                testResultsDiv.innerHTML = '<div class="info">⏳ Initializing system...</div>';
+                return;
+            }
+            
+            // Show last 15 results
+            const recentResults = testResults.slice(-15);
+            const html = recentResults.map(result => {
+                const className = result.level.toLowerCase();
+                const icon = result.level === 'PASS' ? '✅' : 
+                           result.level === 'FAIL' ? '❌' : 
+                           result.level === 'INFO' ? 'ℹ️' : '📝';
+                return `<div class="${className}">${icon} [${result.timestamp}] ${result.category}: ${result.message}</div>`;
+            }).join('');
+            
+            testResultsDiv.innerHTML = html;
+            
+            // Scroll to bottom
+            testResultsDiv.scrollTop = testResultsDiv.scrollHeight;
+        }
+        
+        // Initialize the system when the page loads
+        initializeSystem();
+    </script>
+</body>
+</html>

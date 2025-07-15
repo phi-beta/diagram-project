@@ -5,22 +5,24 @@
 import { debugInteraction, debugEdgeCreation, debugKeyboard, debugMouse } from './debug.js';
 import { nodeStateManager } from './NodeStateManager.js?v=021';
 import { diagramStateManager } from './DiagramStateManager.js?v=011';
-import { ContextMenu } from './ContextMenu.js?v=009';
+import { EnhancedContextMenu } from './EnhancedContextMenu.js';
 
 export class InteractionManager {
-  constructor(svg, viewBoxManager, dragManager, nodeMap, layerManager = null) {
+  constructor(svg, viewBoxManager, dragManager, nodeMap, layerManager = null, edgeList = null) {
     debugInteraction('🚀 InteractionManager constructor called');
     debugInteraction('  svg:', svg);
     debugInteraction('  viewBoxManager:', viewBoxManager);
     debugInteraction('  dragManager:', dragManager);
     debugInteraction('  nodeMap:', nodeMap);
     debugInteraction('  layerManager:', layerManager);
+    debugInteraction('  edgeList:', edgeList);
     
     this.svg = svg;
     this.viewBoxManager = viewBoxManager;
     this.dragManager = dragManager;
     this.layerManager = layerManager;
     this.nodeMap = nodeMap;
+    this.edgeList = edgeList;
     this.coordinateSystem = viewBoxManager.coordinateSystem;
     
     // State management
@@ -57,8 +59,8 @@ export class InteractionManager {
     // Initialize diagram state manager
     this.initializeDiagramStateManager();
     
-    // Initialize context menu
-    this.contextMenu = new ContextMenu(this.svg);
+    // Initialize enhanced context menu
+    this.initializeEnhancedContextMenu();
     
     debugInteraction('✅ InteractionManager constructor complete');
   }
@@ -84,6 +86,32 @@ export class InteractionManager {
       }
     } catch (error) {
       console.error('❌ DiagramStateManager integration failed:', error);
+    }
+  }
+
+  /**
+   * Initialize the enhanced context menu system
+   */
+  async initializeEnhancedContextMenu() {
+    try {
+      // Prepare diagram components for context menu actions
+      const diagramComponents = {
+        svg: this.svg,
+        nodeMap: this.nodeMap,
+        edgeList: this.edgeList,
+        viewBoxManager: this.viewBoxManager,
+        layerManager: this.layerManager,
+        interactionManager: this
+      };
+      
+      // Initialize enhanced context menu
+      this.contextMenu = new EnhancedContextMenu(this.svg, diagramComponents);
+      
+      debugInteraction('✅ Enhanced context menu initialized');
+    } catch (error) {
+      console.error('❌ Enhanced context menu initialization failed:', error);
+      // Fallback to basic context menu if available
+      console.warn('⚠️ Falling back to basic context menu');
     }
   }
 

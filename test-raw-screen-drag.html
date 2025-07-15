@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raw Screen Coordinate Drag Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        
+        .test-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .instructions {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .highlight {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        
+        .iframe-container {
+            border: 2px solid #007acc;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 600px;
+            margin: 20px 0;
+        }
+        
+        .iframe-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎯 Raw Screen Coordinate Drag Test</h1>
+        
+        <div class="instructions">
+            <h3>🔧 Technical Approach</h3>
+            <p>This version uses raw screen coordinates for delta calculations to eliminate transformation lag:</p>
+            <ul>
+                <li><strong>Start Drag:</strong> Store raw screen coordinates (mouseEvent.clientX, mouseEvent.clientY)</li>
+                <li><strong>Update Drag:</strong> Calculate delta in screen coordinates (pixel-perfect)</li>
+                <li><strong>Transform Delta:</strong> Convert screen delta to viewBox coordinates</li>
+                <li><strong>Update Position:</strong> Apply viewBox delta to node's initial position</li>
+            </ul>
+        </div>
+        
+        <div class="highlight">
+            <strong>Expected Result:</strong> Node should now follow the mouse cursor exactly with no lag, even when zoomed out.
+        </div>
+        
+        <div class="test-container">
+            <h3>📋 Test Steps</h3>
+            <ol>
+                <li>Create a node by double-clicking on the canvas</li>
+                <li>Drag the node at default zoom - should follow cursor exactly</li>
+                <li>Zoom out to 25-50% and drag - should still follow cursor exactly</li>
+                <li>Zoom in to 200-300% and drag - should still follow cursor exactly</li>
+                <li>Pan the view and drag - should still follow cursor exactly</li>
+            </ol>
+            
+            <h3>✅ Success Criteria</h3>
+            <ul>
+                <li>No lag between mouse cursor and node position</li>
+                <li>Consistent behavior at all zoom levels</li>
+                <li>Node appears "glued" to cursor at click point</li>
+            </ul>
+        </div>
+        
+        <div class="iframe-container">
+            <iframe src="index.html" title="Raw Screen Coordinate Drag Test"></iframe>
+        </div>
+    </div>
+    
+    <script>
+        console.log('🎯 Raw Screen Coordinate Drag Test');
+        console.log('Technical: Using screen coordinate deltas for precision');
+        console.log('Formula: screenDelta -> viewBoxDelta -> nodePosition');
+    </script>
+</body>
+</html>

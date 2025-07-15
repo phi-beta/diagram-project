@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final Drag Fix Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+        }
+        .controls button {
+            margin: 0 10px 10px 0;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        .controls button:hover {
+            background-color: #0056b3;
+        }
+        .info {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .info h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .info p {
+            margin: 5px 0;
+            color: #666;
+        }
+        .svg-container {
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            background-color: #fff;
+            position: relative;
+            overflow: hidden;
+        }
+        svg {
+            display: block;
+            background-color: #fafafa;
+            cursor: grab;
+        }
+        svg:active {
+            cursor: grabbing;
+        }
+        .node {
+            fill: #4CAF50;
+            stroke: #45a049;
+            stroke-width: 2;
+            cursor: move;
+        }
+        .node:hover {
+            fill: #66BB6A;
+        }
+        .node.dragging {
+            fill: #FFC107;
+            stroke: #FF9800;
+        }
+        .node-label {
+            fill: #333;
+            font-size: 14px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+            font-family: Arial, sans-serif;
+        }
+        .cursor-crosshair {
+            stroke: #ff0000;
+            stroke-width: 1;
+            opacity: 0.8;
+        }
+        .zoom-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+        }
+        .mouse-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="info">
+            <h3>🎯 Final Drag Fix Test</h3>
+            <p>This test verifies that the drag offset calculation has been fixed.</p>
+            <p><strong>Expected behavior:</strong> The node should stay exactly under the mouse cursor during drag, with no lag or drift on any axis.</p>
+            <p><strong>Test instructions:</strong> Click and drag the node at different zoom levels. The node center should follow the mouse cursor precisely.</p>
+        </div>
+        
+        <div class="controls">
+            <button onclick="zoomIn()">Zoom In (+)</button>
+            <button onclick="zoomOut()">Zoom Out (-)</button>
+            <button onclick="resetZoom()">Reset Zoom</button>
+            <button onclick="panLeft()">Pan Left</button>
+            <button onclick="panRight()">Pan Right</button>
+            <button onclick="panUp()">Pan Up</button>
+            <button onclick="panDown()">Pan Down</button>
+            <button onclick="centerView()">Center View</button>
+            <button onclick="toggleCrosshair()">Toggle Crosshair</button>
+        </div>
+        
+        <div class="svg-container">
+            <svg id="testSvg" width="800" height="600" viewBox="0 0 800 600">
+                <!-- Test node -->
+                <circle class="node" cx="400" cy="300" r="30" data-node-id="test-node"/>
+                <text class="node-label" x="400" y="300">Test Node</text>
+                
+                <!-- Crosshair lines (initially hidden) -->
+                <line id="crosshair-h" class="cursor-crosshair" x1="0" y1="0" x2="0" y2="0" style="display: none;"/>
+                <line id="crosshair-v" class="cursor-crosshair" x1="0" y1="0" x2="0" y2="0" style="display: none;"/>
+            </svg>
+            
+            <div class="zoom-info" id="zoomInfo">
+                Zoom: 100% | ViewBox: 0 0 800 600
+            </div>
+            
+            <div class="mouse-info" id="mouseInfo">
+                Mouse: (0, 0) | ViewBox: (0, 0)
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { ViewBoxManager } from './js/ViewBoxManager.js';
+        import { CoordinateSystem } from './js/CoordinateSystem.js';
+        import { DragManager } from './js/DragManager.js';
+        import { Node } from './js/Node.js';
+
+        const svg = document.getElementById('testSvg');
+        const zoomInfo = document.getElementById('zoomInfo');
+        const mouseInfo = document.getElementById('mouseInfo');
+        const crosshairH = document.getElementById('crosshair-h');
+        const crosshairV = document.getElementById('crosshair-v');
+        
+        let showCrosshair = false;
+        let currentMouseX = 0;
+        let currentMouseY = 0;
+
+        // Initialize the system
+        const viewBoxManager = new ViewBoxManager(svg);
+        const coordinateSystem = new CoordinateSystem(svg);
+        const dragManager = new DragManager(viewBoxManager);
+
+        // Create test node
+        const testNode = new Node('test-node', 'Test Node', 400, 300);
+        testNode.element = svg.querySelector('[data-node-id="test-node"]');
+        
+        // Set up drag handling
+        let isDragging = false;
+        let dragStartTime = 0;
+        let dragPositions = [];
+
+        function handleMouseDown(event) {
+            if (event.target.classList.contains('node')) {
+                event.preventDefault();
+                isDragging = true;
+                dragStartTime = Date.now();
+                dragPositions = [];
+                
+                const nodeElement = event.target;
+                const nodeId = nodeElement.getAttribute('data-node-id');
+                
+                if (nodeId === 'test-node') {
+                    console.log('🎯 Starting drag for test node');
+                    
+                    // Get mouse position in viewBox coordinates
+                    const viewBoxCoords = coordinateSystem.screenToViewBox(event.clientX, event.clientY);
+                    console.log(`📍 Mouse down at screen: (${event.clientX}, ${event.clientY}), viewBox: (${viewBoxCoords.x.toFixed(1)}, ${viewBoxCoords.y.toFixed(1)})`);
+                    console.log(`📍 Node position: (${testNode.x}, ${testNode.y})`);
+                    
+                    // Add dragging class
+                    nodeElement.classList.add('dragging');
+                    
+                    // Start drag
+                    dragManager.startDrag(testNode, viewBoxCoords.x, viewBoxCoords.y, event);
+                }
+            }
+        }
+
+        function handleMouseMove(event) {
+            // Update mouse position display
+            currentMouseX = event.clientX;
+            currentMouseY = event.clientY;
+            
+            const viewBoxCoords = coordinateSystem.screenToViewBox(event.clientX, event.clientY);
+            mouseInfo.textContent = `Mouse: (${event.clientX}, ${event.clientY}) | ViewBox: (${viewBoxCoords.x.toFixed(1)}, ${viewBoxCoords.y.toFixed(1)})`;
+            
+            // Update crosshair
+            if (showCrosshair) {
+                const svgRect = svg.getBoundingClientRect();
+                const svgX = event.clientX - svgRect.left;
+                const svgY = event.clientY - svgRect.top;
+                
+                crosshairH.setAttribute('x1', '0');
+                crosshairH.setAttribute('y1', viewBoxCoords.y);
+                crosshairH.setAttribute('x2', '800');
+                crosshairH.setAttribute('y2', viewBoxCoords.y);
+                
+                crosshairV.setAttribute('x1', viewBoxCoords.x);
+                crosshairV.setAttribute('y1', '0');
+                crosshairV.setAttribute('x2', viewBoxCoords.x);
+                crosshairV.setAttribute('y2', '600');
+            }
+            
+            if (isDragging) {
+                const viewBoxCoords = coordinateSystem.screenToViewBox(event.clientX, event.clientY);
+                
+                // Track drag positions for analysis
+                dragPositions.push({
+                    time: Date.now() - dragStartTime,
+                    screenX: event.clientX,
+                    screenY: event.clientY,
+                    viewBoxX: viewBoxCoords.x,
+                    viewBoxY: viewBoxCoords.y,
+                    nodeX: testNode.x,
+                    nodeY: testNode.y
+                });
+                
+                // Update drag
+                dragManager.updateDrag(testNode, viewBoxCoords.x, viewBoxCoords.y, event);
+                
+                // Update node position on screen
+                testNode.element.setAttribute('cx', testNode.x);
+                testNode.element.setAttribute('cy', testNode.y);
+                
+                // Update label position
+                const label = svg.querySelector('.node-label');
+                label.setAttribute('x', testNode.x);
+                label.setAttribute('y', testNode.y);
+                
+                // Log position difference for debugging
+                const diffX = Math.abs(testNode.x - viewBoxCoords.x);
+                const diffY = Math.abs(testNode.y - viewBoxCoords.y);
+                
+                if (Math.random() < 0.1) { // 10% of the time
+                    console.log(`🐛 Drag position difference: X=${diffX.toFixed(1)}, Y=${diffY.toFixed(1)}`);
+                }
+            }
+        }
+
+        function handleMouseUp(event) {
+            if (isDragging) {
+                console.log('🎯 Ending drag for test node');
+                
+                // Remove dragging class
+                const nodeElement = svg.querySelector('[data-node-id="test-node"]');
+                nodeElement.classList.remove('dragging');
+                
+                // Stop drag
+                dragManager.stopDrag(testNode);
+                isDragging = false;
+                
+                // Analyze drag accuracy
+                if (dragPositions.length > 0) {
+                    const totalDiffX = dragPositions.reduce((sum, pos) => sum + Math.abs(pos.nodeX - pos.viewBoxX), 0);
+                    const totalDiffY = dragPositions.reduce((sum, pos) => sum + Math.abs(pos.nodeY - pos.viewBoxY), 0);
+                    const avgDiffX = totalDiffX / dragPositions.length;
+                    const avgDiffY = totalDiffY / dragPositions.length;
+                    
+                    console.log(`📊 Drag accuracy analysis:`);
+                    console.log(`  Total drag points: ${dragPositions.length}`);
+                    console.log(`  Average X difference: ${avgDiffX.toFixed(2)}`);
+                    console.log(`  Average Y difference: ${avgDiffY.toFixed(2)}`);
+                    
+                    if (avgDiffX < 1 && avgDiffY < 1) {
+                        console.log('✅ Drag accuracy: EXCELLENT (sub-pixel precision)');
+                    } else if (avgDiffX < 5 && avgDiffY < 5) {
+                        console.log('✅ Drag accuracy: GOOD (within 5 pixels)');
+                    } else {
+                        console.log('❌ Drag accuracy: POOR (>5 pixel difference)');
+                    }
+                }
+            }
+        }
+
+        // Add event listeners
+        svg.addEventListener('mousedown', handleMouseDown);
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+
+        // Update zoom info
+        function updateZoomInfo() {
+            const viewBox = svg.getAttribute('viewBox');
+            const zoom = (800 / parseFloat(viewBox.split(' ')[2]) * 100).toFixed(0);
+            zoomInfo.textContent = `Zoom: ${zoom}% | ViewBox: ${viewBox}`;
+        }
+
+        // Control functions
+        window.zoomIn = function() {
+            viewBoxManager.zoom(1.2);
+            updateZoomInfo();
+        };
+
+        window.zoomOut = function() {
+            viewBoxManager.zoom(0.8);
+            updateZoomInfo();
+        };
+
+        window.resetZoom = function() {
+            viewBoxManager.resetView();
+            updateZoomInfo();
+        };
+
+        window.panLeft = function() {
+            viewBoxManager.pan(-50, 0);
+            updateZoomInfo();
+        };
+
+        window.panRight = function() {
+            viewBoxManager.pan(50, 0);
+            updateZoomInfo();
+        };
+
+        window.panUp = function() {
+            viewBoxManager.pan(0, -50);
+            updateZoomInfo();
+        };
+
+        window.panDown = function() {
+            viewBoxManager.pan(0, 50);
+            updateZoomInfo();
+        };
+
+        window.centerView = function() {
+            viewBoxManager.centerOn(testNode.x, testNode.y);
+            updateZoomInfo();
+        };
+
+        window.toggleCrosshair = function() {
+            showCrosshair = !showCrosshair;
+            crosshairH.style.display = showCrosshair ? 'block' : 'none';
+            crosshairV.style.display = showCrosshair ? 'block' : 'none';
+        };
+
+        // Initial setup
+        updateZoomInfo();
+        
+        console.log('🎯 Final drag fix test initialized');
+        console.log('🔍 Instructions: Click and drag the green node. It should follow your mouse cursor exactly.');
+    </script>
+</body>
+</html>

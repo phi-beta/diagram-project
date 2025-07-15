@@ -1,0 +1,153 @@
+{
+  "layouts": {
+    "phone": {
+      "name": "Phone (Portrait)",
+      "width": 375,
+      "height": 667,
+      "aspectRatio": "9:16",
+      "description": "Standard phone portrait mode (iPhone 8 size)",
+      "category": "mobile"
+    },
+    "phone-landscape": {
+      "name": "Phone (Landscape)",
+      "width": 667,
+      "height": 375,
+      "aspectRatio": "16:9",
+      "description": "Standard phone landscape mode",
+      "category": "mobile"
+    },
+    "tablet": {
+      "name": "Tablet",
+      "width": 768,
+      "height": 1024,
+      "aspectRatio": "3:4",
+      "description": "Standard tablet size (iPad)",
+      "category": "tablet"
+    },
+    "tablet-landscape": {
+      "name": "Tablet (Landscape)",
+      "width": 1024,
+      "height": 768,
+      "aspectRatio": "4:3",
+      "description": "Standard tablet landscape mode",
+      "category": "tablet"
+    },
+    "desktop": {
+      "name": "Desktop",
+      "width": 1920,
+      "height": 1080,
+      "aspectRatio": "16:9",
+      "description": "Standard desktop monitor (1080p)",
+      "category": "desktop"
+    },
+    "desktop-wide": {
+      "name": "Desktop (Wide)",
+      "width": 2560,
+      "height": 1440,
+      "aspectRatio": "16:9",
+      "description": "Wide desktop monitor (1440p)",
+      "category": "desktop"
+    },
+    "desktop-ultrawide": {
+      "name": "Desktop (Ultrawide)",
+      "width": 3440,
+      "height": 1440,
+      "aspectRatio": "21:9",
+      "description": "Ultrawide desktop monitor",
+      "category": "desktop"
+    },
+    "tv-hd": {
+      "name": "TV (HD)",
+      "width": 1280,
+      "height": 720,
+      "aspectRatio": "16:9",
+      "description": "HD television (720p)",
+      "category": "tv"
+    },
+    "tv-fullhd": {
+      "name": "TV (Full HD)",
+      "width": 1920,
+      "height": 1080,
+      "aspectRatio": "16:9",
+      "description": "Full HD television (1080p)",
+      "category": "tv"
+    },
+    "tv-4k": {
+      "name": "TV (4K)",
+      "width": 3840,
+      "height": 2160,
+      "aspectRatio": "16:9",
+      "description": "4K television (2160p)",
+      "category": "tv"
+    },
+    "square": {
+      "name": "Square",
+      "width": 800,
+      "height": 800,
+      "aspectRatio": "1:1",
+      "description": "Square layout for social media",
+      "category": "other"
+    },
+    "presentation": {
+      "name": "Presentation",
+      "width": 1280,
+      "height": 960,
+      "aspectRatio": "4:3",
+      "description": "Standard presentation format",
+      "category": "other"
+    },
+    "widescreen": {
+      "name": "Widescreen",
+      "width": 1280,
+      "height": 720,
+      "aspectRatio": "16:9",
+      "description": "Widescreen format",
+      "category": "other"
+    },
+    "custom": {
+      "name": "Custom",
+      "width": 800,
+      "height": 600,
+      "aspectRatio": "4:3",
+      "description": "Custom dimensions (editable)",
+      "category": "other",
+      "editable": true
+    }
+  },
+  "categories": {
+    "mobile": {
+      "name": "Mobile Devices",
+      "color": "#4CAF50",
+      "icon": "📱"
+    },
+    "tablet": {
+      "name": "Tablets",
+      "color": "#2196F3",
+      "icon": "📱"
+    },
+    "desktop": {
+      "name": "Desktop",
+      "color": "#FF9800",
+      "icon": "🖥️"
+    },
+    "tv": {
+      "name": "Television",
+      "color": "#9C27B0",
+      "icon": "📺"
+    },
+    "other": {
+      "name": "Other",
+      "color": "#607D8B",
+      "icon": "📐"
+    }
+  },
+  "settings": {
+    "defaultLayout": "desktop",
+    "scaleToFit": true,
+    "maintainAspectRatio": true,
+    "showDimensions": true,
+    "showAspectRatio": true,
+    "animateTransition": true,
+    "transitionDuration": 300
+  }
+}

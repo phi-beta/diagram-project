@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Drag Test</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; }
+        .controls { padding: 10px; background: #f0f0f0; }
+        svg { border: 1px solid #ccc; width: 100%; height: 500px; }
+        button { margin: 5px; padding: 5px 10px; }
+        .debug { background: #fff; padding: 10px; margin: 10px; border-radius: 5px; font-family: monospace; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button onclick="createNode()">Create Node</button>
+        <button onclick="zoomIn()">Zoom In</button>
+        <button onclick="zoomOut()">Zoom Out</button>
+        <button onclick="resetZoom()">Reset Zoom</button>
+        <span id="zoom-info">Zoom: 1.0</span>
+    </div>
+    
+    <svg id="canvas" viewBox="0 0 800 600">
+        <rect width="100%" height="100%" fill="#f8f8f8"/>
+        <circle id="node" cx="400" cy="300" r="20" fill="#4CAF50" stroke="#333" stroke-width="2" cursor="pointer"/>
+        <text x="400" y="305" text-anchor="middle" fill="white" font-size="12" pointer-events="none">Node</text>
+    </svg>
+    
+    <div class="debug" id="debug">Debug info will appear here...</div>
+
+    <script>
+        const svg = document.getElementById('canvas');
+        const node = document.getElementById('node');
+        const debug = document.getElementById('debug');
+        const zoomInfo = document.getElementById('zoom-info');
+        
+        let currentZoom = 1.0;
+        let isDragging = false;
+        let dragStart = null;
+        
+        // Simple screen-to-viewBox conversion function
+        function screenToViewBox(screenX, screenY) {
+            const rect = svg.getBoundingClientRect();
+            const viewBox = svg.viewBox.baseVal;
+            
+            const scaleX = viewBox.width / rect.width;
+            const scaleY = viewBox.height / rect.height;
+            
+            const x = viewBox.x + (screenX - rect.left) * scaleX;
+            const y = viewBox.y + (screenY - rect.top) * scaleY;
+            
+            return { x, y };
+        }
+        
+        function updateDebug(event, type) {
+            const rect = svg.getBoundingClientRect();
+            const viewBox = svg.viewBox.baseVal;
+            const viewBoxPos = screenToViewBox(event.clientX, event.clientY);
+            const nodeX = parseFloat(node.getAttribute('cx'));
+            const nodeY = parseFloat(node.getAttribute('cy'));
+            
+            debug.innerHTML = `
+                <strong>${type}</strong><br>
+                Screen: (${event.clientX}, ${event.clientY})<br>
+                ViewBox: (${viewBoxPos.x.toFixed(1)}, ${viewBoxPos.y.toFixed(1)})<br>
+                Node: (${nodeX.toFixed(1)}, ${nodeY.toFixed(1)})<br>
+                Zoom: ${currentZoom.toFixed(2)}<br>
+                SVG Rect: ${rect.width.toFixed(1)}x${rect.height.toFixed(1)}<br>
+                ViewBox Rect: ${viewBox.width.toFixed(1)}x${viewBox.height.toFixed(1)}<br>
+                Scale: ${(viewBox.width / rect.width).toFixed(3)}<br>
+                ${isDragging ? \`
+                    <strong>DRAGGING:</strong><br>
+                    Start Screen: (\${dragStart.screenX}, \${dragStart.screenY})<br>
+                    Start Node: (\${dragStart.nodeX.toFixed(1)}, \${dragStart.nodeY.toFixed(1)})<br>
+                    Expected Node: (\${(dragStart.nodeX + (viewBoxPos.x - dragStart.startViewBoxX)).toFixed(1)}, \${(dragStart.nodeY + (viewBoxPos.y - dragStart.startViewBoxY)).toFixed(1)})
+                \` : ''}
+            `;
+        }
+        
+        function createNode() {
+            // Node is already created, just reset position
+            node.setAttribute('cx', 400);
+            node.setAttribute('cy', 300);
+            updateDebug({ clientX: 0, clientY: 0 }, 'reset');
+        }
+        
+        function zoomIn() {
+            currentZoom *= 1.2;
+            updateViewBox();
+        }
+        
+        function zoomOut() {
+            currentZoom /= 1.2;
+            updateViewBox();
+        }
+        
+        function resetZoom() {
+            currentZoom = 1.0;
+            updateViewBox();
+        }
+        
+        function updateViewBox() {
+            const centerX = 400;
+            const centerY = 300;
+            const baseWidth = 800;
+            const baseHeight = 600;
+            
+            const width = baseWidth / currentZoom;
+            const height = baseHeight / currentZoom;
+            
+            const x = centerX - width / 2;
+            const y = centerY - height / 2;
+            
+            svg.setAttribute('viewBox', \`\${x} \${y} \${width} \${height}\`);
+            zoomInfo.textContent = \`Zoom: \${currentZoom.toFixed(2)}\`;
+        }
+        
+        // Drag handling
+        node.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            const startViewBoxPos = screenToViewBox(e.clientX, e.clientY);
+            
+            dragStart = {
+                screenX: e.clientX,
+                screenY: e.clientY,
+                startViewBoxX: startViewBoxPos.x,
+                startViewBoxY: startViewBoxPos.y,
+                nodeX: parseFloat(node.getAttribute('cx')),
+                nodeY: parseFloat(node.getAttribute('cy'))
+            };
+            
+            updateDebug(e, 'mousedown');
+            e.preventDefault();
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            
+            // Method 1: Screen coordinate approach (what DragManager should do)
+            const currentViewBoxPos = screenToViewBox(e.clientX, e.clientY);
+            const startViewBoxPos = screenToViewBox(dragStart.screenX, dragStart.screenY);
+            
+            const deltaX = currentViewBoxPos.x - startViewBoxPos.x;
+            const deltaY = currentViewBoxPos.y - startViewBoxPos.y;
+            
+            const newX = dragStart.nodeX + deltaX;
+            const newY = dragStart.nodeY + deltaY;
+            
+            node.setAttribute('cx', newX);
+            node.setAttribute('cy', newY);
+            
+            updateDebug(e, 'mousemove');
+        });
+        
+        document.addEventListener('mouseup', (e) => {
+            if (isDragging) {
+                isDragging = false;
+                dragStart = null;
+                updateDebug(e, 'mouseup');
+            }
+        });
+        
+        // Initialize
+        updateDebug({ clientX: 0, clientY: 0 }, 'init');
+    </script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Drag Coordinates</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; }
+        svg { border: 1px solid #ccc; }
+        .debug-info { 
+            position: absolute; 
+            top: 10px; 
+            left: 10px; 
+            background: rgba(255,255,255,0.9); 
+            padding: 10px; 
+            border-radius: 5px; 
+            font-size: 12px; 
+            line-height: 1.2; 
+            max-width: 300px;
+        }
+        .controls {
+            margin: 10px;
+        }
+        button {
+            margin: 5px;
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button onclick="zoomIn()">Zoom In</button>
+        <button onclick="zoomOut()">Zoom Out</button>
+        <button onclick="resetZoom()">Reset Zoom</button>
+        <span id="zoom-level">Zoom: 1.0</span>
+    </div>
+    
+    <svg id="canvas" width="800" height="600" viewBox="0 0 800 600">
+        <defs>
+            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#ddd" stroke-width="1"/>
+            </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)"/>
+        <circle id="node" cx="400" cy="300" r="20" fill="#4CAF50" stroke="#333" stroke-width="2" cursor="pointer"/>
+        <text x="400" y="305" text-anchor="middle" fill="white" font-size="12" pointer-events="none">Node</text>
+    </svg>
+    
+    <div class="debug-info" id="debug-info">
+        Debug information will appear here...
+    </div>
+
+    <script>
+        const svg = document.getElementById('canvas');
+        const node = document.getElementById('node');
+        const debugInfo = document.getElementById('debug-info');
+        const zoomLevel = document.getElementById('zoom-level');
+        
+        let currentZoom = 1.0;
+        let isDragging = false;
+        let dragStartPos = { x: 0, y: 0 };
+        let dragStartNodePos = { x: 400, y: 300 };
+        let dragStartScreenPos = { x: 0, y: 0 };
+        
+        function updateDebugInfo(event, type) {
+            const rect = svg.getBoundingClientRect();
+            const viewBox = svg.viewBox.baseVal;
+            
+            const scaleX = viewBox.width / rect.width;
+            const scaleY = viewBox.height / rect.height;
+            
+            const screenX = event.clientX;
+            const screenY = event.clientY;
+            
+            const svgX = (screenX - rect.left) * scaleX + viewBox.x;
+            const svgY = (screenY - rect.top) * scaleY + viewBox.y;
+            
+            const nodeX = parseFloat(node.getAttribute('cx'));
+            const nodeY = parseFloat(node.getAttribute('cy'));
+            
+            debugInfo.innerHTML = `
+                <strong>Event: ${type}</strong><br>
+                Screen: (${screenX.toFixed(1)}, ${screenY.toFixed(1)})<br>
+                SVG Rect: (${rect.left.toFixed(1)}, ${rect.top.toFixed(1)}, ${rect.width.toFixed(1)}, ${rect.height.toFixed(1)})<br>
+                ViewBox: (${viewBox.x.toFixed(1)}, ${viewBox.y.toFixed(1)}, ${viewBox.width.toFixed(1)}, ${viewBox.height.toFixed(1)})<br>
+                Scale: (${scaleX.toFixed(3)}, ${scaleY.toFixed(3)})<br>
+                SVG Coords: (${svgX.toFixed(1)}, ${svgY.toFixed(1)})<br>
+                Node Pos: (${nodeX.toFixed(1)}, ${nodeY.toFixed(1)})<br>
+                Zoom: ${currentZoom.toFixed(2)}<br>
+                ${isDragging ? `
+                    <strong>DRAGGING:</strong><br>
+                    Start Screen: (${dragStartScreenPos.x.toFixed(1)}, ${dragStartScreenPos.y.toFixed(1)})<br>
+                    Screen Delta: (${(screenX - dragStartScreenPos.x).toFixed(1)}, ${(screenY - dragStartScreenPos.y).toFixed(1)})<br>
+                    Start Node: (${dragStartNodePos.x.toFixed(1)}, ${dragStartNodePos.y.toFixed(1)})<br>
+                    Expected Node: (${(dragStartNodePos.x + (screenX - dragStartScreenPos.x) * scaleX).toFixed(1)}, ${(dragStartNodePos.y + (screenY - dragStartScreenPos.y) * scaleY).toFixed(1)})
+                ` : ''}
+            `;
+        }
+        
+        function zoomIn() {
+            currentZoom *= 1.2;
+            updateViewBox();
+        }
+        
+        function zoomOut() {
+            currentZoom /= 1.2;
+            updateViewBox();
+        }
+        
+        function resetZoom() {
+            currentZoom = 1.0;
+            updateViewBox();
+        }
+        
+        function updateViewBox() {
+            const centerX = 400;
+            const centerY = 300;
+            const baseWidth = 800;
+            const baseHeight = 600;
+            
+            const width = baseWidth / currentZoom;
+            const height = baseHeight / currentZoom;
+            
+            const x = centerX - width / 2;
+            const y = centerY - height / 2;
+            
+            svg.setAttribute('viewBox', `${x} ${y} ${width} ${height}`);
+            zoomLevel.textContent = `Zoom: ${currentZoom.toFixed(2)}`;
+        }
+        
+        node.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            dragStartScreenPos = { x: e.clientX, y: e.clientY };
+            dragStartNodePos = { 
+                x: parseFloat(node.getAttribute('cx')), 
+                y: parseFloat(node.getAttribute('cy')) 
+            };
+            updateDebugInfo(e, 'mousedown');
+            e.preventDefault();
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const rect = svg.getBoundingClientRect();
+                const viewBox = svg.viewBox.baseVal;
+                
+                const scaleX = viewBox.width / rect.width;
+                const scaleY = viewBox.height / rect.height;
+                
+                const screenDeltaX = e.clientX - dragStartScreenPos.x;
+                const screenDeltaY = e.clientY - dragStartScreenPos.y;
+                
+                const newX = dragStartNodePos.x + screenDeltaX * scaleX;
+                const newY = dragStartNodePos.y + screenDeltaY * scaleY;
+                
+                node.setAttribute('cx', newX);
+                node.setAttribute('cy', newY);
+                
+                updateDebugInfo(e, 'mousemove');
+            }
+        });
+        
+        document.addEventListener('mouseup', (e) => {
+            isDragging = false;
+            updateDebugInfo(e, 'mouseup');
+        });
+        
+        svg.addEventListener('mousemove', (e) => {
+            if (!isDragging) {
+                updateDebugInfo(e, 'hover');
+            }
+        });
+        
+        // Initialize
+        updateDebugInfo({ clientX: 0, clientY: 0 }, 'init');
+    </script>
+</body>
+</html>

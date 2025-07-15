@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Context Menu Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .info {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #e3f2fd;
+            border-radius: 6px;
+            border-left: 4px solid #2196F3;
+        }
+        .info h3 {
+            margin: 0 0 10px 0;
+            color: #1976D2;
+        }
+        .info p {
+            margin: 5px 0;
+            color: #333;
+        }
+        .test-area {
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            background-color: #fafafa;
+            position: relative;
+            overflow: hidden;
+        }
+        svg {
+            display: block;
+            background-color: #fff;
+            cursor: grab;
+        }
+        svg:active {
+            cursor: grabbing;
+        }
+        .node {
+            cursor: pointer;
+        }
+        .node:hover {
+            filter: brightness(1.1);
+        }
+        .edge {
+            cursor: pointer;
+        }
+        .edge:hover {
+            filter: brightness(1.1);
+        }
+        .log {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 4px;
+            border-radius: 2px;
+        }
+        .log-entry.info {
+            background-color: #e3f2fd;
+            color: #1976D2;
+        }
+        .log-entry.success {
+            background-color: #e8f5e8;
+            color: #388e3c;
+        }
+        .log-entry.warning {
+            background-color: #fff3e0;
+            color: #f57c00;
+        }
+        .log-entry.error {
+            background-color: #ffebee;
+            color: #d32f2f;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="info">
+            <h3>🎯 Enhanced Context Menu Test</h3>
+            <p>This test verifies that the JSON-based context menu system works correctly with different node and edge types.</p>
+            <p><strong>Test Instructions:</strong></p>
+            <ul>
+                <li><strong>Right-click on User Node:</strong> Should show user-specific context menu with user permissions</li>
+                <li><strong>Right-click on Server Node:</strong> Should show server-specific context menu with server status/logs</li>
+                <li><strong>Right-click on Edge:</strong> Should show edge-specific context menu with delete option</li>
+                <li><strong>Right-click on Background:</strong> Should show background context menu with add node options</li>
+                <li><strong>Try Delete Actions:</strong> Delete actions should work and remove elements</li>
+            </ul>
+        </div>
+        
+        <div class="test-area">
+            <svg id="testSvg" width="800" height="600" viewBox="0 0 800 600">
+                <!-- Test nodes -->
+                <g class="node user" data-node-id="user-1">
+                    <circle cx="200" cy="150" r="30" fill="#4CAF50" stroke="#388E3C" stroke-width="2"/>
+                    <text x="200" y="155" text-anchor="middle" fill="white" font-family="Arial" font-size="12">User</text>
+                </g>
+                
+                <g class="node server" data-node-id="server-1">
+                    <rect x="350" y="120" width="60" height="60" fill="#2196F3" stroke="#1976D2" stroke-width="2" rx="5"/>
+                    <text x="380" y="155" text-anchor="middle" fill="white" font-family="Arial" font-size="12">Server</text>
+                </g>
+                
+                <g class="node default" data-node-id="default-1">
+                    <circle cx="200" cy="300" r="25" fill="#FF9800" stroke="#F57C00" stroke-width="2"/>
+                    <text x="200" y="305" text-anchor="middle" fill="white" font-family="Arial" font-size="11">Default</text>
+                </g>
+                
+                <!-- Test edges -->
+                <g class="edge connection" data-edge-id="edge-1">
+                    <line x1="230" y1="150" x2="350" y2="150" stroke="#666" stroke-width="2" marker-end="url(#arrowhead)"/>
+                    <line x1="230" y1="150" x2="350" y2="150" stroke="transparent" stroke-width="10" style="cursor: pointer;"/>
+                </g>
+                
+                <g class="edge connection" data-edge-id="edge-2">
+                    <line x1="380" y1="180" x2="220" y2="275" stroke="#666" stroke-width="2" marker-end="url(#arrowhead)"/>
+                    <line x1="380" y1="180" x2="220" y2="275" stroke="transparent" stroke-width="10" style="cursor: pointer;"/>
+                </g>
+                
+                <!-- Arrow marker -->
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+                    </marker>
+                </defs>
+                
+                <!-- Labels -->
+                <text x="200" y="100" text-anchor="middle" font-family="Arial" font-size="14" fill="#333">User Node</text>
+                <text x="380" y="100" text-anchor="middle" font-family="Arial" font-size="14" fill="#333">Server Node</text>
+                <text x="200" y="350" text-anchor="middle" font-family="Arial" font-size="14" fill="#333">Default Node</text>
+                
+                <!-- Instructions -->
+                <text x="400" y="400" text-anchor="middle" font-family="Arial" font-size="16" fill="#666">Right-click on nodes, edges, or background to test context menus</text>
+                <text x="400" y="420" text-anchor="middle" font-family="Arial" font-size="14" fill="#999">Each element type should show different menu options</text>
+            </svg>
+        </div>
+        
+        <div class="log" id="logContainer">
+            <div class="log-entry info">Enhanced Context Menu Test initialized - Right-click to test!</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { EnhancedContextMenu } from './js/EnhancedContextMenu.js';
+        
+        const svg = document.getElementById('testSvg');
+        const logContainer = document.getElementById('logContainer');
+        
+        // Mock diagram components
+        const mockComponents = {
+            svg: svg,
+            nodeMap: new Map([
+                ['user-1', { id: 'user-1', class: 'user', element: document.querySelector('[data-node-id="user-1"]') }],
+                ['server-1', { id: 'server-1', class: 'server', element: document.querySelector('[data-node-id="server-1"]') }],
+                ['default-1', { id: 'default-1', class: 'default', element: document.querySelector('[data-node-id="default-1"]') }]
+            ]),
+            edgeList: [
+                { id: 'edge-1', class: 'connection', element: document.querySelector('[data-edge-id="edge-1"]') },
+                { id: 'edge-2', class: 'connection', element: document.querySelector('[data-edge-id="edge-2"]') }
+            ],
+            viewBoxManager: {
+                resetView: () => log('View reset', 'success')
+            },
+            layerManager: null,
+            interactionManager: null
+        };
+        
+        // Initialize enhanced context menu
+        const contextMenu = new EnhancedContextMenu(svg, mockComponents);
+        
+        // Log function
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // Add context menu handling
+        svg.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Get mouse position relative to SVG
+            const rect = svg.getBoundingClientRect();
+            const clientX = e.clientX - rect.left;
+            const clientY = e.clientY - rect.top;
+            
+            // Get the current viewBox to handle zoom/pan
+            const viewBox = svg.viewBox.baseVal;
+            const svgWidth = rect.width;
+            const svgHeight = rect.height;
+            
+            // Calculate SVG coordinates considering viewBox transformation
+            const svgX = (clientX / svgWidth) * viewBox.width + viewBox.x;
+            const svgY = (clientY / svgHeight) * viewBox.height + viewBox.y;
+            
+            // Determine what was right-clicked
+            const targetElement = e.target;
+            let context = 'background';
+            let contextTarget = null;
+            
+            // Check if right-clicked on a node
+            const nodeElement = targetElement.closest('.node');
+            if (nodeElement) {
+                context = 'node';
+                contextTarget = nodeElement;
+                const nodeId = nodeElement.getAttribute('data-node-id');
+                const nodeClass = nodeElement.getAttribute('class').split(' ').find(cls => cls !== 'node') || 'default';
+                log(`Right-clicked on ${nodeClass} node: ${nodeId}`, 'info');
+            }
+            // Check if right-clicked on an edge
+            else {
+                const edgeElement = targetElement.closest('.edge');
+                if (edgeElement) {
+                    context = 'edge';
+                    contextTarget = edgeElement;
+                    const edgeId = edgeElement.getAttribute('data-edge-id');
+                    const edgeClass = edgeElement.getAttribute('class').split(' ').find(cls => cls !== 'edge') || 'default';
+                    log(`Right-clicked on ${edgeClass} edge: ${edgeId}`, 'info');
+                }
+                // Otherwise it's background
+                else {
+                    log(`Right-clicked on background at (${svgX.toFixed(0)}, ${svgY.toFixed(0)})`, 'info');
+                }
+            }
+            
+            // Show context menu
+            contextMenu.show(svgX, svgY, context, contextTarget);
+        });
+        
+        // Hide context menu on left click
+        document.addEventListener('click', (e) => {
+            if (contextMenu.isVisible && !contextMenu.isClickInsideMenu(e)) {
+                contextMenu.hide();
+                log('Context menu hidden', 'info');
+            }
+        });
+        
+        // Override console.log to capture action executions
+        const originalLog = console.log;
+        console.log = function(...args) {
+            if (args[0] && args[0].includes('🎯 Executing action:')) {
+                log(`Action executed: ${args[0]}`, 'success');
+            }
+            if (args[0] && args[0].includes('🗑️ Deleting')) {
+                log(`Delete action: ${args[0]}`, 'warning');
+            }
+            originalLog.apply(console, args);
+        };
+        
+        log('Enhanced Context Menu Test ready - Right-click to test!', 'success');
+    </script>
+</body>
+</html>

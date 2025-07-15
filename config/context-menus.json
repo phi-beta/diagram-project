@@ -1,0 +1,362 @@
+{
+  "contextMenus": {
+    "node": {
+      "user": {
+        "title": "User Node",
+        "subtitle": "User Account",
+        "icon": "👤",
+        "color": "#4CAF50",
+        "borderColor": "#388E3C",
+        "actions": [
+          {
+            "id": "edit",
+            "label": "Edit User",
+            "icon": "✏️",
+            "description": "Edit user properties",
+            "shortcut": "Ctrl+E",
+            "enabled": true
+          },
+          {
+            "id": "duplicate",
+            "label": "Duplicate User",
+            "icon": "📋",
+            "description": "Create a copy of this user",
+            "shortcut": "Ctrl+D",
+            "enabled": true
+          },
+          {
+            "id": "separator1",
+            "type": "separator"
+          },
+          {
+            "id": "permissions",
+            "label": "Permissions",
+            "icon": "🔒",
+            "description": "Manage user permissions",
+            "enabled": true
+          },
+          {
+            "id": "properties",
+            "label": "Properties",
+            "icon": "⚙️",
+            "description": "View user properties",
+            "enabled": true
+          },
+          {
+            "id": "separator2",
+            "type": "separator"
+          },
+          {
+            "id": "delete",
+            "label": "Delete User",
+            "icon": "🗑️",
+            "description": "Remove this user node",
+            "shortcut": "Delete",
+            "enabled": true,
+            "dangerous": true
+          }
+        ]
+      },
+      "server": {
+        "title": "Server Node",
+        "subtitle": "Server Instance",
+        "icon": "🖥️",
+        "color": "#2196F3",
+        "borderColor": "#1976D2",
+        "actions": [
+          {
+            "id": "edit",
+            "label": "Edit Server",
+            "icon": "✏️",
+            "description": "Edit server properties",
+            "shortcut": "Ctrl+E",
+            "enabled": true
+          },
+          {
+            "id": "duplicate",
+            "label": "Duplicate Server",
+            "icon": "📋",
+            "description": "Create a copy of this server",
+            "shortcut": "Ctrl+D",
+            "enabled": true
+          },
+          {
+            "id": "separator1",
+            "type": "separator"
+          },
+          {
+            "id": "status",
+            "label": "Server Status",
+            "icon": "📊",
+            "description": "Check server status",
+            "enabled": true
+          },
+          {
+            "id": "configure",
+            "label": "Configuration",
+            "icon": "⚙️",
+            "description": "Configure server settings",
+            "enabled": true
+          },
+          {
+            "id": "logs",
+            "label": "View Logs",
+            "icon": "📜",
+            "description": "View server logs",
+            "enabled": true
+          },
+          {
+            "id": "separator2",
+            "type": "separator"
+          },
+          {
+            "id": "delete",
+            "label": "Delete Server",
+            "icon": "🗑️",
+            "description": "Remove this server node",
+            "shortcut": "Delete",
+            "enabled": true,
+            "dangerous": true
+          }
+        ]
+      },
+      "default": {
+        "title": "Node",
+        "subtitle": "Diagram Node",
+        "icon": "⚪",
+        "color": "#FF9800",
+        "borderColor": "#F57C00",
+        "actions": [
+          {
+            "id": "edit",
+            "label": "Edit Node",
+            "icon": "✏️",
+            "description": "Edit node properties",
+            "shortcut": "Ctrl+E",
+            "enabled": true
+          },
+          {
+            "id": "duplicate",
+            "label": "Duplicate Node",
+            "icon": "📋",
+            "description": "Create a copy of this node",
+            "shortcut": "Ctrl+D",
+            "enabled": true
+          },
+          {
+            "id": "separator1",
+            "type": "separator"
+          },
+          {
+            "id": "properties",
+            "label": "Properties",
+            "icon": "⚙️",
+            "description": "View node properties",
+            "enabled": true
+          },
+          {
+            "id": "separator2",
+            "type": "separator"
+          },
+          {
+            "id": "delete",
+            "label": "Delete Node",
+            "icon": "🗑️",
+            "description": "Remove this node",
+            "shortcut": "Delete",
+            "enabled": true,
+            "dangerous": true
+          }
+        ]
+      }
+    },
+    "edge": {
+      "connection": {
+        "title": "Connection",
+        "subtitle": "Node Connection",
+        "icon": "🔗",
+        "color": "#9C27B0",
+        "borderColor": "#7B1FA2",
+        "actions": [
+          {
+            "id": "edit",
+            "label": "Edit Connection",
+            "icon": "✏️",
+            "description": "Edit connection properties",
+            "shortcut": "Ctrl+E",
+            "enabled": true
+          },
+          {
+            "id": "separator1",
+            "type": "separator"
+          },
+          {
+            "id": "properties",
+            "label": "Properties",
+            "icon": "⚙️",
+            "description": "View connection properties",
+            "enabled": true
+          },
+          {
+            "id": "reverse",
+            "label": "Reverse Direction",
+            "icon": "🔄",
+            "description": "Reverse connection direction",
+            "enabled": true
+          },
+          {
+            "id": "separator2",
+            "type": "separator"
+          },
+          {
+            "id": "delete",
+            "label": "Delete Connection",
+            "icon": "🗑️",
+            "description": "Remove this connection",
+            "shortcut": "Delete",
+            "enabled": true,
+            "dangerous": true
+          }
+        ]
+      },
+      "default": {
+        "title": "Edge",
+        "subtitle": "Diagram Edge",
+        "icon": "➡️",
+        "color": "#607D8B",
+        "borderColor": "#455A64",
+        "actions": [
+          {
+            "id": "edit",
+            "label": "Edit Edge",
+            "icon": "✏️",
+            "description": "Edit edge properties",
+            "shortcut": "Ctrl+E",
+            "enabled": true
+          },
+          {
+            "id": "separator1",
+            "type": "separator"
+          },
+          {
+            "id": "properties",
+            "label": "Properties",
+            "icon": "⚙️",
+            "description": "View edge properties",
+            "enabled": true
+          },
+          {
+            "id": "separator2",
+            "type": "separator"
+          },
+          {
+            "id": "delete",
+            "label": "Delete Edge",
+            "icon": "🗑️",
+            "description": "Remove this edge",
+            "shortcut": "Delete",
+            "enabled": true,
+            "dangerous": true
+          }
+        ]
+      }
+    },
+    "background": {
+      "default": {
+        "title": "Canvas",
+        "subtitle": "Diagram Canvas",
+        "icon": "🎨",
+        "color": "#757575",
+        "borderColor": "#424242",
+        "actions": [
+          {
+            "id": "add-user",
+            "label": "Add User",
+            "icon": "👤",
+            "description": "Add a new user node",
+            "shortcut": "Ctrl+U",
+            "enabled": true
+          },
+          {
+            "id": "add-server",
+            "label": "Add Server",
+            "icon": "🖥️",
+            "description": "Add a new server node",
+            "shortcut": "Ctrl+S",
+            "enabled": true
+          },
+          {
+            "id": "separator1",
+            "type": "separator"
+          },
+          {
+            "id": "paste",
+            "label": "Paste",
+            "icon": "📋",
+            "description": "Paste from clipboard",
+            "shortcut": "Ctrl+V",
+            "enabled": false
+          },
+          {
+            "id": "separator2",
+            "type": "separator"
+          },
+          {
+            "id": "select-all",
+            "label": "Select All",
+            "icon": "⚡",
+            "description": "Select all nodes",
+            "shortcut": "Ctrl+A",
+            "enabled": true
+          },
+          {
+            "id": "clear-selection",
+            "label": "Clear Selection",
+            "icon": "❌",
+            "description": "Clear current selection",
+            "shortcut": "Esc",
+            "enabled": true
+          },
+          {
+            "id": "separator3",
+            "type": "separator"
+          },
+          {
+            "id": "center-view",
+            "label": "Center View",
+            "icon": "🎯",
+            "description": "Center the view",
+            "shortcut": "Ctrl+0",
+            "enabled": true
+          },
+          {
+            "id": "reset-zoom",
+            "label": "Reset Zoom",
+            "icon": "🔍",
+            "description": "Reset zoom to 100%",
+            "shortcut": "Ctrl+1",
+            "enabled": true
+          }
+        ]
+      }
+    }
+  },
+  "settings": {
+    "defaultMenuWidth": 180,
+    "defaultMenuHeight": null,
+    "cornerRadius": 8,
+    "fontSize": 12,
+    "iconSize": 16,
+    "padding": 8,
+    "separatorHeight": 1,
+    "separatorMargin": 4,
+    "actionHeight": 28,
+    "maxVisibleActions": 8,
+    "showIcons": true,
+    "showShortcuts": true,
+    "showDescriptions": false,
+    "animationDuration": 200,
+    "shadowBlur": 6,
+    "shadowOffset": 2
+  }
+}

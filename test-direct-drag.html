@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Drag Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        
+        .test-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .instructions {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .test-steps {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .iframe-container {
+            border: 2px solid #007acc;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 600px;
+            margin: 20px 0;
+        }
+        
+        .iframe-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .highlight {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎯 Direct Position Drag Test</h1>
+        
+        <div class="instructions">
+            <h3>🔍 What to Test</h3>
+            <p>This test verifies that nodes now follow the mouse cursor <strong>exactly</strong> where you click, with no lag or drift at any zoom level.</p>
+        </div>
+        
+        <div class="highlight">
+            <strong>Expected Behavior:</strong> The node should stay "glued" to the cursor at the exact point where you clicked, regardless of zoom level.
+        </div>
+        
+        <div class="test-steps">
+            <h4>📋 Test Steps</h4>
+            <ol>
+                <li><strong>Create a Node:</strong> Double-click on the canvas to create a node</li>
+                <li><strong>Test Default Zoom:</strong> Click and drag different parts of the node:
+                    <ul>
+                        <li>Click the center of the node and drag - cursor should stay at center</li>
+                        <li>Click the edge of the node and drag - cursor should stay at edge</li>
+                        <li>Click the top-left corner and drag - cursor should stay at top-left</li>
+                    </ul>
+                </li>
+                <li><strong>Test High Zoom (200-300%):</strong> Zoom in and repeat the drag tests</li>
+                <li><strong>Test Low Zoom (25-50%):</strong> Zoom out and repeat the drag tests</li>
+                <li><strong>Test After Pan:</strong> Pan the view and repeat the drag tests</li>
+            </ol>
+        </div>
+        
+        <div class="test-container">
+            <h3>✅ Success Criteria</h3>
+            <ul>
+                <li>The mouse cursor stays exactly where you clicked on the node</li>
+                <li>No lag or drift at any zoom level</li>
+                <li>Behavior is consistent across all zoom levels and pan positions</li>
+                <li>Node appears "stuck" to the cursor at the click point</li>
+            </ul>
+            
+            <h3>❌ Failure Indicators</h3>
+            <ul>
+                <li>Node lags behind the cursor</li>
+                <li>Node jumps ahead of the cursor</li>
+                <li>Cursor position on node changes during drag</li>
+                <li>Different behavior at different zoom levels</li>
+            </ul>
+        </div>
+        
+        <div class="iframe-container">
+            <iframe src="index.html" title="Diagram Project - Direct Position Drag Test"></iframe>
+        </div>
+    </div>
+    
+    <script>
+        // Add some visual feedback
+        console.log('🎯 Direct Position Drag Test loaded');
+        console.log('Expected: Node should stick to cursor at click point');
+        console.log('Formula: node.x = mouseX + clickOffsetX');
+    </script>
+</body>
+</html>
