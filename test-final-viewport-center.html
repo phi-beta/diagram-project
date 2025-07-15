@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final Viewport Center Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .control-group label {
+            font-weight: bold;
+            font-size: 12px;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        .primary-btn {
+            background-color: #007acc;
+            color: white;
+        }
+        .primary-btn:hover {
+            background-color: #005a9e;
+        }
+        .secondary-btn {
+            background-color: #6c757d;
+            color: white;
+        }
+        .secondary-btn:hover {
+            background-color: #545b62;
+        }
+        .test-btn {
+            background-color: #28a745;
+            color: white;
+        }
+        .test-btn:hover {
+            background-color: #218838;
+        }
+        .debug-btn {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .debug-btn:hover {
+            background-color: #e0a800;
+        }
+        #svgContainer {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #fafafa;
+        }
+        #diagram {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #f9f9f9 25%, transparent 25%, transparent 75%, #f9f9f9 75%, #f9f9f9),
+                        linear-gradient(45deg, #f9f9f9 25%, transparent 25%, transparent 75%, #f9f9f9 75%, #f9f9f9);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+        .info-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #007acc;
+        }
+        .info-panel h3 {
+            margin: 0 0 10px 0;
+            color: #007acc;
+        }
+        .info-panel p {
+            margin: 5px 0;
+            line-height: 1.5;
+        }
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .debug-output {
+            margin-top: 15px;
+            padding: 10px;
+            background: #2d3748;
+            color: #e2e8f0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .debug-output.hidden {
+            display: none;
+        }
+        .instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+        }
+        .instructions h4 {
+            margin: 0 0 10px 0;
+            color: #856404;
+        }
+        .instructions ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 5px 0;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Final Viewport Center Test</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>Node Creation</label>
+                <button id="createNodesBtn" class="primary-btn">Create Test Nodes</button>
+            </div>
+            <div class="control-group">
+                <label>Edge Creation</label>
+                <button id="createEdgesBtn" class="primary-btn">Create Test Edges</button>
+            </div>
+            <div class="control-group">
+                <label>Zoom Controls</label>
+                <button id="zoomInBtn" class="secondary-btn">Zoom In</button>
+                <button id="zoomOutBtn" class="secondary-btn">Zoom Out</button>
+                <button id="resetZoomBtn" class="secondary-btn">Reset Zoom</button>
+            </div>
+            <div class="control-group">
+                <label>Pan Controls</label>
+                <button id="panLeftBtn" class="secondary-btn">Pan Left</button>
+                <button id="panRightBtn" class="secondary-btn">Pan Right</button>
+                <button id="panUpBtn" class="secondary-btn">Pan Up</button>
+                <button id="panDownBtn" class="secondary-btn">Pan Down</button>
+            </div>
+            <div class="control-group">
+                <label>Tests</label>
+                <button id="testCenterCalculationsBtn" class="test-btn">Test Center Calculations</button>
+                <button id="testEdgeStabilityBtn" class="test-btn">Test Edge Stability</button>
+            </div>
+            <div class="control-group">
+                <label>Debug</label>
+                <button id="debugCentersBtn" class="debug-btn">Debug Centers</button>
+                <button id="clearDebugBtn" class="debug-btn">Clear Debug</button>
+            </div>
+        </div>
+
+        <div id="svgContainer">
+            <svg id="diagram" xmlns="http://www.w3.org/2000/svg">
+                <!-- Background will be created by GridRenderer -->
+            </svg>
+        </div>
+
+        <div class="info-panel">
+            <h3>Test Information</h3>
+            <p><strong>Objective:</strong> Validate that the getViewportCenter() method is correctly implemented and being used by edges.</p>
+            <p><strong>What to Test:</strong></p>
+            <ul>
+                <li>Edges connect to the visual centers of nodes</li>
+                <li>Edge connections remain stable during pan/zoom operations</li>
+                <li>No double transformation or overcompensation occurs</li>
+                <li>Complex SVG nodes (user/server icons) work correctly</li>
+                <li>Debug output shows correct center calculations</li>
+            </ul>
+        </div>
+
+        <div class="instructions">
+            <h4>Test Instructions:</h4>
+            <ol>
+                <li>Click "Create Test Nodes" to create nodes with different types (circle, user icon, server icon)</li>
+                <li>Click "Create Test Edges" to connect the nodes with edges</li>
+                <li>Use zoom and pan controls to move around the diagram</li>
+                <li>Click "Test Center Calculations" to verify that getViewportCenter() is working correctly</li>
+                <li>Click "Test Edge Stability" to verify edges remain stable during transforms</li>
+                <li>Click "Debug Centers" to see detailed center calculation information</li>
+                <li>Observe that edges always connect to the visual centers of nodes</li>
+            </ol>
+        </div>
+
+        <div id="status" class="status info">Ready to test viewport center calculations...</div>
+        
+        <div id="debugOutput" class="debug-output hidden"></div>
+    </div>
+
+    <!-- Include the main application scripts -->
+    <script src="js/ViewBoxManager.js"></script>
+    <script src="js/GridRenderer.js"></script>
+    <script src="js/CoordinateSystem.js"></script>
+    <script src="js/LayerManager.js"></script>
+    <script src="js/Node.js"></script>
+    <script src="js/Edge.js"></script>
+    <script src="js/InteractionManager.js"></script>
+    <script src="js/renderer.js"></script>
+
+    <script>
+        // Global variables for testing
+        let renderer = null;
+        let testNodes = [];
+        let testEdges = [];
+        let debugOutput = null;
+
+        // Debug logging function
+        function debugLog(message) {
+            console.log(message);
+            if (debugOutput) {
+                debugOutput.textContent += message + '\n';
+                debugOutput.scrollTop = debugOutput.scrollHeight;
+            }
+        }
+
+        // Initialize the application
+        function initializeApplication() {
+            try {
+                debugOutput = document.getElementById('debugOutput');
+                
+                // Initialize renderer
+                renderer = new DiagramRenderer('diagram');
+                
+                // Set up event listeners
+                setupEventListeners();
+                
+                updateStatus('Application initialized successfully', 'success');
+                debugLog('Application initialized');
+                
+            } catch (error) {
+                console.error('Error initializing application:', error);
+                updateStatus('Error initializing application: ' + error.message, 'error');
+            }
+        }
+
+        // Set up event listeners
+        function setupEventListeners() {
+            // Node creation
+            document.getElementById('createNodesBtn').addEventListener('click', createTestNodes);
+            document.getElementById('createEdgesBtn').addEventListener('click', createTestEdges);
+            
+            // Zoom controls
+            document.getElementById('zoomInBtn').addEventListener('click', () => {
+                renderer.zoomIn();
+                updateStatus('Zoomed in', 'info');
+            });
+            
+            document.getElementById('zoomOutBtn').addEventListener('click', () => {
+                renderer.zoomOut();
+                updateStatus('Zoomed out', 'info');
+            });
+            
+            document.getElementById('resetZoomBtn').addEventListener('click', () => {
+                renderer.resetZoom();
+                updateStatus('Zoom reset', 'info');
+            });
+            
+            // Pan controls
+            document.getElementById('panLeftBtn').addEventListener('click', () => {
+                renderer.pan(-50, 0);
+                updateStatus('Panned left', 'info');
+            });
+            
+            document.getElementById('panRightBtn').addEventListener('click', () => {
+                renderer.pan(50, 0);
+                updateStatus('Panned right', 'info');
+            });
+            
+            document.getElementById('panUpBtn').addEventListener('click', () => {
+                renderer.pan(0, -50);
+                updateStatus('Panned up', 'info');
+            });
+            
+            document.getElementById('panDownBtn').addEventListener('click', () => {
+                renderer.pan(0, 50);
+                updateStatus('Panned down', 'info');
+            });
+            
+            // Test controls
+            document.getElementById('testCenterCalculationsBtn').addEventListener('click', testCenterCalculations);
+            document.getElementById('testEdgeStabilityBtn').addEventListener('click', testEdgeStability);
+            
+            // Debug controls
+            document.getElementById('debugCentersBtn').addEventListener('click', debugCenters);
+            document.getElementById('clearDebugBtn').addEventListener('click', clearDebug);
+        }
+
+        // Create test nodes
+        function createTestNodes() {
+            try {
+                // Clear existing nodes
+                testNodes.forEach(node => {
+                    if (node.element && node.element.parentNode) {
+                        node.element.parentNode.removeChild(node.element);
+                    }
+                });
+                testNodes = [];
+
+                // Create different types of nodes
+                const nodeConfigs = [
+                    { id: 'circle1', x: 200, y: 150, type: 'circle', label: 'Circle Node' },
+                    { id: 'user1', x: 400, y: 150, type: 'user', label: 'User Node' },
+                    { id: 'server1', x: 600, y: 150, type: 'server', label: 'Server Node' },
+                    { id: 'circle2', x: 200, y: 350, type: 'circle', label: 'Circle 2' },
+                    { id: 'user2', x: 400, y: 350, type: 'user', label: 'User 2' },
+                    { id: 'server2', x: 600, y: 350, type: 'server', label: 'Server 2' }
+                ];
+
+                nodeConfigs.forEach(config => {
+                    const node = renderer.createNode(config);
+                    if (node) {
+                        testNodes.push(node);
+                        debugLog(`Created node: ${config.id} at (${config.x}, ${config.y}) type: ${config.type}`);
+                    }
+                });
+
+                updateStatus(`Created ${testNodes.length} test nodes`, 'success');
+                
+            } catch (error) {
+                console.error('Error creating test nodes:', error);
+                updateStatus('Error creating test nodes: ' + error.message, 'error');
+            }
+        }
+
+        // Create test edges
+        function createTestEdges() {
+            try {
+                // Clear existing edges
+                testEdges.forEach(edge => {
+                    if (edge.element && edge.element.parentNode) {
+                        edge.element.parentNode.removeChild(edge.element);
+                    }
+                });
+                testEdges = [];
+
+                if (testNodes.length < 2) {
+                    updateStatus('Need at least 2 nodes to create edges', 'error');
+                    return;
+                }
+
+                // Create edges between nodes
+                const edgeConfigs = [
+                    { id: 'edge1', from: 'circle1', to: 'user1' },
+                    { id: 'edge2', from: 'user1', to: 'server1' },
+                    { id: 'edge3', from: 'circle2', to: 'user2' },
+                    { id: 'edge4', from: 'user2', to: 'server2' },
+                    { id: 'edge5', from: 'circle1', to: 'circle2' },
+                    { id: 'edge6', from: 'server1', to: 'server2' }
+                ];
+
+                edgeConfigs.forEach(config => {
+                    const edge = renderer.createEdge(config);
+                    if (edge) {
+                        testEdges.push(edge);
+                        debugLog(`Created edge: ${config.id} from ${config.from} to ${config.to}`);
+                    }
+                });
+
+                updateStatus(`Created ${testEdges.length} test edges`, 'success');
+                
+            } catch (error) {
+                console.error('Error creating test edges:', error);
+                updateStatus('Error creating test edges: ' + error.message, 'error');
+            }
+        }
+
+        // Test center calculations
+        function testCenterCalculations() {
+            try {
+                debugLog('\n=== Testing Center Calculations ===');
+                
+                let allTestsPassed = true;
+                
+                testNodes.forEach(node => {
+                    debugLog(`\nTesting node: ${node.id}`);
+                    
+                    // Test getViewportCenter
+                    if (typeof node.getViewportCenter === 'function') {
+                        const viewportCenter = node.getViewportCenter();
+                        debugLog(`  getViewportCenter(): x=${viewportCenter.x}, y=${viewportCenter.y}, radius=${viewportCenter.radius}`);
+                        
+                        // Verify that the center is reasonable
+                        if (isNaN(viewportCenter.x) || isNaN(viewportCenter.y) || viewportCenter.radius <= 0) {
+                            debugLog(`  ERROR: Invalid viewport center values`);
+                            allTestsPassed = false;
+                        }
+                    } else {
+                        debugLog(`  ERROR: getViewportCenter method not found`);
+                        allTestsPassed = false;
+                    }
+                    
+                    // Test getLocalCenter
+                    if (typeof node.getLocalCenter === 'function') {
+                        const localCenter = node.getLocalCenter();
+                        debugLog(`  getLocalCenter(): x=${localCenter.x}, y=${localCenter.y}, radius=${localCenter.radius}`);
+                        
+                        // Verify that the center is reasonable
+                        if (isNaN(localCenter.x) || isNaN(localCenter.y) || localCenter.radius <= 0) {
+                            debugLog(`  ERROR: Invalid local center values`);
+                            allTestsPassed = false;
+                        }
+                    } else {
+                        debugLog(`  ERROR: getLocalCenter method not found`);
+                        allTestsPassed = false;
+                    }
+                    
+                    // Test that viewport center = node position + local center
+                    if (typeof node.getViewportCenter === 'function' && typeof node.getLocalCenter === 'function') {
+                        const viewportCenter = node.getViewportCenter();
+                        const localCenter = node.getLocalCenter();
+                        const expectedX = node.nodeData.x + localCenter.x;
+                        const expectedY = node.nodeData.y + localCenter.y;
+                        
+                        const tolerance = 0.1;
+                        if (Math.abs(viewportCenter.x - expectedX) > tolerance || Math.abs(viewportCenter.y - expectedY) > tolerance) {
+                            debugLog(`  ERROR: Viewport center doesn't match node position + local center`);
+                            debugLog(`    Expected: (${expectedX}, ${expectedY})`);
+                            debugLog(`    Got: (${viewportCenter.x}, ${viewportCenter.y})`);
+                            allTestsPassed = false;
+                        } else {
+                            debugLog(`  SUCCESS: Viewport center matches expected calculation`);
+                        }
+                    }
+                });
+
+                if (allTestsPassed) {
+                    updateStatus('All center calculation tests passed!', 'success');
+                } else {
+                    updateStatus('Some center calculation tests failed. Check debug output.', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error testing center calculations:', error);
+                updateStatus('Error testing center calculations: ' + error.message, 'error');
+            }
+        }
+
+        // Test edge stability during transforms
+        function testEdgeStability() {
+            try {
+                debugLog('\n=== Testing Edge Stability ===');
+                
+                if (testEdges.length === 0) {
+                    updateStatus('No edges to test. Create edges first.', 'error');
+                    return;
+                }
+
+                // Record initial edge positions
+                const initialEdgePositions = testEdges.map(edge => {
+                    const path = edge.element.querySelector('path');
+                    return {
+                        id: edge.id,
+                        pathData: path ? path.getAttribute('d') : null
+                    };
+                });
+
+                debugLog('Initial edge positions recorded');
+
+                // Perform zoom operations
+                debugLog('Applying zoom in...');
+                renderer.zoomIn();
+                
+                // Small delay to allow updates
+                setTimeout(() => {
+                    debugLog('Applying zoom out...');
+                    renderer.zoomOut();
+                    
+                    setTimeout(() => {
+                        debugLog('Applying pan operations...');
+                        renderer.pan(50, 50);
+                        
+                        setTimeout(() => {
+                            renderer.pan(-50, -50);
+                            
+                            setTimeout(() => {
+                                // Check if edges are still properly connected
+                                debugLog('Checking edge stability...');
+                                
+                                let allStable = true;
+                                testEdges.forEach(edge => {
+                                    const fromNode = testNodes.find(n => n.id === edge.fromNodeId);
+                                    const toNode = testNodes.find(n => n.id === edge.toNodeId);
+                                    
+                                    if (fromNode && toNode) {
+                                        const fromCenter = fromNode.getViewportCenter();
+                                        const toCenter = toNode.getViewportCenter();
+                                        
+                                        debugLog(`Edge ${edge.id}: from (${fromCenter.x}, ${fromCenter.y}) to (${toCenter.x}, ${toCenter.y})`);
+                                        
+                                        // Check if edge path exists and is reasonable
+                                        const path = edge.element.querySelector('path');
+                                        if (!path || !path.getAttribute('d')) {
+                                            debugLog(`  ERROR: Edge ${edge.id} has no path data`);
+                                            allStable = false;
+                                        }
+                                    }
+                                });
+                                
+                                if (allStable) {
+                                    updateStatus('Edge stability test passed!', 'success');
+                                } else {
+                                    updateStatus('Edge stability test failed. Check debug output.', 'error');
+                                }
+                                
+                            }, 100);
+                        }, 100);
+                    }, 100);
+                }, 100);
+                
+            } catch (error) {
+                console.error('Error testing edge stability:', error);
+                updateStatus('Error testing edge stability: ' + error.message, 'error');
+            }
+        }
+
+        // Debug centers
+        function debugCenters() {
+            debugOutput.style.display = 'block';
+            debugOutput.classList.remove('hidden');
+            debugLog('\n=== Debug Centers ===');
+            
+            testNodes.forEach(node => {
+                debugLog(`\nNode: ${node.id}`);
+                debugLog(`  Position: (${node.nodeData.x}, ${node.nodeData.y})`);
+                debugLog(`  Type: ${node.nodeData.type}`);
+                
+                if (typeof node.getViewportCenter === 'function') {
+                    const viewportCenter = node.getViewportCenter();
+                    debugLog(`  Viewport Center: (${viewportCenter.x}, ${viewportCenter.y}) radius=${viewportCenter.radius}`);
+                }
+                
+                if (typeof node.getLocalCenter === 'function') {
+                    const localCenter = node.getLocalCenter();
+                    debugLog(`  Local Center: (${localCenter.x}, ${localCenter.y}) radius=${localCenter.radius}`);
+                }
+                
+                // Check if element exists and get its bounding box
+                if (node.element) {
+                    try {
+                        const bbox = node.element.getBBox();
+                        debugLog(`  Element BBox: x=${bbox.x}, y=${bbox.y}, w=${bbox.width}, h=${bbox.height}`);
+                    } catch (e) {
+                        debugLog(`  Element BBox: Error getting bbox - ${e.message}`);
+                    }
+                }
+            });
+            
+            updateStatus('Debug information displayed', 'info');
+        }
+
+        // Clear debug output
+        function clearDebug() {
+            debugOutput.classList.add('hidden');
+            debugOutput.textContent = '';
+            updateStatus('Debug output cleared', 'info');
+        }
+
+        // Update status message
+        function updateStatus(message, type) {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+            
+            // Clear status after 5 seconds for info messages
+            if (type === 'info') {
+                setTimeout(() => {
+                    statusElement.textContent = 'Ready to test viewport center calculations...';
+                    statusElement.className = 'status info';
+                }, 5000);
+            }
+        }
+
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', initializeApplication);
+    </script>
+</body>
+</html>

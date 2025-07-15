@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Center Validation Test</title>
+    <link rel="stylesheet" href="themes/default.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+        .test-panel {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-width: 400px;
+        }
+        .test-button {
+            margin: 3px;
+            padding: 8px 12px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .test-button:hover {
+            background: #005a9e;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 3px;
+            font-size: 14px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+        }
+        .validation-info {
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            background: #e7f3ff;
+            border: 1px solid #bee5ff;
+            font-family: monospace;
+        }
+        .validation-info.show {
+            display: block;
+        }
+        .validation-info {
+            display: none;
+        }
+        #diagram {
+            width: 100%;
+            height: 100vh;
+            background: white;
+            border: none;
+        }
+        .center-marker {
+            fill: red;
+            stroke: red;
+            stroke-width: 2;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-panel">
+        <h3>Edge Center Validation Test</h3>
+        
+        <button class="test-button" onclick="addRealNodes()">Add Real Nodes</button>
+        <button class="test-button" onclick="showCenterMarkers()">Show Center Markers</button>
+        <button class="test-button" onclick="validateCenters()">Validate Centers</button>
+        <button class="test-button" onclick="panTest()">Pan Test</button>
+        <button class="test-button" onclick="zoomTest()">Zoom Test</button>
+        <button class="test-button" onclick="resetView()">Reset View</button>
+        <button class="test-button" onclick="clearAll()">Clear All</button>
+        
+        <div id="statusDisplay" class="status">
+            Ready - Click "Add Real Nodes" to test with actual SVG nodes
+        </div>
+        
+        <div id="validationDisplay" class="validation-info"></div>
+    </div>
+
+    <svg id="diagram" xmlns="http://www.w3.org/2000/svg">
+        <!-- Diagram content will be rendered here -->
+    </svg>
+
+    <!-- Include necessary scripts -->
+    <script src="js/CoordinateSystem.js"></script>
+    <script src="js/ViewBoxManager.js"></script>
+    <script src="js/LayerManager.js"></script>
+    <script src="js/Node.js"></script>
+    <script src="js/Edge.js"></script>
+    <script src="js/InteractionManager.js"></script>
+    <script src="js/renderer.js"></script>
+
+    <script>
+        // Initialize the diagram
+        const svg = document.getElementById('diagram');
+        const statusDisplay = document.getElementById('statusDisplay');
+        const validationDisplay = document.getElementById('validationDisplay');
+        let interactionManager;
+        let renderer;
+        let centerMarkers = [];
+
+        function initializeDiagram() {
+            // Initialize the interaction manager and renderer
+            interactionManager = new InteractionManager(svg);
+            renderer = new Renderer(svg, interactionManager);
+            
+            updateStatus('Diagram initialized - Ready to test with real SVG nodes');
+        }
+
+        async function addRealNodes() {
+            if (!interactionManager) return;
+            
+            clearAll();
+            
+            // Add actual nodes using the real node creation system
+            const nodeConfigs = [
+                { x: 100, y: 100, class: 'user', label: 'User A' },
+                { x: 400, y: 100, class: 'server', label: 'Server B' },
+                { x: 700, y: 100, class: 'user', label: 'User C' },
+                { x: 250, y: 300, class: 'server', label: 'Server D' },
+                { x: 550, y: 300, class: 'user', label: 'User E' }
+            ];
+            
+            const nodes = [];
+            for (const config of nodeConfigs) {
+                try {
+                    const node = await renderer.createNode(config);
+                    nodes.push(node);
+                    updateStatus(`Created node: ${config.label}`);
+                } catch (error) {
+                    console.error('Error creating node:', error);
+                    updateStatus(`Error creating node: ${config.label}`);
+                }
+            }
+            
+            // Create edges between nodes
+            const edgeConnections = [
+                [0, 1], // User A to Server B
+                [1, 2], // Server B to User C
+                [0, 3], // User A to Server D
+                [1, 4], // Server B to User E
+                [2, 4], // User C to User E
+                [3, 4], // Server D to User E
+            ];
+            
+            edgeConnections.forEach(([fromIndex, toIndex]) => {
+                if (nodes[fromIndex] && nodes[toIndex]) {
+                    interactionManager.addEdge(nodes[fromIndex], nodes[toIndex]);
+                }
+            });
+            
+            renderer.render();
+            updateStatus('Real nodes and edges added - Test edge center alignment');
+        }
+
+        function showCenterMarkers() {
+            if (!interactionManager) return;
+            
+            // Clear existing markers
+            centerMarkers.forEach(marker => marker.remove());
+            centerMarkers = [];
+            
+            // Add center markers for each node
+            interactionManager.nodes.forEach((node, index) => {
+                // Get the calculated center using both methods
+                const localCenter = node.getLocalCenter ? node.getLocalCenter() : null;
+                const globalCenter = node.getGlobalCenter ? node.getGlobalCenter() : null;
+                
+                if (localCenter && node.nodeData) {
+                    // Calculate center in viewBox coordinates (this is what edges should use)
+                    const viewBoxCenter = {
+                        x: node.nodeData.x + localCenter.x,
+                        y: node.nodeData.y + localCenter.y
+                    };
+                    
+                    // Create a small circle at the calculated center
+                    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    marker.setAttribute('cx', viewBoxCenter.x);
+                    marker.setAttribute('cy', viewBoxCenter.y);
+                    marker.setAttribute('r', '3');
+                    marker.setAttribute('class', 'center-marker');
+                    marker.setAttribute('data-node', `${index + 1}`);
+                    
+                    svg.appendChild(marker);
+                    centerMarkers.push(marker);
+                }
+            });
+            
+            updateStatus('Center markers added - Red dots show calculated centers');
+        }
+
+        function validateCenters() {
+            if (!interactionManager) return;
+            
+            let validation = "=== CENTER VALIDATION ===\n\n";
+            
+            interactionManager.nodes.forEach((node, index) => {
+                const nodeData = node.nodeData || node;
+                
+                validation += `Node ${index + 1} (${node.text || node.id}):\n`;
+                validation += `  Position: (${nodeData.x}, ${nodeData.y})\n`;
+                
+                if (typeof node.getLocalCenter === 'function') {
+                    const localCenter = node.getLocalCenter();
+                    validation += `  Local Center: (${localCenter.x.toFixed(2)}, ${localCenter.y.toFixed(2)})\n`;
+                    validation += `  Local Radius: ${localCenter.radius.toFixed(2)}\n`;
+                    
+                    const viewBoxCenter = {
+                        x: nodeData.x + localCenter.x,
+                        y: nodeData.y + localCenter.y
+                    };
+                    validation += `  ViewBox Center: (${viewBoxCenter.x.toFixed(2)}, ${viewBoxCenter.y.toFixed(2)})\n`;
+                }
+                
+                if (typeof node.getGlobalCenter === 'function') {
+                    const globalCenter = node.getGlobalCenter();
+                    validation += `  Global Center: (${globalCenter.x.toFixed(2)}, ${globalCenter.y.toFixed(2)})\n`;
+                    validation += `  Global Radius: ${globalCenter.radius.toFixed(2)}\n`;
+                }
+                
+                validation += "\n";
+            });
+            
+            // Show edge endpoint calculations
+            validation += "=== EDGE ENDPOINTS ===\n\n";
+            interactionManager.edges.forEach((edge, index) => {
+                const fromNode = interactionManager.nodes.find(n => n.id === edge.from);
+                const toNode = interactionManager.nodes.find(n => n.id === edge.to);
+                
+                if (fromNode && toNode) {
+                    validation += `Edge ${index + 1}:\n`;
+                    
+                    // Show what the edge calculation should be
+                    const fromLocal = fromNode.getLocalCenter();
+                    const toLocal = toNode.getLocalCenter();
+                    
+                    const fromCenter = {
+                        x: fromNode.nodeData.x + fromLocal.x,
+                        y: fromNode.nodeData.y + fromLocal.y
+                    };
+                    const toCenter = {
+                        x: toNode.nodeData.x + toLocal.x,
+                        y: toNode.nodeData.y + toLocal.y
+                    };
+                    
+                    validation += `  From: (${fromCenter.x.toFixed(2)}, ${fromCenter.y.toFixed(2)})\n`;
+                    validation += `  To: (${toCenter.x.toFixed(2)}, ${toCenter.y.toFixed(2)})\n`;
+                    
+                    // Calculate edge endpoints (accounting for radius)
+                    const dx = toCenter.x - fromCenter.x;
+                    const dy = toCenter.y - fromCenter.y;
+                    const distance = Math.hypot(dx, dy);
+                    
+                    const fromEndpoint = {
+                        x: fromCenter.x + dx * (fromLocal.radius / distance),
+                        y: fromCenter.y + dy * (fromLocal.radius / distance)
+                    };
+                    const toEndpoint = {
+                        x: toCenter.x - dx * (toLocal.radius / distance),
+                        y: toCenter.y - dy * (toLocal.radius / distance)
+                    };
+                    
+                    validation += `  From Endpoint: (${fromEndpoint.x.toFixed(2)}, ${fromEndpoint.y.toFixed(2)})\n`;
+                    validation += `  To Endpoint: (${toEndpoint.x.toFixed(2)}, ${toEndpoint.y.toFixed(2)})\n`;
+                    validation += "\n";
+                }
+            });
+            
+            validationDisplay.textContent = validation;
+            validationDisplay.classList.add('show');
+            updateStatus('Center validation complete - Check detailed output');
+        }
+
+        function panTest() {
+            if (!interactionManager) return;
+            
+            const panAmount = 100;
+            interactionManager.viewBoxManager.pan(panAmount, 0);
+            renderer.render();
+            updateStatus(`Panned ${panAmount} units right - Centers should stay aligned`);
+        }
+
+        function zoomTest() {
+            if (!interactionManager) return;
+            
+            interactionManager.viewBoxManager.zoomIn(1.5);
+            renderer.render();
+            updateStatus('Zoomed in 1.5x - Centers should remain accurate');
+        }
+
+        function resetView() {
+            if (!interactionManager) return;
+            
+            interactionManager.viewBoxManager.resetView();
+            renderer.render();
+            updateStatus('View reset - Centers should be back to original positions');
+        }
+
+        function clearAll() {
+            if (!interactionManager) return;
+            
+            interactionManager.nodes.length = 0;
+            interactionManager.edges.length = 0;
+            interactionManager.selectedNodes.clear();
+            
+            // Clear center markers
+            centerMarkers.forEach(marker => marker.remove());
+            centerMarkers = [];
+            
+            renderer.render();
+            validationDisplay.classList.remove('show');
+            updateStatus('All nodes, edges, and markers cleared');
+        }
+
+        function updateStatus(message) {
+            if (statusDisplay) {
+                statusDisplay.textContent = message;
+            }
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', initializeDiagram);
+    </script>
+</body>
+</html>

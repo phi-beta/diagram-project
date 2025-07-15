@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edge Coordinate Debug Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f5f5f5;
+    }
+    
+    .controls {
+      background-color: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    button {
+      background-color: #007acc;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    
+    button:hover {
+      background-color: #005a9e;
+    }
+    
+    .svg-container {
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    svg {
+      border: 1px solid #ccc;
+      background-color: #fafafa;
+    }
+    
+    .debug-info {
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 15px;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .node {
+      fill: #4ECDC4;
+      stroke: #333;
+      stroke-width: 2;
+    }
+    
+    .edge {
+      stroke: #333;
+      stroke-width: 2;
+      fill: none;
+    }
+    
+    .debug-marker {
+      fill: red;
+      stroke: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Edge Coordinate Debug Test</h1>
+  
+  <div class="controls">
+    <button onclick="panLeft()">Pan Left 10</button>
+    <button onclick="panRight()">Pan Right 10</button>
+    <button onclick="panUp()">Pan Up 10</button>
+    <button onclick="panDown()">Pan Down 10</button>
+    <button onclick="zoomIn()">Zoom In</button>
+    <button onclick="zoomOut()">Zoom Out</button>
+    <button onclick="resetView()">Reset View</button>
+    <button onclick="debugCoordinates()">Debug Coordinates</button>
+    <button onclick="moveNode()">Move Node</button>
+    <button onclick="clearDebug()">Clear Debug</button>
+  </div>
+  
+  <div class="svg-container">
+    <svg id="test-svg" width="800" height="600" viewBox="0 0 800 600">
+      <!-- Layers -->
+      <g id="background-layer"></g>
+      <g id="grid-layer"></g>
+      <g id="edges-layer"></g>
+      <g id="nodes-layer"></g>
+      <g id="temp-layer"></g>
+      <g id="ui-layer"></g>
+      <g id="debug-layer"></g>
+    </svg>
+  </div>
+  
+  <div class="debug-info" id="debug-info">
+    Ready to debug edge coordinates...
+  </div>
+  
+  <script type="module">
+    import { ViewBoxManager } from './js/ViewBoxManager.js?v=002';
+    import { CoordinateSystem } from './js/CoordinateSystem.js?v=003';
+    
+    const svg = document.getElementById('test-svg');
+    const nodesLayer = document.getElementById('nodes-layer');
+    const edgesLayer = document.getElementById('edges-layer');
+    const debugLayer = document.getElementById('debug-layer');
+    const debugInfo = document.getElementById('debug-info');
+    
+    let viewBoxManager = null;
+    let coordinateSystem = null;
+    let nodeA = null;
+    let nodeB = null;
+    let edge = null;
+    
+    // Initialize system
+    function init() {
+      viewBoxManager = new ViewBoxManager(svg);
+      coordinateSystem = new CoordinateSystem(svg);
+      
+      // Create test nodes
+      nodeA = createNode(200, 200, 'A');
+      nodeB = createNode(400, 300, 'B');
+      
+      // Create edge
+      edge = createEdge(nodeA, nodeB);
+      
+      // Make available globally
+      window.viewBoxManager = viewBoxManager;
+      window.coordinateSystem = coordinateSystem;
+      
+      updateDebugInfo();
+    }
+    
+    function createNode(x, y, label) {
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.setAttribute('transform', `translate(${x}, ${y})`);
+      
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('r', '25');
+      circle.setAttribute('class', 'node');
+      
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('dy', '0.3em');
+      text.setAttribute('fill', 'white');
+      text.setAttribute('font-weight', 'bold');
+      text.textContent = label;
+      
+      g.appendChild(circle);
+      g.appendChild(text);
+      nodesLayer.appendChild(g);
+      
+      return {
+        element: g,
+        x: x,
+        y: y,
+        label: label,
+        radius: 25
+      };
+    }
+    
+    function createEdge(nodeA, nodeB) {
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('class', 'edge');
+      edgesLayer.appendChild(path);
+      
+      const edge = {
+        element: path,
+        nodeA: nodeA,
+        nodeB: nodeB,
+        update: function() {
+          const centerA = getNodeCenter(this.nodeA);
+          const centerB = getNodeCenter(this.nodeB);
+          
+          const dx = centerB.x - centerA.x;
+          const dy = centerB.y - centerA.y;
+          const distance = Math.hypot(dx, dy) || 1;
+          
+          const x1 = centerA.x + dx * (centerA.radius / distance);
+          const y1 = centerA.y + dy * (centerA.radius / distance);
+          const x2 = centerB.x - dx * (centerB.radius / distance);
+          const y2 = centerB.y - dy * (centerB.radius / distance);
+          
+          const pathData = `M ${x1} ${y1} L ${x2} ${y2}`;
+          this.element.setAttribute('d', pathData);
+          
+          return { x1, y1, x2, y2, centerA, centerB };
+        }
+      };
+      
+      edge.update();
+      return edge;
+    }
+    
+    function getNodeCenter(node) {
+      // Method 1: Using getBBox and getCTM (like current implementation)
+      const bbox = node.element.getBBox();
+      const ctm = node.element.getCTM();
+      
+      const localCenter = {
+        x: bbox.x + bbox.width / 2,
+        y: bbox.y + bbox.height / 2
+      };
+      
+      let globalCenter;
+      if (ctm) {
+        globalCenter = {
+          x: ctm.a * localCenter.x + ctm.c * localCenter.y + ctm.e,
+          y: ctm.b * localCenter.x + ctm.d * localCenter.y + ctm.f,
+          radius: node.radius
+        };
+      } else {
+        globalCenter = {
+          x: localCenter.x,
+          y: localCenter.y,
+          radius: node.radius
+        };
+      }
+      
+      return globalCenter;
+    }
+    
+    function updateDebugInfo() {
+      const viewBox = viewBoxManager.getCurrentViewBox();
+      const centerA = getNodeCenter(nodeA);
+      const centerB = getNodeCenter(nodeB);
+      const edgeCoords = edge.update();
+      
+      debugInfo.textContent = `ViewBox: ${viewBox.x}, ${viewBox.y}, ${viewBox.width}, ${viewBox.height}
+Zoom: ${viewBox.zoom}
+
+Node A:
+  Local position: ${nodeA.x}, ${nodeA.y}
+  Global center: ${centerA.x.toFixed(2)}, ${centerA.y.toFixed(2)}
+  
+Node B:
+  Local position: ${nodeB.x}, ${nodeB.y}
+  Global center: ${centerB.x.toFixed(2)}, ${centerB.y.toFixed(2)}
+  
+Edge:
+  Start: ${edgeCoords.x1.toFixed(2)}, ${edgeCoords.y1.toFixed(2)}
+  End: ${edgeCoords.x2.toFixed(2)}, ${edgeCoords.y2.toFixed(2)}
+  
+Distance: ${Math.hypot(centerB.x - centerA.x, centerB.y - centerA.y).toFixed(2)}
+`;
+    }
+    
+    function panLeft() {
+      const currentViewBox = viewBoxManager.getCurrentViewBox();
+      viewBoxManager.viewBoxX = currentViewBox.x - 10;
+      viewBoxManager.updateViewBox();
+      edge.update();
+      updateDebugInfo();
+    }
+    
+    function panRight() {
+      const currentViewBox = viewBoxManager.getCurrentViewBox();
+      viewBoxManager.viewBoxX = currentViewBox.x + 10;
+      viewBoxManager.updateViewBox();
+      edge.update();
+      updateDebugInfo();
+    }
+    
+    function panUp() {
+      const currentViewBox = viewBoxManager.getCurrentViewBox();
+      viewBoxManager.viewBoxY = currentViewBox.y - 10;
+      viewBoxManager.updateViewBox();
+      edge.update();
+      updateDebugInfo();
+    }
+    
+    function panDown() {
+      const currentViewBox = viewBoxManager.getCurrentViewBox();
+      viewBoxManager.viewBoxY = currentViewBox.y + 10;
+      viewBoxManager.updateViewBox();
+      edge.update();
+      updateDebugInfo();
+    }
+    
+    function zoomIn() {
+      viewBoxManager.zoom(1.2, 400, 300);
+      edge.update();
+      updateDebugInfo();
+    }
+    
+    function zoomOut() {
+      viewBoxManager.zoom(0.8, 400, 300);
+      edge.update();
+      updateDebugInfo();
+    }
+    
+    function resetView() {
+      viewBoxManager.resetView();
+      edge.update();
+      updateDebugInfo();
+    }
+    
+    function debugCoordinates() {
+      // Add debug markers at calculated positions
+      debugLayer.innerHTML = '';
+      
+      const centerA = getNodeCenter(nodeA);
+      const centerB = getNodeCenter(nodeB);
+      
+      // Add markers at node centers
+      const markerA = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      markerA.setAttribute('cx', centerA.x);
+      markerA.setAttribute('cy', centerA.y);
+      markerA.setAttribute('r', '3');
+      markerA.setAttribute('class', 'debug-marker');
+      debugLayer.appendChild(markerA);
+      
+      const markerB = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      markerB.setAttribute('cx', centerB.x);
+      markerB.setAttribute('cy', centerB.y);
+      markerB.setAttribute('r', '3');
+      markerB.setAttribute('class', 'debug-marker');
+      debugLayer.appendChild(markerB);
+      
+      updateDebugInfo();
+    }
+    
+    function moveNode() {
+      // Move node A to test edge update
+      nodeA.x += 20;
+      nodeA.y += 10;
+      nodeA.element.setAttribute('transform', `translate(${nodeA.x}, ${nodeA.y})`);
+      edge.update();
+      updateDebugInfo();
+    }
+    
+    function clearDebug() {
+      debugLayer.innerHTML = '';
+    }
+    
+    // Make functions available globally
+    window.panLeft = panLeft;
+    window.panRight = panRight;
+    window.panUp = panUp;
+    window.panDown = panDown;
+    window.zoomIn = zoomIn;
+    window.zoomOut = zoomOut;
+    window.resetView = resetView;
+    window.debugCoordinates = debugCoordinates;
+    window.moveNode = moveNode;
+    window.clearDebug = clearDebug;
+    
+    // Initialize
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Node Edge Test</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+        .info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-width: 300px;
+        }
+        .test-button {
+            margin: 5px;
+            padding: 8px 12px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .debug-output {
+            font-family: monospace;
+            font-size: 12px;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        #diagram {
+            width: 100%;
+            height: 100vh;
+            background: white;
+            border: none;
+        }
+        .node-visual {
+            fill: #4a90e2;
+            stroke: #2c5282;
+            stroke-width: 2;
+        }
+        .node-text {
+            fill: white;
+            font-size: 12px;
+            font-weight: bold;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+        .edge-line {
+            stroke: #666;
+            stroke-width: 2;
+            fill: none;
+        }
+        .debug-marker {
+            fill: red;
+            stroke: red;
+            stroke-width: 1;
+        }
+        .debug-center {
+            fill: blue;
+            stroke: blue;
+            stroke-width: 2;
+        }
+    </style>
+</head>
+<body>
+    <div class="info">
+        <h3>Simple Node Edge Test</h3>
+        <button class="test-button" onclick="createSimpleNodes()">Create Simple Nodes</button>
+        <button class="test-button" onclick="testEdgeCalculation()">Test Edge Calculation</button>
+        <button class="test-button" onclick="drawCalculatedEdge()">Draw Calculated Edge</button>
+        <button class="test-button" onclick="clearAll()">Clear All</button>
+        
+        <div id="debugOutput" class="debug-output"></div>
+    </div>
+
+    <svg id="diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+        <!-- Background grid -->
+        <defs>
+            <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#eee" stroke-width="1"/>
+            </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)"/>
+        
+        <!-- Reference lines -->
+        <line x1="0" y1="0" x2="800" y2="0" stroke="red" stroke-width="0.5" opacity="0.3"/>
+        <line x1="0" y1="0" x2="0" y2="600" stroke="red" stroke-width="0.5" opacity="0.3"/>
+        
+        <!-- Content layer -->
+        <g id="content"></g>
+    </svg>
+
+    <script>
+        const svg = document.getElementById('diagram');
+        const content = document.getElementById('content');
+        const debugOutput = document.getElementById('debugOutput');
+        
+        let nodes = [];
+        let calculatedEdge = null;
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            debugOutput.textContent += `[${timestamp}] ${message}\n`;
+            debugOutput.scrollTop = debugOutput.scrollHeight;
+        }
+        
+        function clearLog() {
+            debugOutput.textContent = '';
+        }
+        
+        function createSimpleNodes() {
+            clearAll();
+            
+            // Create two simple nodes manually
+            const nodeConfigs = [
+                { x: 150, y: 150, radius: 40, label: 'A' },
+                { x: 450, y: 250, radius: 40, label: 'B' }
+            ];
+            
+            nodeConfigs.forEach((config, index) => {
+                // Create node group
+                const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                group.setAttribute('transform', `translate(${config.x}, ${config.y})`);
+                group.setAttribute('data-node-id', `node-${index}`);
+                
+                // Create circle
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('r', config.radius);
+                circle.setAttribute('class', 'node-visual');
+                
+                // Create text
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('class', 'node-text');
+                text.textContent = config.label;
+                
+                group.appendChild(circle);
+                group.appendChild(text);
+                content.appendChild(group);
+                
+                // Store node info
+                nodes.push({
+                    id: `node-${index}`,
+                    element: group,
+                    x: config.x,
+                    y: config.y,
+                    radius: config.radius,
+                    label: config.label
+                });
+                
+                log(`Created node ${config.label} at (${config.x}, ${config.y}) with radius ${config.radius}`);
+            });
+        }
+        
+        function testEdgeCalculation() {
+            if (nodes.length < 2) {
+                log('Need at least 2 nodes for edge calculation');
+                return;
+            }
+            
+            log('=== EDGE CALCULATION TEST ===');
+            
+            const fromNode = nodes[0];
+            const toNode = nodes[1];
+            
+            log(`From node: ${fromNode.label} at (${fromNode.x}, ${fromNode.y})`);
+            log(`To node: ${toNode.label} at (${toNode.x}, ${toNode.y})`);
+            
+            // Test getBBox on actual elements
+            try {
+                const fromBBox = fromNode.element.getBBox();
+                const toBBox = toNode.element.getBBox();
+                
+                log(`From node getBBox: x=${fromBBox.x}, y=${fromBBox.y}, w=${fromBBox.width}, h=${fromBBox.height}`);
+                log(`To node getBBox: x=${toBBox.x}, y=${toBBox.y}, w=${toBBox.width}, h=${toBBox.height}`);
+                
+                // Calculate local centers
+                const fromLocalCenter = {
+                    x: fromBBox.x + fromBBox.width / 2,
+                    y: fromBBox.y + fromBBox.height / 2,
+                    radius: Math.min(fromBBox.width, fromBBox.height) / 2
+                };
+                
+                const toLocalCenter = {
+                    x: toBBox.x + toBBox.width / 2,
+                    y: toBBox.y + toBBox.height / 2,
+                    radius: Math.min(toBBox.width, toBBox.height) / 2
+                };
+                
+                log(`From local center: (${fromLocalCenter.x}, ${fromLocalCenter.y}), radius=${fromLocalCenter.radius}`);
+                log(`To local center: (${toLocalCenter.x}, ${toLocalCenter.y}), radius=${toLocalCenter.radius}`);
+                
+                // Calculate viewBox centers (node position + local center)
+                const fromViewBoxCenter = {
+                    x: fromNode.x + fromLocalCenter.x,
+                    y: fromNode.y + fromLocalCenter.y,
+                    radius: fromLocalCenter.radius
+                };
+                
+                const toViewBoxCenter = {
+                    x: toNode.x + toLocalCenter.x,
+                    y: toNode.y + toLocalCenter.y,
+                    radius: toLocalCenter.radius
+                };
+                
+                log(`From viewBox center: (${fromViewBoxCenter.x}, ${fromViewBoxCenter.y})`);
+                log(`To viewBox center: (${toViewBoxCenter.x}, ${toViewBoxCenter.y})`);
+                
+                // Calculate edge endpoints
+                const dx = toViewBoxCenter.x - fromViewBoxCenter.x;
+                const dy = toViewBoxCenter.y - fromViewBoxCenter.y;
+                const distance = Math.hypot(dx, dy);
+                
+                const x1 = fromViewBoxCenter.x + dx * (fromViewBoxCenter.radius / distance);
+                const y1 = fromViewBoxCenter.y + dy * (fromViewBoxCenter.radius / distance);
+                const x2 = toViewBoxCenter.x - dx * (toViewBoxCenter.radius / distance);
+                const y2 = toViewBoxCenter.y - dy * (toViewBoxCenter.radius / distance);
+                
+                log(`Edge vector: dx=${dx}, dy=${dy}, distance=${distance}`);
+                log(`From endpoint: (${x1}, ${y1})`);
+                log(`To endpoint: (${x2}, ${y2})`);
+                
+                // Store for visualization
+                calculatedEdge = { x1, y1, x2, y2 };
+                
+                // Add visual markers
+                addMarker(fromNode.x, fromNode.y, 'red', 'Pos A');
+                addMarker(toNode.x, toNode.y, 'red', 'Pos B');
+                addMarker(fromViewBoxCenter.x, fromViewBoxCenter.y, 'blue', 'Center A');
+                addMarker(toViewBoxCenter.x, toViewBoxCenter.y, 'blue', 'Center B');
+                
+            } catch (error) {
+                log(`Error in calculation: ${error.message}`);
+            }
+        }
+        
+        function drawCalculatedEdge() {
+            if (!calculatedEdge) {
+                log('No calculated edge to draw');
+                return;
+            }
+            
+            // Remove existing edge
+            const existingEdge = document.getElementById('calculated-edge');
+            if (existingEdge) {
+                existingEdge.remove();
+            }
+            
+            // Draw the calculated edge
+            const edge = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            edge.setAttribute('id', 'calculated-edge');
+            edge.setAttribute('d', `M ${calculatedEdge.x1} ${calculatedEdge.y1} L ${calculatedEdge.x2} ${calculatedEdge.y2}`);
+            edge.setAttribute('class', 'edge-line');
+            
+            content.appendChild(edge);
+            log(`Drew edge: M ${calculatedEdge.x1} ${calculatedEdge.y1} L ${calculatedEdge.x2} ${calculatedEdge.y2}`);
+        }
+        
+        function addMarker(x, y, color, label) {
+            const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            marker.setAttribute('cx', x);
+            marker.setAttribute('cy', y);
+            marker.setAttribute('r', '3');
+            marker.setAttribute('fill', color);
+            marker.setAttribute('stroke', color);
+            marker.setAttribute('stroke-width', '2');
+            
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', x + 8);
+            text.setAttribute('y', y - 8);
+            text.setAttribute('font-size', '10');
+            text.setAttribute('fill', color);
+            text.textContent = label;
+            
+            content.appendChild(marker);
+            content.appendChild(text);
+        }
+        
+        function clearAll() {
+            clearLog();
+            content.innerHTML = '';
+            nodes = [];
+            calculatedEdge = null;
+            log('Cleared all');
+        }
+    </script>
+</body>
+</html>

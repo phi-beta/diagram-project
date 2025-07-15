@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scaling Center Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        #svgContainer {
+            width: 100%;
+            height: 400px;
+            border: 2px solid #ddd;
+            margin: 20px 0;
+        }
+        #diagram {
+            width: 100%;
+            height: 100%;
+            background: #fafafa;
+        }
+        .debug-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            border-left: 4px solid #007acc;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #007acc;
+            color: white;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Scaling Center Fix Test</h1>
+        
+        <button onclick="testScaling()">Test Scaling Fix</button>
+        <button onclick="clearLog()">Clear Log</button>
+
+        <div id="svgContainer">
+            <svg id="diagram" xmlns="http://www.w3.org/2000/svg">
+                <!-- Standard layer structure expected by renderer -->
+                <g id="background-layer"></g>
+                <g id="edges-layer"></g>
+                <g id="nodes-layer"></g>
+                <g id="foreground-layer"></g>
+                <g id="debug-layer"></g>
+            </svg>
+        </div>
+
+        <div id="debugInfo" class="debug-info">
+            Test logs will appear here...
+        </div>
+    </div>
+
+    <script type="module">
+        import { renderer } from './js/renderer.js';
+        
+        let debugInfo = document.getElementById('debugInfo');
+
+        function log(message, className = '') {
+            console.log(message);
+            const span = document.createElement('span');
+            span.className = className;
+            span.textContent = message;
+            debugInfo.appendChild(span);
+            debugInfo.appendChild(document.createElement('br'));
+            debugInfo.scrollTop = debugInfo.scrollHeight;
+        }
+
+        function clearLog() {
+            debugInfo.innerHTML = '';
+        }
+
+        async function testScaling() {
+            try {
+                clearLog();
+                log('=== Testing Scaling Fix ===');
+                
+                // Initialize renderer
+                await renderer.initialize();
+                log('✅ Renderer initialized', 'success');
+                
+                // Create nodes with different scales
+                const userNode = await renderer.createNode({
+                    id: 'user-scaled',
+                    x: 150,
+                    y: 100,
+                    svg: 'user.svg',
+                    class: 'user',
+                    label: 'User (21% scale)',
+                    scale: 0.21037687894947063
+                });
+                
+                const userNodeFullScale = await renderer.createNode({
+                    id: 'user-full',
+                    x: 150,
+                    y: 250,
+                    svg: 'user.svg',
+                    class: 'user',
+                    label: 'User (100% scale)',
+                    scale: 1.0
+                });
+                
+                const serverNode = await renderer.createNode({
+                    id: 'server-scaled',
+                    x: 400,
+                    y: 100,
+                    svg: 'server.svg',
+                    class: 'server',
+                    label: 'Server (50% scale)',
+                    scale: 0.49719793227240705
+                });
+                
+                const serverNodeFullScale = await renderer.createNode({
+                    id: 'server-full',
+                    x: 400,
+                    y: 250,
+                    svg: 'server.svg',
+                    class: 'server',
+                    label: 'Server (100% scale)',
+                    scale: 1.0
+                });
+                
+                // Wait for rendering
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                log('\n=== Center Calculations ===');
+                
+                // Test center calculations
+                const userScaledCenter = userNode.getViewportCenter();
+                const userFullCenter = userNodeFullScale.getViewportCenter();
+                const serverScaledCenter = serverNode.getViewportCenter();
+                const serverFullCenter = serverNodeFullScale.getViewportCenter();
+                
+                log(`User (21% scale): center=(${userScaledCenter.x.toFixed(2)}, ${userScaledCenter.y.toFixed(2)}) radius=${userScaledCenter.radius.toFixed(2)}`);
+                log(`User (100% scale): center=(${userFullCenter.x.toFixed(2)}, ${userFullCenter.y.toFixed(2)}) radius=${userFullCenter.radius.toFixed(2)}`);
+                log(`Server (50% scale): center=(${serverScaledCenter.x.toFixed(2)}, ${serverScaledCenter.y.toFixed(2)}) radius=${serverScaledCenter.radius.toFixed(2)}`);
+                log(`Server (100% scale): center=(${serverFullCenter.x.toFixed(2)}, ${serverFullCenter.y.toFixed(2)}) radius=${serverFullCenter.radius.toFixed(2)}`);
+                
+                log('\n=== Scaling Verification ===');
+                
+                // Verify scaling relationships
+                const userRadiusRatio = userScaledCenter.radius / userFullCenter.radius;
+                const serverRadiusRatio = serverScaledCenter.radius / serverFullCenter.radius;
+                
+                log(`User radius ratio: ${userRadiusRatio.toFixed(4)} (expected: 0.2104)`);
+                log(`Server radius ratio: ${serverRadiusRatio.toFixed(4)} (expected: 0.4972)`);
+                
+                // Check if ratios are approximately correct
+                const userCorrect = Math.abs(userRadiusRatio - 0.2104) < 0.01;
+                const serverCorrect = Math.abs(serverRadiusRatio - 0.4972) < 0.01;
+                
+                if (userCorrect && serverCorrect) {
+                    log('✅ Scaling fix working correctly!', 'success');
+                } else {
+                    log('❌ Scaling fix not working as expected', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                log(`Stack: ${error.stack}`, 'error');
+            }
+        }
+
+        // Make functions available globally
+        window.testScaling = testScaling;
+        window.clearLog = clearLog;
+    </script>
+</body>
+</html>

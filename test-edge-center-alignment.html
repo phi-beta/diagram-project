@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Center Alignment Test</title>
+    <link rel="stylesheet" href="themes/default.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+        .test-panel {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-width: 350px;
+        }
+        .test-button {
+            margin: 3px;
+            padding: 8px 12px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .test-button:hover {
+            background: #005a9e;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 3px;
+            font-size: 14px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+        }
+        .info {
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 3px;
+            font-size: 13px;
+            background: #e7f3ff;
+            border: 1px solid #bee5ff;
+        }
+        .coordinate-display {
+            font-family: monospace;
+            font-size: 12px;
+            background: #f8f9fa;
+            padding: 5px;
+            border-radius: 3px;
+            margin: 5px 0;
+            white-space: pre-wrap;
+            display: none;
+        }
+        .coordinate-display.show {
+            display: block;
+        }
+        #diagram {
+            width: 100%;
+            height: 100vh;
+            background: white;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-panel">
+        <h3>Edge Center Alignment Test</h3>
+        <div class="info">
+            <strong>Test Instructions:</strong><br>
+            • Click "Add Test Nodes" to create nodes<br>
+            • Edges should connect to node centers<br>
+            • Try panning and zooming<br>
+            • Check coordinate display for accuracy
+        </div>
+        
+        <button class="test-button" onclick="addTestNodes()">Add Test Nodes</button>
+        <button class="test-button" onclick="showCoordinates()">Show Coordinates</button>
+        <button class="test-button" onclick="testZoom()">Test Zoom</button>
+        <button class="test-button" onclick="resetView()">Reset View</button>
+        <button class="test-button" onclick="clearAll()">Clear All</button>
+        
+        <div id="statusDisplay" class="status">
+            Ready - Click "Add Test Nodes" to begin
+        </div>
+        
+        <div id="coordinateDisplay" class="coordinate-display"></div>
+    </div>
+
+    <svg id="diagram" xmlns="http://www.w3.org/2000/svg">
+        <!-- Diagram content will be rendered here -->
+    </svg>
+
+    <!-- Include necessary scripts -->
+    <script src="js/CoordinateSystem.js"></script>
+    <script src="js/ViewBoxManager.js"></script>
+    <script src="js/LayerManager.js"></script>
+    <script src="js/Node.js"></script>
+    <script src="js/Edge.js"></script>
+    <script src="js/InteractionManager.js"></script>
+    <script src="js/renderer.js"></script>
+
+    <script>
+        // Initialize the diagram
+        const svg = document.getElementById('diagram');
+        const statusDisplay = document.getElementById('statusDisplay');
+        const coordinateDisplay = document.getElementById('coordinateDisplay');
+        let interactionManager;
+        let renderer;
+
+        function initializeDiagram() {
+            // Initialize the interaction manager and renderer
+            interactionManager = new InteractionManager(svg);
+            renderer = new Renderer(svg, interactionManager);
+            
+            updateStatus('Diagram initialized - Ready to test edge center alignment');
+        }
+
+        function addTestNodes() {
+            if (!interactionManager) return;
+            
+            clearAll();
+            
+            // Create test nodes in a pattern that will clearly show center alignment
+            const testNodes = [
+                { x: 100, y: 100, text: 'Node 1' },
+                { x: 300, y: 100, text: 'Node 2' },
+                { x: 500, y: 100, text: 'Node 3' },
+                { x: 200, y: 250, text: 'Node 4' },
+                { x: 400, y: 250, text: 'Node 5' },
+                { x: 300, y: 400, text: 'Node 6' }
+            ];
+            
+            const nodes = [];
+            testNodes.forEach(nodeData => {
+                const node = interactionManager.addNode(nodeData.x, nodeData.y);
+                node.text = nodeData.text;
+                node.updateDisplay();
+                nodes.push(node);
+            });
+            
+            // Create edges that will clearly show center alignment
+            const edgeConnections = [
+                [0, 1], // Horizontal line
+                [1, 2], // Horizontal line
+                [0, 3], // Diagonal line
+                [1, 4], // Diagonal line
+                [2, 4], // Diagonal line
+                [3, 4], // Horizontal line
+                [4, 5], // Diagonal line
+                [3, 5], // Diagonal line
+            ];
+            
+            edgeConnections.forEach(([fromIndex, toIndex]) => {
+                interactionManager.addEdge(nodes[fromIndex], nodes[toIndex]);
+            });
+            
+            renderer.render();
+            updateStatus('Test nodes and edges added - Check that edges connect to node centers');
+        }
+
+        function showCoordinates() {
+            if (!interactionManager) return;
+            
+            let output = "Node and Edge Coordinate Information:\n\n";
+            
+            // Show node coordinates
+            output += "NODES:\n";
+            interactionManager.nodes.forEach((node, index) => {
+                const nodeData = node.nodeData || node;
+                const center = node.getGlobalCenter ? node.getGlobalCenter() : null;
+                
+                output += `Node ${index + 1}: `;
+                output += `Position(${nodeData.x}, ${nodeData.y}) `;
+                if (center) {
+                    output += `Center(${center.x.toFixed(1)}, ${center.y.toFixed(1)}) `;
+                    output += `Radius: ${center.radius}`;
+                }
+                output += "\n";
+            });
+            
+            // Show edge information
+            output += "\nEDGES:\n";
+            interactionManager.edges.forEach((edge, index) => {
+                const fromNode = interactionManager.nodes.find(n => n.id === edge.from);
+                const toNode = interactionManager.nodes.find(n => n.id === edge.to);
+                
+                if (fromNode && toNode) {
+                    const fromCenter = fromNode.getGlobalCenter ? fromNode.getGlobalCenter() : null;
+                    const toCenter = toNode.getGlobalCenter ? toNode.getGlobalCenter() : null;
+                    
+                    output += `Edge ${index + 1}: `;
+                    if (fromCenter && toCenter) {
+                        output += `From(${fromCenter.x.toFixed(1)}, ${fromCenter.y.toFixed(1)}) `;
+                        output += `To(${toCenter.x.toFixed(1)}, ${toCenter.y.toFixed(1)})`;
+                    } else {
+                        output += `From: ${edge.from} To: ${edge.to}`;
+                    }
+                    output += "\n";
+                }
+            });
+            
+            coordinateDisplay.textContent = output;
+            coordinateDisplay.classList.add('show');
+            updateStatus('Coordinate information displayed');
+        }
+
+        function testZoom() {
+            if (!interactionManager) return;
+            
+            interactionManager.viewBoxManager.zoomIn(1.5);
+            renderer.render();
+            updateStatus('Zoomed in - Check that edges still connect to node centers');
+        }
+
+        function resetView() {
+            if (!interactionManager) return;
+            
+            interactionManager.viewBoxManager.resetView();
+            renderer.render();
+            updateStatus('View reset - Edges should still be centered');
+        }
+
+        function clearAll() {
+            if (!interactionManager) return;
+            
+            interactionManager.nodes.length = 0;
+            interactionManager.edges.length = 0;
+            interactionManager.selectedNodes.clear();
+            renderer.render();
+            coordinateDisplay.classList.remove('show');
+            updateStatus('All nodes and edges cleared');
+        }
+
+        function updateStatus(message) {
+            if (statusDisplay) {
+                statusDisplay.textContent = message;
+            }
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', initializeDiagram);
+    </script>
+</body>
+</html>

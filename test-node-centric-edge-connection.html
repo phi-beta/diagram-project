@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node-Centric Edge Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #1e1e1e;
+            color: #fff;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #2d2d2d;
+            border-radius: 5px;
+        }
+        
+        .controls button {
+            margin: 0 5px;
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .debug-info {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #2d2d2d;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        #svg-container {
+            border: 1px solid #444;
+            background-color: #2d2d2d;
+            position: relative;
+        }
+        
+        .node {
+            cursor: move;
+        }
+        
+        .edge {
+            stroke: #fff;
+            stroke-width: 2;
+            fill: none;
+        }
+        
+        .center-marker {
+            fill: #4CAF50;
+            stroke: #000;
+            stroke-width: 1;
+        }
+        
+        .edge-endpoint {
+            fill: #FF5722;
+            stroke: #000;
+            stroke-width: 1;
+        }
+    </style>
+</head>
+<body>
+    <h1>Node-Centric Edge Connection Test</h1>
+    <p>This test validates that edges connect correctly to node centers using the new getViewportCenter() method.</p>
+    
+    <div class="controls">
+        <button onclick="createTestSetup()">Create Test Setup</button>
+        <button onclick="showCenters()">Show Node Centers</button>
+        <button onclick="showEdgeEndpoints()">Show Edge Endpoints</button>
+        <button onclick="testViewportCenters()">Test Viewport Centers</button>
+        <button onclick="panView()">Pan View</button>
+        <button onclick="zoomView()">Zoom View</button>
+        <button onclick="resetView()">Reset View</button>
+        <button onclick="clearMarkers()">Clear Markers</button>
+    </div>
+    
+    <div id="svg-container">
+        <svg id="main-svg" width="800" height="600" viewBox="0 0 800 600">
+            <!-- Layers -->
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#fff" />
+                </marker>
+            </defs>
+            <g id="grid-layer"></g>
+            <g id="edges-layer"></g>
+            <g id="nodes-layer"></g>
+            <g id="debug-layer"></g>
+        </svg>
+    </div>
+    
+    <div class="debug-info">
+        <h3>Debug Output:</h3>
+        <div id="debug-output"></div>
+    </div>
+    
+    <script type="module">
+        import { NodeData, NodeRenderer } from './js/Node.js';
+        import { EdgeData, EdgeRenderer } from './js/Edge.js';
+        import { CoordinateSystem } from './js/CoordinateSystem.js';
+        import { LayerManager } from './js/LayerManager.js';
+        
+        const svg = document.getElementById('main-svg');
+        const debugLayer = document.getElementById('debug-layer');
+        const debugOutput = document.getElementById('debug-output');
+        
+        // Initialize systems
+        const coordinateSystem = new CoordinateSystem(svg);
+        const layerManager = new LayerManager(svg);
+        window.layerManager = layerManager;
+        
+        let nodeRenderers = [];
+        let edgeRenderers = [];
+        let currentViewBox = { x: 0, y: 0, width: 800, height: 600 };
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            debugOutput.innerHTML += `[${timestamp}] ${message}<br>`;
+            debugOutput.scrollTop = debugOutput.scrollHeight;
+        }
+        
+        window.createTestSetup = function() {
+            // Clear existing
+            layerManager.getLayer('nodes').innerHTML = '';
+            layerManager.getLayer('edges').innerHTML = '';
+            debugLayer.innerHTML = '';
+            nodeRenderers = [];
+            edgeRenderers = [];
+            
+            // Create different types of nodes
+            const node1Data = new NodeData({
+                x: 150,
+                y: 150,
+                svg: '<circle cx="0" cy="0" r="25" fill="#4CAF50" stroke="#fff" stroke-width="2"/>',
+                class: 'user',
+                id: 'circle-centered'
+            });
+            
+            const node2Data = new NodeData({
+                x: 350,
+                y: 200,
+                svg: '<circle cx="10" cy="5" r="25" fill="#2196F3" stroke="#fff" stroke-width="2"/>',
+                class: 'user',
+                id: 'circle-offset'
+            });
+            
+            const node3Data = new NodeData({
+                x: 500,
+                y: 300,
+                svg: '<rect x="-25" y="-25" width="50" height="50" fill="#FF9800" stroke="#fff" stroke-width="2"/>',
+                class: 'server',
+                id: 'rect-centered'
+            });
+            
+            const node4Data = new NodeData({
+                x: 200,
+                y: 400,
+                svg: '<rect x="0" y="0" width="50" height="50" fill="#9C27B0" stroke="#fff" stroke-width="2"/>',
+                class: 'server',
+                id: 'rect-offset'
+            });
+            
+            // Create renderers
+            [node1Data, node2Data, node3Data, node4Data].forEach(nodeData => {
+                const renderer = NodeRenderer.createNodeRenderer(nodeData, svg);
+                renderer.coordinateSystem = coordinateSystem;
+                nodeRenderers.push(renderer);
+            });
+            
+            // Create edges connecting the nodes
+            createEdge('edge1', nodeRenderers[0], nodeRenderers[1]);
+            createEdge('edge2', nodeRenderers[1], nodeRenderers[2]);
+            createEdge('edge3', nodeRenderers[2], nodeRenderers[3]);
+            createEdge('edge4', nodeRenderers[3], nodeRenderers[0]);
+            
+            log('Created test setup with 4 nodes and 4 edges');
+        };
+        
+        function createEdge(id, fromRenderer, toRenderer) {
+            const edgeData = new EdgeData({
+                from: fromRenderer.id,
+                to: toRenderer.id,
+                class: 'connection',
+                id: id
+            });
+            
+            const edgeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            edgeGroup.setAttribute('class', 'edge connection');
+            
+            const edgePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            edgePath.setAttribute('marker-end', 'url(#arrowhead)');
+            
+            edgeGroup.appendChild(edgePath);
+            layerManager.getLayer('edges').appendChild(edgeGroup);
+            
+            const edgeRenderer = new EdgeRenderer(edgeData, edgeGroup, edgePath);
+            edgeRenderer.updatePath(fromRenderer, toRenderer);
+            
+            edgeRenderers.push(edgeRenderer);
+        }
+        
+        window.showCenters = function() {
+            clearMarkers();
+            
+            nodeRenderers.forEach(renderer => {
+                const viewportCenter = renderer.getViewportCenter();
+                
+                // Add center marker
+                const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                marker.setAttribute('cx', viewportCenter.x);
+                marker.setAttribute('cy', viewportCenter.y);
+                marker.setAttribute('r', 3);
+                marker.setAttribute('class', 'center-marker');
+                
+                // Add label
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', viewportCenter.x + 5);
+                text.setAttribute('y', viewportCenter.y - 5);
+                text.setAttribute('fill', '#fff');
+                text.setAttribute('font-size', '10px');
+                text.textContent = `${renderer.id}`;
+                
+                debugLayer.appendChild(marker);
+                debugLayer.appendChild(text);
+                
+                log(`${renderer.id} viewport center: (${viewportCenter.x}, ${viewportCenter.y})`);
+            });
+        };
+        
+        window.showEdgeEndpoints = function() {
+            edgeRenderers.forEach(edgeRenderer => {
+                const pathData = edgeRenderer.visiblePath.getAttribute('d');
+                const pathMatch = pathData.match(/M\\s*([\\d.-]+)\\s*([\\d.-]+)\\s*L\\s*([\\d.-]+)\\s*([\\d.-]+)/);
+                
+                if (pathMatch) {
+                    const startX = parseFloat(pathMatch[1]);
+                    const startY = parseFloat(pathMatch[2]);
+                    const endX = parseFloat(pathMatch[3]);
+                    const endY = parseFloat(pathMatch[4]);
+                    
+                    // Add start endpoint marker
+                    const startMarker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    startMarker.setAttribute('cx', startX);
+                    startMarker.setAttribute('cy', startY);
+                    startMarker.setAttribute('r', 2);
+                    startMarker.setAttribute('class', 'edge-endpoint');
+                    
+                    // Add end endpoint marker
+                    const endMarker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    endMarker.setAttribute('cx', endX);
+                    endMarker.setAttribute('cy', endY);
+                    endMarker.setAttribute('r', 2);
+                    endMarker.setAttribute('class', 'edge-endpoint');
+                    
+                    debugLayer.appendChild(startMarker);
+                    debugLayer.appendChild(endMarker);
+                    
+                    log(`${edgeRenderer.edgeData.id} endpoints: (${startX}, ${startY}) to (${endX}, ${endY})`);
+                }
+            });
+        };
+        
+        window.testViewportCenters = function() {
+            log('=== Testing Viewport Centers ===');
+            
+            nodeRenderers.forEach(renderer => {
+                const localCenter = renderer.getLocalCenter();
+                const viewportCenter = renderer.getViewportCenter();
+                
+                log(`${renderer.id}:`);
+                log(`  Position: (${renderer.nodeData.x}, ${renderer.nodeData.y})`);
+                log(`  Local center: (${localCenter.x}, ${localCenter.y}), radius: ${localCenter.radius}`);
+                log(`  Viewport center: (${viewportCenter.x}, ${viewportCenter.y}), radius: ${viewportCenter.radius}`);
+                
+                // Verify calculation
+                const expectedX = renderer.nodeData.x + localCenter.x;
+                const expectedY = renderer.nodeData.y + localCenter.y;
+                const isCorrect = Math.abs(viewportCenter.x - expectedX) < 0.01 && Math.abs(viewportCenter.y - expectedY) < 0.01;
+                
+                log(`  Expected: (${expectedX}, ${expectedY})`);
+                log(`  Calculation correct: ${isCorrect ? 'YES' : 'NO'}`);
+            });
+        };
+        
+        window.panView = function() {
+            currentViewBox.x += 100;
+            currentViewBox.y += 50;
+            updateViewBox();
+            updateAllEdges();
+            log(`Panned view to (${currentViewBox.x}, ${currentViewBox.y})`);
+        };
+        
+        window.zoomView = function() {
+            const centerX = currentViewBox.x + currentViewBox.width / 2;
+            const centerY = currentViewBox.y + currentViewBox.height / 2;
+            
+            currentViewBox.width *= 0.7;
+            currentViewBox.height *= 0.7;
+            currentViewBox.x = centerX - currentViewBox.width / 2;
+            currentViewBox.y = centerY - currentViewBox.height / 2;
+            
+            updateViewBox();
+            updateAllEdges();
+            log(`Zoomed view to ${(800 / currentViewBox.width * 100).toFixed(1)}%`);
+        };
+        
+        window.resetView = function() {
+            currentViewBox = { x: 0, y: 0, width: 800, height: 600 };
+            updateViewBox();
+            updateAllEdges();
+            log('Reset view');
+        };
+        
+        function updateViewBox() {
+            svg.setAttribute('viewBox', `${currentViewBox.x} ${currentViewBox.y} ${currentViewBox.width} ${currentViewBox.height}`);
+        }
+        
+        function updateAllEdges() {
+            edgeRenderers.forEach(edgeRenderer => {
+                const fromRenderer = nodeRenderers.find(n => n.id === edgeRenderer.edgeData.from);
+                const toRenderer = nodeRenderers.find(n => n.id === edgeRenderer.edgeData.to);
+                if (fromRenderer && toRenderer) {
+                    edgeRenderer.updatePath(fromRenderer, toRenderer);
+                }
+            });
+        }
+        
+        window.clearMarkers = function() {
+            debugLayer.innerHTML = '';
+        };
+        
+        // Initialize
+        log('Node-Centric Edge Connection Test initialized');
+        log('Legend: Green = node centers, Red = edge endpoints');
+    </script>
+</body>
+</html>

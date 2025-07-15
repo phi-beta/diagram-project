@@ -658,7 +658,7 @@ export class InteractionManager {
     this.svg.style.cursor = 'crosshair';
     
     // Use inline arrowhead approach instead of marker
-    const center = fromNode.getGlobalCenter();
+    const center = fromNode.getViewportCenter();
     this.createTemporaryEdgeWithInlineArrowhead(center.x, center.y, center.x + 100, center.y + 100);
     
     console.log('🎯 LEGACY TEMPORARY EDGE CREATED WITH INLINE ARROWHEAD');
@@ -806,12 +806,14 @@ export class InteractionManager {
       }
     }
     
-    if (typeof actualStartNode.getGlobalCenter === 'function') {
+    if (typeof actualStartNode.getViewportCenter === 'function') {
+      startCenter = actualStartNode.getViewportCenter();
+    } else if (typeof actualStartNode.getGlobalCenter === 'function') {
       startCenter = actualStartNode.getGlobalCenter();
     } else if (typeof actualStartNode.getTransformedCenter === 'function') {
       startCenter = actualStartNode.getTransformedCenter();
     } else {
-      console.error('edgeStartNode does not have getGlobalCenter or getTransformedCenter method:', this.edgeStartNode);
+      console.error('edgeStartNode does not have getViewportCenter, getGlobalCenter, or getTransformedCenter method:', this.edgeStartNode);
       return;
     }
     

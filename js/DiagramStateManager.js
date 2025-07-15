@@ -481,10 +481,27 @@ export class DiagramStateManager {
   updateTemporaryEdge(mouseX, mouseY) {
     // Use InteractionManager's inline arrowhead method if available
     if (this.interactionManager && typeof this.interactionManager.createTemporaryEdgeWithInlineArrowhead === 'function' && this.edgeSourceNode) {
-      // Get source node center and radius using the same method as legacy system
+      // Get source node center using the same method as permanent edges
       let startCenter;
       try {
-        // Ensure edgeSourceNode is a DOM element
+        // Get the Node object from the nodeMap using data-node-id
+        const nodeId = this.edgeSourceNode.getAttribute('data-node-id');
+        if (nodeId && this.nodeMap) {
+          const nodeObject = this.nodeMap.get(nodeId);
+          if (nodeObject && typeof nodeObject.getViewportCenter === 'function') {
+            // Use the same method as permanent edges - this accounts for scaling
+            startCenter = nodeObject.getViewportCenter();
+          } else {
+            console.warn('⚠️ Node object not found or missing getViewportCenter method');
+            throw new Error('Node object not available');
+          }
+        } else {
+          console.warn('⚠️ Missing nodeId or nodeMap for temporary edge');
+          throw new Error('Missing nodeId or nodeMap');
+        }
+      } catch (error) {
+        console.error('Error getting node center from Node object, falling back to DOM calculation:', error);
+        // Fallback to the old DOM-based calculation
         let sourceElement = this.edgeSourceNode;
         if (!sourceElement.getAttribute) {
           console.log('⚠️ edgeSourceNode is not a DOM element:', sourceElement);
@@ -510,21 +527,6 @@ export class DiagramStateManager {
             radius: Math.min(bbox.width, bbox.height) / 2
           };
         }
-      } catch (error) {
-        console.error('Error calculating node center:', error);
-        // Fallback to transform-based calculation
-        const transform = this.edgeSourceNode.getAttribute('transform');
-        let sourceX = 0, sourceY = 0;
-        
-        if (transform) {
-          const matches = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
-          if (matches) {
-            sourceX = parseFloat(matches[1]);
-            sourceY = parseFloat(matches[2]);
-          }
-        }
-        
-        startCenter = { x: sourceX, y: sourceY, radius: 30 }; // Default radius
       }
       
       // Convert mouse coordinates to SVG coordinates

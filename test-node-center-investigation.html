@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node Center Investigation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #1e1e1e;
+            color: #fff;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #2d2d2d;
+            border-radius: 5px;
+        }
+        
+        .controls button {
+            margin: 0 5px;
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .debug-info {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #2d2d2d;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        #svg-container {
+            border: 1px solid #444;
+            background-color: #2d2d2d;
+            position: relative;
+        }
+        
+        .node {
+            cursor: move;
+        }
+        
+        .debug-marker {
+            fill: #FF5722;
+            stroke: #000;
+            stroke-width: 1;
+        }
+        
+        .debug-text {
+            font-family: Arial;
+            font-size: 10px;
+            fill: #fff;
+        }
+    </style>
+</head>
+<body>
+    <h1>Node Center Investigation</h1>
+    <p>This test investigates exactly what getLocalCenter() returns for different node types.</p>
+    
+    <div class="controls">
+        <button onclick="investigateNodes()">Investigate Node Centers</button>
+        <button onclick="clearDebug()">Clear Debug</button>
+    </div>
+    
+    <div id="svg-container">
+        <svg id="main-svg" width="800" height="600" viewBox="0 0 800 600">
+            <!-- Layers -->
+            <g id="nodes-layer"></g>
+            <g id="debug-layer"></g>
+        </svg>
+    </div>
+    
+    <div class="debug-info">
+        <h3>Debug Output:</h3>
+        <div id="debug-output"></div>
+    </div>
+    
+    <script type="module">
+        import { NodeData, NodeRenderer } from './js/Node.js';
+        import { CoordinateSystem } from './js/CoordinateSystem.js';
+        import { LayerManager } from './js/LayerManager.js';
+        
+        const svg = document.getElementById('main-svg');
+        const debugLayer = document.getElementById('debug-layer');
+        const debugOutput = document.getElementById('debug-output');
+        
+        // Initialize systems
+        const coordinateSystem = new CoordinateSystem(svg);
+        const layerManager = new LayerManager(svg);
+        window.layerManager = layerManager;
+        
+        let nodeRenderers = [];
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            debugOutput.innerHTML += `[${timestamp}] ${message}<br>`;
+            debugOutput.scrollTop = debugOutput.scrollHeight;
+        }
+        
+        function createTestNode(id, x, y, svgContent, className, label) {
+            const nodeData = new NodeData({
+                x: x,
+                y: y,
+                svg: svgContent,
+                class: className,
+                id: id,
+                label: label
+            });
+            
+            const renderer = NodeRenderer.createNodeRenderer(nodeData, svg);
+            renderer.coordinateSystem = coordinateSystem;
+            
+            return renderer;
+        }
+        
+        window.investigateNodes = function() {
+            // Clear existing
+            nodeRenderers = [];
+            layerManager.getLayer('nodes').innerHTML = '';
+            debugLayer.innerHTML = '';
+            
+            // Create different types of nodes
+            const nodes = [
+                {
+                    id: 'circle-centered',
+                    x: 100,
+                    y: 100,
+                    svg: '<circle cx="0" cy="0" r="25" fill="#4CAF50" stroke="#fff" stroke-width="2"/>',
+                    class: 'user',
+                    label: 'Centered Circle'
+                },
+                {
+                    id: 'circle-offset',
+                    x: 250,
+                    y: 100,
+                    svg: '<circle cx="10" cy="5" r="25" fill="#2196F3" stroke="#fff" stroke-width="2"/>',
+                    class: 'user',
+                    label: 'Offset Circle'
+                },
+                {
+                    id: 'rect-centered',
+                    x: 400,
+                    y: 100,
+                    svg: '<rect x="-25" y="-25" width="50" height="50" fill="#FF9800" stroke="#fff" stroke-width="2"/>',
+                    class: 'server',
+                    label: 'Centered Rectangle'
+                },
+                {
+                    id: 'rect-offset',
+                    x: 550,
+                    y: 100,
+                    svg: '<rect x="0" y="0" width="50" height="50" fill="#9C27B0" stroke="#fff" stroke-width="2"/>',
+                    class: 'server',
+                    label: 'Offset Rectangle'
+                },
+                {
+                    id: 'complex-svg',
+                    x: 100,
+                    y: 250,
+                    svg: '<rect x="-20" y="-15" width="40" height="30" fill="#795548" stroke="#fff" stroke-width="2"/><rect x="-15" y="-10" width="30" height="5" fill="#A5A5A5"/><rect x="-15" y="-3" width="30" height="5" fill="#A5A5A5"/><rect x="-15" y="4" width="30" height="5" fill="#A5A5A5"/><circle cx="12" cy="-8" r="2" fill="#4CAF50"/><circle cx="12" cy="-1" r="2" fill="#FFC107"/><circle cx="12" cy="6" r="2" fill="#F44336"/>',
+                    class: 'server',
+                    label: 'Complex Server'
+                }
+            ];
+            
+            nodes.forEach(nodeSpec => {
+                const renderer = createTestNode(
+                    nodeSpec.id,
+                    nodeSpec.x,
+                    nodeSpec.y,
+                    nodeSpec.svg,
+                    nodeSpec.class,
+                    nodeSpec.label
+                );
+                nodeRenderers.push(renderer);
+            });
+            
+            // Investigate each node
+            nodeRenderers.forEach(renderer => {
+                investigateNode(renderer);
+            });
+        };
+        
+        function investigateNode(renderer) {
+            log(`\\n=== Investigating ${renderer.nodeData.id} (${renderer.nodeData.label}) ===`);
+            log(`Node position: (${renderer.nodeData.x}, ${renderer.nodeData.y})`);
+            log(`SVG content: ${renderer.nodeData.svg}`);
+            
+            // Get bounding box
+            try {
+                const bbox = renderer.element.getBBox();
+                log(`getBBox(): x=${bbox.x}, y=${bbox.y}, width=${bbox.width}, height=${bbox.height}`);
+                
+                // Calculate what the center should be
+                const bboxCenter = {
+                    x: bbox.x + bbox.width / 2,
+                    y: bbox.y + bbox.height / 2
+                };
+                log(`BBox center: (${bboxCenter.x}, ${bboxCenter.y})`);
+                
+                // Get local center via method
+                const localCenter = renderer.getLocalCenter();
+                log(`getLocalCenter(): x=${localCenter.x}, y=${localCenter.y}, radius=${localCenter.radius}`);
+                
+                // Calculate global center
+                const globalX = renderer.nodeData.x + localCenter.x;
+                const globalY = renderer.nodeData.y + localCenter.y;
+                log(`Calculated global center: (${globalX}, ${globalY})`);
+                
+                // Check if center is actually at (0,0) relative to node
+                const isWellCentered = Math.abs(localCenter.x) < 1 && Math.abs(localCenter.y) < 1;
+                log(`Is well-centered: ${isWellCentered ? 'YES' : 'NO'}`);
+                
+                // Add visual markers
+                addVisualMarkers(renderer, localCenter, globalX, globalY, isWellCentered);
+                
+            } catch (error) {
+                log(`Error getting bbox: ${error.message}`);
+            }
+        }
+        
+        function addVisualMarkers(renderer, localCenter, globalX, globalY, isWellCentered) {
+            // Add marker at calculated global center
+            const centerMarker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            centerMarker.setAttribute('cx', globalX);
+            centerMarker.setAttribute('cy', globalY);
+            centerMarker.setAttribute('r', 3);
+            centerMarker.setAttribute('fill', isWellCentered ? '#4CAF50' : '#FF5722');
+            centerMarker.setAttribute('stroke', '#000');
+            centerMarker.setAttribute('stroke-width', 1);
+            
+            // Add marker at node position (for reference)
+            const nodeMarker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            nodeMarker.setAttribute('cx', renderer.nodeData.x);
+            nodeMarker.setAttribute('cy', renderer.nodeData.y);
+            nodeMarker.setAttribute('r', 2);
+            nodeMarker.setAttribute('fill', '#FFC107');
+            nodeMarker.setAttribute('stroke', '#000');
+            nodeMarker.setAttribute('stroke-width', 1);
+            
+            // Add text label
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', globalX + 10);
+            text.setAttribute('y', globalY - 10);
+            text.setAttribute('class', 'debug-text');
+            text.textContent = `${renderer.nodeData.id}: (${localCenter.x.toFixed(1)}, ${localCenter.y.toFixed(1)})`;
+            
+            debugLayer.appendChild(centerMarker);
+            debugLayer.appendChild(nodeMarker);
+            debugLayer.appendChild(text);
+        }
+        
+        window.clearDebug = function() {
+            debugOutput.innerHTML = '';
+            debugLayer.innerHTML = '';
+        };
+        
+        // Initialize
+        log('Node Center Investigation initialized');
+        log('Legend: Green = well-centered, Red = offset, Yellow = node position');
+    </script>
+</body>
+</html>

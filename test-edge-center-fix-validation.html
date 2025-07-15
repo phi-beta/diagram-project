@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Center Fix Validation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #1e1e1e;
+            color: #fff;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #2d2d2d;
+            border-radius: 5px;
+        }
+        
+        .controls button {
+            margin: 0 5px;
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .debug-info {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #2d2d2d;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        #svg-container {
+            border: 1px solid #444;
+            background-color: #2d2d2d;
+            position: relative;
+        }
+        
+        .node {
+            cursor: move;
+        }
+        
+        .edge {
+            stroke: #fff;
+            stroke-width: 2;
+            fill: none;
+        }
+        
+        .debug-center {
+            fill: #FF5722;
+            stroke: #000;
+            stroke-width: 1;
+        }
+        
+        .debug-endpoint {
+            fill: #00FF00;
+            stroke: #000;
+            stroke-width: 1;
+        }
+        
+        .debug-text {
+            font-family: Arial;
+            font-size: 10px;
+            fill: #fff;
+        }
+    </style>
+</head>
+<body>
+    <h1>Edge Center Fix Validation</h1>
+    <p>This test validates that edges connect precisely to node centers.</p>
+    
+    <div class="controls">
+        <button onclick="runTest()">Run Test</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+    
+    <div id="svg-container">
+        <svg id="main-svg" width="800" height="600" viewBox="0 0 800 600">
+            <!-- Layers -->
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#fff" />
+                </marker>
+            </defs>
+            <g id="grid-layer"></g>
+            <g id="edges-layer"></g>
+            <g id="nodes-layer"></g>
+            <g id="debug-layer"></g>
+        </svg>
+    </div>
+    
+    <div class="debug-info">
+        <h3>Test Results:</h3>
+        <div id="test-results"></div>
+    </div>
+    
+    <script type="module">
+        import { NodeData, NodeRenderer } from './js/Node.js';
+        import { EdgeData, EdgeRenderer } from './js/Edge.js';
+        import { CoordinateSystem } from './js/CoordinateSystem.js';
+        import { LayerManager } from './js/LayerManager.js';
+        
+        const svg = document.getElementById('main-svg');
+        const debugLayer = document.getElementById('debug-layer');
+        const testResults = document.getElementById('test-results');
+        
+        // Initialize systems
+        const coordinateSystem = new CoordinateSystem(svg);
+        const layerManager = new LayerManager(svg);
+        window.layerManager = layerManager;
+        
+        function log(message, isError = false) {
+            const timestamp = new Date().toLocaleTimeString();
+            const color = isError ? '#ff6b6b' : '#fff';
+            testResults.innerHTML += `<div style="color: ${color};">[${timestamp}] ${message}</div>`;
+            testResults.scrollTop = testResults.scrollHeight;
+        }
+        
+        window.clearResults = function() {
+            testResults.innerHTML = '';
+            debugLayer.innerHTML = '';
+        };
+        
+        window.runTest = function() {
+            clearResults();
+            log('Starting edge center connection test...');
+            
+            // Clear existing content
+            layerManager.getLayer('nodes').innerHTML = '';
+            layerManager.getLayer('edges').innerHTML = '';
+            debugLayer.innerHTML = '';
+            
+            // Test 1: Simple circular nodes
+            log('Test 1: Simple circular nodes');
+            testSimpleCircularNodes();
+            
+            // Test 2: Complex SVG nodes
+            log('Test 2: Complex SVG nodes');
+            testComplexSVGNodes();
+            
+            // Test 3: Scaled nodes
+            log('Test 3: Scaled nodes');
+            testScaledNodes();
+            
+            log('All tests completed!');
+        };
+        
+        function testSimpleCircularNodes() {
+            const node1Data = new NodeData({
+                x: 100,
+                y: 100,
+                svg: '<circle cx="0" cy="0" r="25" fill="#4CAF50" stroke="#fff" stroke-width="2"/>',
+                class: 'user'
+            });
+            
+            const node2Data = new NodeData({
+                x: 300,
+                y: 200,
+                svg: '<circle cx="0" cy="0" r="30" fill="#2196F3" stroke="#fff" stroke-width="2"/>',
+                class: 'user'
+            });
+            
+            const renderer1 = NodeRenderer.createNodeRenderer(node1Data, svg);
+            const renderer2 = NodeRenderer.createNodeRenderer(node2Data, svg);
+            
+            renderer1.coordinateSystem = coordinateSystem;
+            renderer2.coordinateSystem = coordinateSystem;
+            
+            // Create edge
+            const edgeData = new EdgeData({
+                from: node1Data.id,
+                to: node2Data.id,
+                class: 'connection'
+            });
+            
+            const edgeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            edgeGroup.setAttribute('class', 'edge connection');
+            
+            const edgePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            edgePath.setAttribute('marker-end', 'url(#arrowhead)');
+            
+            edgeGroup.appendChild(edgePath);
+            layerManager.getLayer('edges').appendChild(edgeGroup);
+            
+            const edgeRenderer = new EdgeRenderer(edgeData, edgeGroup, edgePath);
+            
+            // Update edge and validate
+            edgeRenderer.updatePath(renderer1, renderer2);
+            validateEdgeConnection(renderer1, renderer2, edgeRenderer, 'Test 1');
+        }
+        
+        function testComplexSVGNodes() {
+            const node1Data = new NodeData({
+                x: 500,
+                y: 100,
+                svg: '<rect x="-20" y="-15" width="40" height="30" fill="#795548" stroke="#fff" stroke-width="2"/><rect x="-15" y="-10" width="30" height="5" fill="#A5A5A5"/><rect x="-15" y="-3" width="30" height="5" fill="#A5A5A5"/><rect x="-15" y="4" width="30" height="5" fill="#A5A5A5"/>',
+                class: 'server'
+            });
+            
+            const node2Data = new NodeData({
+                x: 650,
+                y: 250,
+                svg: '<polygon points="-25,15 0,-20 25,15" fill="#FF9800" stroke="#fff" stroke-width="2"/>',
+                class: 'database'
+            });
+            
+            const renderer1 = NodeRenderer.createNodeRenderer(node1Data, svg);
+            const renderer2 = NodeRenderer.createNodeRenderer(node2Data, svg);
+            
+            renderer1.coordinateSystem = coordinateSystem;
+            renderer2.coordinateSystem = coordinateSystem;
+            
+            // Create edge
+            const edgeData = new EdgeData({
+                from: node1Data.id,
+                to: node2Data.id,
+                class: 'connection'
+            });
+            
+            const edgeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            edgeGroup.setAttribute('class', 'edge connection');
+            
+            const edgePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            edgePath.setAttribute('marker-end', 'url(#arrowhead)');
+            
+            edgeGroup.appendChild(edgePath);
+            layerManager.getLayer('edges').appendChild(edgeGroup);
+            
+            const edgeRenderer = new EdgeRenderer(edgeData, edgeGroup, edgePath);
+            
+            // Update edge and validate
+            edgeRenderer.updatePath(renderer1, renderer2);
+            validateEdgeConnection(renderer1, renderer2, edgeRenderer, 'Test 2');
+        }
+        
+        function testScaledNodes() {
+            const node1Data = new NodeData({
+                x: 200,
+                y: 350,
+                svg: '<circle cx="0" cy="0" r="20" fill="#9C27B0" stroke="#fff" stroke-width="2"/>',
+                class: 'user',
+                scale: 1.5
+            });
+            
+            const node2Data = new NodeData({
+                x: 400,
+                y: 400,
+                svg: '<circle cx="0" cy="0" r="20" fill="#E91E63" stroke="#fff" stroke-width="2"/>',
+                class: 'user',
+                scale: 0.8
+            });
+            
+            const renderer1 = NodeRenderer.createNodeRenderer(node1Data, svg);
+            const renderer2 = NodeRenderer.createNodeRenderer(node2Data, svg);
+            
+            renderer1.coordinateSystem = coordinateSystem;
+            renderer2.coordinateSystem = coordinateSystem;
+            
+            // Create edge
+            const edgeData = new EdgeData({
+                from: node1Data.id,
+                to: node2Data.id,
+                class: 'connection'
+            });
+            
+            const edgeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            edgeGroup.setAttribute('class', 'edge connection');
+            
+            const edgePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            edgePath.setAttribute('marker-end', 'url(#arrowhead)');
+            
+            edgeGroup.appendChild(edgePath);
+            layerManager.getLayer('edges').appendChild(edgeGroup);
+            
+            const edgeRenderer = new EdgeRenderer(edgeData, edgeGroup, edgePath);
+            
+            // Update edge and validate
+            edgeRenderer.updatePath(renderer1, renderer2);
+            validateEdgeConnection(renderer1, renderer2, edgeRenderer, 'Test 3');
+        }
+        
+        function validateEdgeConnection(fromRenderer, toRenderer, edgeRenderer, testName) {
+            // Get the actual path data
+            const pathElement = edgeRenderer.visiblePath;
+            const pathData = pathElement.getAttribute('d');
+            
+            // Parse the path to get start and end points
+            const pathMatch = pathData.match(/M\\s*([\\d.-]+)\\s*([\\d.-]+)\\s*L\\s*([\\d.-]+)\\s*([\\d.-]+)/);
+            
+            if (!pathMatch) {
+                log(`${testName}: ERROR - Could not parse path data: ${pathData}`, true);
+                return;
+            }
+            
+            const edgeStartX = parseFloat(pathMatch[1]);
+            const edgeStartY = parseFloat(pathMatch[2]);
+            const edgeEndX = parseFloat(pathMatch[3]);
+            const edgeEndY = parseFloat(pathMatch[4]);
+            
+            // Get node centers
+            const fromGlobalCenter = fromRenderer.getGlobalCenter();
+            const toGlobalCenter = toRenderer.getGlobalCenter();
+            
+            // Calculate distances from edge endpoints to node centers
+            const startDistance = Math.hypot(edgeStartX - fromGlobalCenter.x, edgeStartY - fromGlobalCenter.y);
+            const endDistance = Math.hypot(edgeEndX - toGlobalCenter.x, edgeEndY - toGlobalCenter.y);
+            
+            // Expected distances should be approximately equal to the radii
+            const startErrorRatio = Math.abs(startDistance - fromGlobalCenter.radius) / fromGlobalCenter.radius;
+            const endErrorRatio = Math.abs(endDistance - toGlobalCenter.radius) / toGlobalCenter.radius;
+            
+            // Log results
+            log(`${testName}: From center (${fromGlobalCenter.x.toFixed(1)}, ${fromGlobalCenter.y.toFixed(1)}) r=${fromGlobalCenter.radius.toFixed(1)}`);
+            log(`${testName}: To center (${toGlobalCenter.x.toFixed(1)}, ${toGlobalCenter.y.toFixed(1)}) r=${toGlobalCenter.radius.toFixed(1)}`);
+            log(`${testName}: Edge start (${edgeStartX.toFixed(1)}, ${edgeStartY.toFixed(1)}) distance=${startDistance.toFixed(1)}`);
+            log(`${testName}: Edge end (${edgeEndX.toFixed(1)}, ${edgeEndY.toFixed(1)}) distance=${endDistance.toFixed(1)}`);
+            
+            // Check if connections are accurate (within 5% tolerance)
+            const tolerance = 0.05;
+            if (startErrorRatio > tolerance) {
+                log(`${testName}: ERROR - Start point not on node edge (${(startErrorRatio * 100).toFixed(1)}% error)`, true);
+            } else {
+                log(`${testName}: ✓ Start point correctly positioned (${(startErrorRatio * 100).toFixed(1)}% error)`);
+            }
+            
+            if (endErrorRatio > tolerance) {
+                log(`${testName}: ERROR - End point not on node edge (${(endErrorRatio * 100).toFixed(1)}% error)`, true);
+            } else {
+                log(`${testName}: ✓ End point correctly positioned (${(endErrorRatio * 100).toFixed(1)}% error)`);
+            }
+            
+            // Add visual markers
+            addDebugMarker(fromGlobalCenter.x, fromGlobalCenter.y, 'debug-center', 3);
+            addDebugMarker(toGlobalCenter.x, toGlobalCenter.y, 'debug-center', 3);
+            addDebugMarker(edgeStartX, edgeStartY, 'debug-endpoint', 2);
+            addDebugMarker(edgeEndX, edgeEndY, 'debug-endpoint', 2);
+        }
+        
+        function addDebugMarker(x, y, className, radius) {
+            const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            marker.setAttribute('cx', x);
+            marker.setAttribute('cy', y);
+            marker.setAttribute('r', radius);
+            marker.setAttribute('class', className);
+            debugLayer.appendChild(marker);
+        }
+        
+        // Auto-run test on load
+        setTimeout(() => {
+            log('Edge center fix validation test ready.');
+            log('Click "Run Test" to validate edge connection accuracy.');
+        }, 100);
+    </script>
+</body>
+</html>

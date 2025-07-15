@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Connection Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        #svgContainer {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #ddd;
+            margin: 20px 0;
+        }
+        #diagram {
+            width: 100%;
+            height: 100%;
+            background: #fafafa;
+        }
+        .debug-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 11px;
+            border-left: 4px solid #007acc;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #007acc;
+            color: white;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        .highlight {
+            background: yellow;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Edge Connection Debug</h1>
+        
+        <button onclick="runTest()">Run Test</button>
+        <button onclick="clearAll()">Clear All</button>
+
+        <div id="svgContainer">
+            <svg id="diagram" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="red" />
+                    </marker>
+                </defs>
+                <!-- Background grid for reference -->
+                <defs>
+                    <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                        <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#ddd" stroke-width="1"/>
+                    </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid)" />
+                
+                <!-- Standard layer structure expected by renderer -->
+                <g id="background-layer"></g>
+                <g id="edges-layer"></g>
+                <g id="nodes-layer"></g>
+                <g id="foreground-layer"></g>
+                <g id="debug-layer"></g>
+            </svg>
+        </div>
+
+        <div id="debugInfo" class="debug-info">
+            Debug information will appear here...
+        </div>
+    </div>
+
+    <!-- Include minimal required scripts -->
+    <script type="module">
+        import { renderer } from './js/renderer.js';
+        
+        let debugInfo = document.getElementById('debugInfo');
+        let rendererInstance = null;
+
+        function log(message) {
+            console.log(message);
+            debugInfo.innerHTML += message + '<br>';
+            debugInfo.scrollTop = debugInfo.scrollHeight;
+        }
+
+        function clearLog() {
+            debugInfo.innerHTML = '';
+        }
+
+        function clearAll() {
+            clearLog();
+            document.getElementById('nodes-layer').innerHTML = '';
+            document.getElementById('edges-layer').innerHTML = '';
+            document.getElementById('debug-layer').innerHTML = '';
+        }
+
+        async function runTest() {
+            try {
+                clearAll();
+                
+                // Initialize renderer
+                if (!rendererInstance) {
+                    await renderer.initialize();
+                    rendererInstance = renderer;
+                }
+                
+                log('=== Creating Test Nodes ===');
+                
+                // Create simple nodes with known positions (using same scale as layout.json)
+                const node1 = await rendererInstance.createNode({
+                    id: 'node1',
+                    x: 200,
+                    y: 200,
+                    svg: 'user.svg',
+                    class: 'user',
+                    label: 'Node 1',
+                    scale: 0.21037687894947063
+                });
+                
+                const node2 = await rendererInstance.createNode({
+                    id: 'node2',
+                    x: 500,
+                    y: 200,
+                    svg: 'server.svg',
+                    class: 'server',
+                    label: 'Node 2',
+                    scale: 0.49719793227240705
+                });
+                
+                log(`Created nodes: ${node1.id} at (${node1.x}, ${node1.y}), ${node2.id} at (${node2.x}, ${node2.y})`);
+                
+                // Wait for nodes to be fully rendered
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                log('\n=== Analyzing Node Centers ===');
+                
+                // Test center calculations
+                const node1Local = node1.getLocalCenter();
+                const node1Viewport = node1.getViewportCenter();
+                const node2Local = node2.getLocalCenter();
+                const node2Viewport = node2.getViewportCenter();
+                
+                log(`Node 1 local center: (${node1Local.x}, ${node1Local.y}) radius=${node1Local.radius}`);
+                log(`Node 1 viewport center: (${node1Viewport.x}, ${node1Viewport.y}) radius=${node1Viewport.radius}`);
+                log(`Node 2 local center: (${node2Local.x}, ${node2Local.y}) radius=${node2Local.radius}`);
+                log(`Node 2 viewport center: (${node2Viewport.x}, ${node2Viewport.y}) radius=${node2Viewport.radius}`);
+                
+                // Add visual markers at the calculated centers
+                addDebugMarker(node1Viewport.x, node1Viewport.y, 'red', 'Node 1 center');
+                addDebugMarker(node2Viewport.x, node2Viewport.y, 'blue', 'Node 2 center');
+                
+                // Add markers at node positions (transform origins)
+                addDebugMarker(node1.x, node1.y, 'orange', 'Node 1 origin');
+                addDebugMarker(node2.x, node2.y, 'green', 'Node 2 origin');
+                
+                log('\n=== Creating Edge ===');
+                
+                // Create edge
+                const edge = await rendererInstance.createEdge({
+                    id: 'edge1',
+                    from: 'node1',
+                    to: 'node2',
+                    label: 'Test Edge'
+                });
+                
+                log(`Created edge: ${edge.id}`);
+                
+                // Force edge update and analyze
+                if (edge.edgeRenderer) {
+                    const updateResult = edge.edgeRenderer.updatePath();
+                    log(`Edge update result: ${updateResult}`);
+                }
+                
+                // Check the actual path that was created
+                const edgeElement = edge.element;
+                const pathElement = edgeElement.querySelector('path');
+                if (pathElement) {
+                    const pathData = pathElement.getAttribute('d');
+                    log(`<span class="highlight">Edge path: ${pathData}</span>`);
+                    
+                    // Parse the path to see where it actually connects
+                    const pathMatch = pathData.match(/M\s*([\d.-]+)\s*([\d.-]+)\s*L\s*([\d.-]+)\s*([\d.-]+)/);
+                    if (pathMatch) {
+                        const [, x1, y1, x2, y2] = pathMatch;
+                        log(`Edge connects from (${x1}, ${y1}) to (${x2}, ${y2})`);
+                        
+                        // Add markers at the actual edge endpoints
+                        addDebugMarker(parseFloat(x1), parseFloat(y1), 'purple', 'Edge start');
+                        addDebugMarker(parseFloat(x2), parseFloat(y2), 'purple', 'Edge end');
+                    }
+                }
+                
+                log('\n=== Analysis Complete ===');
+                log('Visual markers:');
+                log('- Red: Node 1 calculated center');
+                log('- Blue: Node 2 calculated center');
+                log('- Orange: Node 1 transform origin');
+                log('- Green: Node 2 transform origin');
+                log('- Purple: Actual edge endpoints');
+                
+                // Check if the edge endpoints are close to the calculated centers
+                const pathMatch = pathElement.getAttribute('d').match(/M\s*([\d.-]+)\s*([\d.-]+)\s*L\s*([\d.-]+)\s*([\d.-]+)/);
+                if (pathMatch) {
+                    const [, x1, y1, x2, y2] = pathMatch;
+                    const startX = parseFloat(x1);
+                    const startY = parseFloat(y1);
+                    const endX = parseFloat(x2);
+                    const endY = parseFloat(y2);
+                    
+                    const dist1 = Math.hypot(startX - node1Viewport.x, startY - node1Viewport.y);
+                    const dist2 = Math.hypot(endX - node2Viewport.x, endY - node2Viewport.y);
+                    
+                    log(`\nDistance from edge start to node 1 center: ${dist1.toFixed(2)}`);
+                    log(`Distance from edge end to node 2 center: ${dist2.toFixed(2)}`);
+                    
+                    // The distance should be approximately equal to the node radius (edge connects at node boundary)
+                    const radius1Tolerance = Math.abs(dist1 - node1Viewport.radius) / node1Viewport.radius;
+                    const radius2Tolerance = Math.abs(dist2 - node2Viewport.radius) / node2Viewport.radius;
+                    const toleranceThreshold = 0.1; // 10% tolerance
+                    
+                    log(`\nRadius tolerance check:`);
+                    log(`Node 1: distance=${dist1.toFixed(2)}, radius=${node1Viewport.radius.toFixed(2)}, tolerance=${(radius1Tolerance * 100).toFixed(1)}%`);
+                    log(`Node 2: distance=${dist2.toFixed(2)}, radius=${node2Viewport.radius.toFixed(2)}, tolerance=${(radius2Tolerance * 100).toFixed(1)}%`);
+                    
+                    if (radius1Tolerance < toleranceThreshold && radius2Tolerance < toleranceThreshold) {
+                        log('<span class="highlight">✅ Edge connections are properly positioned at node boundaries!</span>');
+                    } else {
+                        log('<span class="highlight">❌ Edge connections are NOT properly positioned at node boundaries!</span>');
+                    }
+                }
+                
+            } catch (error) {
+                log(`ERROR: ${error.message}`);
+                console.error('Test error:', error);
+            }
+        }
+
+        function addDebugMarker(x, y, color, label) {
+            const debugLayer = document.getElementById('debug-layer');
+            
+            const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            marker.setAttribute('cx', x);
+            marker.setAttribute('cy', y);
+            marker.setAttribute('r', '4');
+            marker.setAttribute('fill', color);
+            marker.setAttribute('stroke', 'black');
+            marker.setAttribute('stroke-width', '1');
+            debugLayer.appendChild(marker);
+            
+            // Add label
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', x + 6);
+            text.setAttribute('y', y - 6);
+            text.setAttribute('font-size', '10');
+            text.setAttribute('fill', color);
+            text.setAttribute('font-weight', 'bold');
+            text.textContent = label;
+            debugLayer.appendChild(text);
+        }
+
+        // Make functions available globally
+        window.runTest = runTest;
+        window.clearAll = clearAll;
+    </script>
+</body>
+</html>

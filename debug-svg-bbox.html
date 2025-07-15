@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVG BBox Investigation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        #svgContainer {
+            width: 100%;
+            height: 400px;
+            border: 2px solid #ddd;
+            margin: 20px 0;
+        }
+        #diagram {
+            width: 100%;
+            height: 100%;
+            background: #fafafa;
+        }
+        .debug-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 11px;
+            border-left: 4px solid #007acc;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #007acc;
+            color: white;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        .node-marker {
+            fill: red;
+            stroke: darkred;
+            stroke-width: 2;
+        }
+        .center-marker {
+            fill: blue;
+            stroke: darkblue;
+            stroke-width: 2;
+        }
+        .bbox-marker {
+            fill: none;
+            stroke: green;
+            stroke-width: 1;
+            stroke-dasharray: 2,2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SVG BBox Investigation</h1>
+        
+        <button onclick="loadAndTestSVG()">Load and Test SVG</button>
+        <button onclick="clearAll()">Clear All</button>
+
+        <div id="svgContainer">
+            <svg id="diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400">
+                <g id="test-layer"></g>
+            </svg>
+        </div>
+
+        <div id="debugInfo" class="debug-info">
+            Debug information will appear here...
+        </div>
+    </div>
+
+    <script>
+        let debugInfo = document.getElementById('debugInfo');
+
+        function log(message) {
+            console.log(message);
+            debugInfo.innerHTML += message + '<br>';
+            debugInfo.scrollTop = debugInfo.scrollHeight;
+        }
+
+        function clearLog() {
+            debugInfo.innerHTML = '';
+        }
+
+        function clearAll() {
+            clearLog();
+            document.getElementById('test-layer').innerHTML = '';
+        }
+
+        async function loadAndTestSVG() {
+            clearAll();
+            
+            const testLayer = document.getElementById('test-layer');
+            
+            // Test different SVG loading scenarios
+            const testPositions = [
+                { x: 150, y: 150, svg: 'user.svg', label: 'User Icon' },
+                { x: 400, y: 150, svg: 'server.svg', label: 'Server Icon' },
+                { x: 650, y: 150, svg: 'user.svg', label: 'User Icon (2)' }
+            ];
+            
+            for (const testPos of testPositions) {
+                try {
+                    log(`\n=== Testing ${testPos.label} ===`);
+                    
+                    // Create a group for the node (like our real implementation)
+                    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    g.setAttribute('class', 'node');
+                    g.setAttribute('transform', `translate(${testPos.x}, ${testPos.y})`);
+                    
+                    // Load the SVG content
+                    const svgRes = await fetch(`assets/icons/${testPos.svg}`);
+                    const svgText = await svgRes.text();
+                    const parser = new DOMParser();
+                    const svgNode = parser.parseFromString(svgText, 'image/svg+xml').documentElement;
+                    
+                    // Add the SVG to the group
+                    g.appendChild(svgNode);
+                    testLayer.appendChild(g);
+                    
+                    // Add a small marker at the transform origin
+                    const originMarker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    originMarker.setAttribute('cx', testPos.x);
+                    originMarker.setAttribute('cy', testPos.y);
+                    originMarker.setAttribute('r', '3');
+                    originMarker.setAttribute('class', 'node-marker');
+                    testLayer.appendChild(originMarker);
+                    
+                    // Wait for the SVG to be loaded and rendered
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // Now test getBBox
+                    const bbox = g.getBBox();
+                    log(`  getBBox(): x=${bbox.x}, y=${bbox.y}, w=${bbox.width}, h=${bbox.height}`);
+                    
+                    // Calculate centers using different methods
+                    const centerMethod1 = {
+                        x: bbox.x + bbox.width / 2,
+                        y: bbox.y + bbox.height / 2
+                    };
+                    log(`  Center method 1 (bbox.x + w/2): local=(${centerMethod1.x}, ${centerMethod1.y})`);
+                    log(`  Center method 1 viewport: (${testPos.x + centerMethod1.x}, ${testPos.y + centerMethod1.y})`);
+                    
+                    const centerMethod2 = {
+                        x: bbox.width / 2,
+                        y: bbox.height / 2
+                    };
+                    log(`  Center method 2 (w/2): local=(${centerMethod2.x}, ${centerMethod2.y})`);
+                    log(`  Center method 2 viewport: (${testPos.x + centerMethod2.x}, ${testPos.y + centerMethod2.y})`);
+                    
+                    const centerMethod3 = {
+                        x: 0,
+                        y: 0
+                    };
+                    log(`  Center method 3 (origin): local=(${centerMethod3.x}, ${centerMethod3.y})`);
+                    log(`  Center method 3 viewport: (${testPos.x + centerMethod3.x}, ${testPos.y + centerMethod3.y})`);
+                    
+                    // Add visual markers for the centers
+                    const center1Marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    center1Marker.setAttribute('cx', testPos.x + centerMethod1.x);
+                    center1Marker.setAttribute('cy', testPos.y + centerMethod1.y);
+                    center1Marker.setAttribute('r', '2');
+                    center1Marker.setAttribute('fill', 'red');
+                    testLayer.appendChild(center1Marker);
+                    
+                    const center2Marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    center2Marker.setAttribute('cx', testPos.x + centerMethod2.x);
+                    center2Marker.setAttribute('cy', testPos.y + centerMethod2.y);
+                    center2Marker.setAttribute('r', '2');
+                    center2Marker.setAttribute('fill', 'green');
+                    testLayer.appendChild(center2Marker);
+                    
+                    const center3Marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    center3Marker.setAttribute('cx', testPos.x + centerMethod3.x);
+                    center3Marker.setAttribute('cy', testPos.y + centerMethod3.y);
+                    center3Marker.setAttribute('r', '2');
+                    center3Marker.setAttribute('fill', 'blue');
+                    testLayer.appendChild(center3Marker);
+                    
+                    // Add bounding box outline
+                    const bboxRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    bboxRect.setAttribute('x', testPos.x + bbox.x);
+                    bboxRect.setAttribute('y', testPos.y + bbox.y);
+                    bboxRect.setAttribute('width', bbox.width);
+                    bboxRect.setAttribute('height', bbox.height);
+                    bboxRect.setAttribute('class', 'bbox-marker');
+                    testLayer.appendChild(bboxRect);
+                    
+                    log(`  Visual markers added - Red=Method1, Green=Method2, Blue=Method3`);
+                    
+                } catch (error) {
+                    log(`  ERROR: ${error.message}`);
+                }
+            }
+            
+            log('\n=== Legend ===');
+            log('Red dots: Transform origin (node position)');
+            log('Red circles: bbox.x + bbox.width/2 method');
+            log('Green circles: bbox.width/2 method');
+            log('Blue circles: Origin (0,0) method');
+            log('Green rectangles: Actual bounding box');
+        }
+    </script>
+</body>
+</html>

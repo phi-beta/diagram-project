@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coordinate System Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        #svgContainer {
+            width: 100%;
+            height: 400px;
+            border: 2px solid #ddd;
+            margin: 20px 0;
+        }
+        #diagram {
+            width: 100%;
+            height: 100%;
+            background: #fafafa;
+        }
+        .debug-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            border-left: 4px solid #007acc;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #007acc;
+            color: white;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Coordinate System Fix Test</h1>
+        
+        <button onclick="testInitialization()">Test Initialization</button>
+        <button onclick="clearLog()">Clear Log</button>
+
+        <div id="svgContainer">
+            <svg id="diagram" xmlns="http://www.w3.org/2000/svg">
+                <!-- Standard layer structure expected by renderer -->
+                <g id="background-layer"></g>
+                <g id="edges-layer"></g>
+                <g id="nodes-layer"></g>
+                <g id="foreground-layer"></g>
+                <g id="debug-layer"></g>
+            </svg>
+        </div>
+
+        <div id="debugInfo" class="debug-info">
+            Test logs will appear here...
+        </div>
+    </div>
+
+    <script type="module">
+        import { renderer } from './js/renderer.js';
+        
+        let debugInfo = document.getElementById('debugInfo');
+        let rendererInstance = null;
+
+        function log(message, className = '') {
+            console.log(message);
+            const span = document.createElement('span');
+            span.className = className;
+            span.textContent = message;
+            debugInfo.appendChild(span);
+            debugInfo.appendChild(document.createElement('br'));
+            debugInfo.scrollTop = debugInfo.scrollHeight;
+        }
+
+        function clearLog() {
+            debugInfo.innerHTML = '';
+        }
+
+        async function testInitialization() {
+            try {
+                clearLog();
+                log('=== Testing Renderer Initialization ===');
+                
+                // Test renderer initialization
+                await renderer.initialize();
+                log('✅ Renderer initialized successfully', 'success');
+                
+                // Test node creation with proper scaling
+                const node1 = await renderer.createNode({
+                    id: 'test-node-1',
+                    x: 100,
+                    y: 100,
+                    svg: 'user.svg',
+                    class: 'user',
+                    label: 'Test Node 1',
+                    scale: 0.21037687894947063
+                });
+                log('✅ Node 1 created successfully', 'success');
+                
+                const node2 = await renderer.createNode({
+                    id: 'test-node-2',
+                    x: 300,
+                    y: 100,
+                    svg: 'server.svg',
+                    class: 'server',
+                    label: 'Test Node 2',
+                    scale: 0.49719793227240705
+                });
+                log('✅ Node 2 created successfully', 'success');
+                
+                // Test edge creation
+                const edge = await renderer.createEdge({
+                    id: 'test-edge-1',
+                    from: 'test-node-1',
+                    to: 'test-node-2',
+                    label: 'Test Edge'
+                });
+                log('✅ Edge created successfully', 'success');
+                
+                // Test node center calculations
+                const center1 = node1.getViewportCenter();
+                const center2 = node2.getViewportCenter();
+                log(`Node 1 center: (${center1.x.toFixed(2)}, ${center1.y.toFixed(2)})`);
+                log(`Node 2 center: (${center2.x.toFixed(2)}, ${center2.y.toFixed(2)})`);
+                
+                log('=== All tests passed! ===', 'success');
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                log(`Stack: ${error.stack}`, 'error');
+            }
+        }
+
+        // Make functions available globally
+        window.testInitialization = testInitialization;
+        window.clearLog = clearLog;
+    </script>
+</body>
+</html>

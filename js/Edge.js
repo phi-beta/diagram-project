@@ -34,6 +34,9 @@
 
 import { generateGuid, ensureUniqueId, registerExistingId, unregisterId, isIdInUse } from './GuidManager.js';
 
+// Default node dimensions (used for fallback calculations)
+const DEFAULT_NODE_RADIUS = 25;
+
 /**
  * EdgeData class - Manages edge data and business logic
  */
@@ -141,24 +144,71 @@ export class EdgeRenderer {
 
   // Update the visual path between two nodes
   updatePath(fromNode, toNode) {
+    console.log('=== EdgeRenderer.updatePath DEBUG ===');
+    console.log('fromNode:', fromNode);
+    console.log('toNode:', toNode);
+    
     if (!fromNode || !toNode) {
       console.warn('EdgeRenderer.updatePath: Missing fromNode or toNode:', { fromNode: fromNode?.id, toNode: toNode?.id });
       return false;
     }
     
-    // Ensure nodes have the required getGlobalCenter method
-    if (typeof fromNode.getGlobalCenter !== 'function') {
-      console.error('EdgeRenderer.updatePath: fromNode does not have getGlobalCenter method:', fromNode);
+    // Get center coordinates for both nodes in viewport coordinates
+    // Simple approach: ask each node for its center position in viewport coordinates
+    let p1, p2;
+    
+    // For fromNode: get center in viewport coordinates
+    if (typeof fromNode.getViewportCenter === 'function') {
+      p1 = fromNode.getViewportCenter();
+      console.log('fromNode viewport center:', p1);
+    } else if (typeof fromNode.getLocalCenter === 'function' && fromNode.nodeData) {
+      // Fallback: calculate viewport center from local center + node position
+      const localCenter = fromNode.getLocalCenter();
+      p1 = { 
+        x: fromNode.nodeData.x + localCenter.x, 
+        y: fromNode.nodeData.y + localCenter.y, 
+        radius: localCenter.radius 
+      };
+      console.log('fromNode calculated center:', p1);
+    } else if (fromNode.nodeData) {
+      // Ultimate fallback: use node position directly
+      p1 = { 
+        x: fromNode.nodeData.x, 
+        y: fromNode.nodeData.y, 
+        radius: DEFAULT_NODE_RADIUS 
+      };
+      console.log('fromNode fallback center:', p1);
+    } else {
+      console.error('EdgeRenderer.updatePath: Cannot get position from fromNode:', fromNode);
       return false;
     }
     
-    if (typeof toNode.getGlobalCenter !== 'function') {
-      console.error('EdgeRenderer.updatePath: toNode does not have getGlobalCenter method:', toNode);
+    // For toNode: get center in viewport coordinates
+    if (typeof toNode.getViewportCenter === 'function') {
+      p2 = toNode.getViewportCenter();
+      console.log('toNode viewport center:', p2);
+    } else if (typeof toNode.getLocalCenter === 'function' && toNode.nodeData) {
+      // Fallback: calculate viewport center from local center + node position
+      const localCenter = toNode.getLocalCenter();
+      p2 = { 
+        x: toNode.nodeData.x + localCenter.x, 
+        y: toNode.nodeData.y + localCenter.y, 
+        radius: localCenter.radius 
+      };
+      console.log('toNode calculated center:', p2);
+    } else if (toNode.nodeData) {
+      // Ultimate fallback: use node position directly
+      p2 = { 
+        x: toNode.nodeData.x, 
+        y: toNode.nodeData.y, 
+        radius: DEFAULT_NODE_RADIUS 
+      };
+      console.log('toNode fallback center:', p2);
+    } else {
+      console.error('EdgeRenderer.updatePath: Cannot get position from toNode:', toNode);
       return false;
     }
     
-    const p1 = fromNode.getGlobalCenter();
-    const p2 = toNode.getGlobalCenter();
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
     const distance = Math.hypot(dx, dy) || 1;
@@ -167,7 +217,13 @@ export class EdgeRenderer {
     const x2 = p2.x - dx * (p2.radius / distance);
     const y2 = p2.y - dy * (p2.radius / distance);
     
+    console.log('Edge calculation:');
+    console.log('  dx:', dx, 'dy:', dy, 'distance:', distance);
+    console.log('  from endpoint:', x1, y1);
+    console.log('  to endpoint:', x2, y2);
+    
     const pathData = `M ${x1} ${y1} L ${x2} ${y2}`;
+    console.log('  pathData:', pathData);
     
     // Update both the visible path and the invisible click path
     this.visiblePath.setAttribute('d', pathData);
@@ -175,6 +231,7 @@ export class EdgeRenderer {
       this.clickPath.setAttribute('d', pathData);
     }
     
+    console.log('=== End EdgeRenderer.updatePath DEBUG ===');
     return true;
   }
 

@@ -454,7 +454,7 @@ async function createNode(nodeData) {
     (fromNode) => interactionManager.startEdgeCreation(fromNode), 
     (e) => viewBoxManager.screenToViewBox(e.clientX, e.clientY),
     dragManager,
-    viewBoxManager.coordinateSystem,
+    viewBoxManager.coordinateSystem || null,
     () => interactionManager.justCompletedEdge
   );
   
@@ -881,15 +881,31 @@ window.onload = loadLayout;
 export const renderer = {
   initialize: async function() {
     // Initialize all components
-    svg = document.getElementById('svg');
+    svg = document.getElementById('diagram');
     if (!svg) {
       throw new Error('SVG element not found');
     }
     
     // Initialize managers
     viewBoxManager = new ViewBoxManager(svg);
-    dragManager = new DragManager();
-    interactionManager = new InteractionManager();
+    dragManager = new DragManager(viewBoxManager);
+    layerManager = new LayerManager(svg);
+    
+    // Make layerManager available globally for backward compatibility
+    window.layerManager = layerManager;
+    
+    // Initialize GridManager
+    gridManager = new GridManager(svg);
+    
+    interactionManager = new InteractionManager(svg, viewBoxManager, dragManager, nodeMap, layerManager);
+    
+    // Initialize coordinate system (needed for node center calculations)
+    const coordinateSystem = viewBoxManager.coordinateSystem;
+    if (coordinateSystem) {
+      console.log('✅ CoordinateSystem initialized for testing');
+    } else {
+      console.warn('⚠️ CoordinateSystem not available');
+    }
     
     await nodeStateManager.initialize(interactionManager, 'config/node-state-machine.json');
     
@@ -913,6 +929,33 @@ export const renderer = {
     };
     
     return await createNode(fullNodeData);
+  },
+  
+  createEdge: async function(edgeData) {
+    if (!svg) {
+      throw new Error('Renderer not initialized');
+    }
+    
+    // Ensure edge has required properties
+    const fullEdgeData = {
+      id: edgeData.id || generateGuid('edge'),
+      from: edgeData.from,
+      to: edgeData.to,
+      label: edgeData.label || ''
+    };
+    
+    // Create the edge using the Edge.createEdge method
+    const edge = Edge.createEdge(fullEdgeData, svg, layerManager);
+    edgeList.push(edge);
+    
+    // Update the edge path with nodes
+    const fromNode = nodeMap.get(fullEdgeData.from);
+    const toNode = nodeMap.get(fullEdgeData.to);
+    if (fromNode && toNode) {
+      edge.updatePath(fromNode, toNode);
+    }
+    
+    return edge;
   },
   
   getNodeMap: () => nodeMap,

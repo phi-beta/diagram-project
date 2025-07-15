@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edge Endpoint Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #1e1e1e;
+            color: #fff;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #2d2d2d;
+            border-radius: 5px;
+        }
+        
+        .controls button {
+            margin: 0 5px;
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .controls button:hover {
+            background-color: #45a049;
+        }
+        
+        .debug-info {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #2d2d2d;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        #svg-container {
+            border: 1px solid #444;
+            background-color: #2d2d2d;
+            position: relative;
+        }
+        
+        .svg-node {
+            fill: #4CAF50;
+            stroke: #fff;
+            stroke-width: 2;
+        }
+        
+        .svg-node.selected {
+            fill: #FFC107;
+            stroke: #fff;
+            stroke-width: 3;
+        }
+        
+        .svg-edge {
+            stroke: #fff;
+            stroke-width: 2;
+            fill: none;
+        }
+        
+        .svg-edge.selected {
+            stroke: #FFC107;
+            stroke-width: 3;
+        }
+        
+        .debug-marker {
+            r: 3;
+            fill: #FF5722;
+            stroke: #000;
+            stroke-width: 1;
+        }
+        
+        .debug-text {
+            font-family: Arial;
+            font-size: 12px;
+            fill: #fff;
+            text-anchor: middle;
+        }
+        
+        .debug-crosshair {
+            stroke: #FF5722;
+            stroke-width: 1;
+        }
+    </style>
+</head>
+<body>
+    <h1>Edge Endpoint Debug Test</h1>
+    <p>This test shows exactly where edges are connecting to nodes and what the calculations are producing.</p>
+    
+    <div class="controls">
+        <button onclick="createTestNodes()">Create Test Nodes</button>
+        <button onclick="createTestEdge()">Create Test Edge</button>
+        <button onclick="debugEdgeCalculation()">Debug Edge Calculation</button>
+        <button onclick="addDebugMarkers()">Add Debug Markers</button>
+        <button onclick="clearDebugMarkers()">Clear Debug Markers</button>
+        <button onclick="zoomIn()">Zoom In</button>
+        <button onclick="zoomOut()">Zoom Out</button>
+        <button onclick="resetView()">Reset View</button>
+    </div>
+    
+    <div id="svg-container">
+        <svg id="main-svg" width="800" height="600" viewBox="0 0 800 600">
+            <!-- Layers -->
+            <g id="grid-layer"></g>
+            <g id="edges-layer"></g>
+            <g id="nodes-layer"></g>
+            <g id="debug-layer"></g>
+        </svg>
+    </div>
+    
+    <div class="debug-info">
+        <h3>Debug Output:</h3>
+        <div id="debug-output"></div>
+    </div>
+    
+    <script>
+        const svg = document.getElementById('main-svg');
+        const nodesLayer = document.getElementById('nodes-layer');
+        const edgesLayer = document.getElementById('edges-layer');
+        const debugLayer = document.getElementById('debug-layer');
+        const debugOutput = document.getElementById('debug-output');
+        
+        let currentViewBox = { x: 0, y: 0, width: 800, height: 600 };
+        let testNodes = [];
+        let testEdges = [];
+        let debugMode = false;
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            debugOutput.innerHTML += `[${timestamp}] ${message}<br>`;
+            debugOutput.scrollTop = debugOutput.scrollHeight;
+        }
+        
+        function createTestNodes() {
+            // Clear existing nodes
+            nodesLayer.innerHTML = '';
+            testNodes = [];
+            
+            // Create two simple circular nodes
+            const node1 = createNode('node1', 150, 200, 'circle', 25, '#4CAF50');
+            const node2 = createNode('node2', 450, 300, 'circle', 25, '#2196F3');
+            
+            // Create a complex SVG node
+            const node3 = createComplexNode('node3', 600, 150);
+            
+            testNodes.push(node1, node2, node3);
+            
+            log('Created test nodes: node1 (150,200), node2 (450,300), node3 (600,150)');
+        }
+        
+        function createNode(id, x, y, shape, size, color) {
+            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            g.setAttribute('id', id);
+            g.setAttribute('transform', `translate(${x}, ${y})`);
+            g.setAttribute('class', 'svg-node');
+            
+            let element;
+            if (shape === 'circle') {
+                element = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                element.setAttribute('cx', 0);
+                element.setAttribute('cy', 0);
+                element.setAttribute('r', size);
+                element.setAttribute('fill', color);
+            } else if (shape === 'rect') {
+                element = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                element.setAttribute('x', -size/2);
+                element.setAttribute('y', -size/2);
+                element.setAttribute('width', size);
+                element.setAttribute('height', size);
+                element.setAttribute('fill', color);
+            }
+            
+            g.appendChild(element);
+            nodesLayer.appendChild(g);
+            
+            // Add position data
+            g.nodeData = { x, y, id };
+            
+            return g;
+        }
+        
+        function createComplexNode(id, x, y) {
+            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            g.setAttribute('id', id);
+            g.setAttribute('transform', `translate(${x}, ${y})`);
+            g.setAttribute('class', 'svg-node');
+            
+            // Complex shape: server icon
+            g.innerHTML = `
+                <rect x="-20" y="-15" width="40" height="30" fill="#795548" stroke="#fff" stroke-width="2"/>
+                <rect x="-15" y="-10" width="30" height="5" fill="#A5A5A5"/>
+                <rect x="-15" y="-3" width="30" height="5" fill="#A5A5A5"/>
+                <rect x="-15" y="4" width="30" height="5" fill="#A5A5A5"/>
+                <circle cx="12" cy="-8" r="2" fill="#4CAF50"/>
+                <circle cx="12" cy="-1" r="2" fill="#FFC107"/>
+                <circle cx="12" cy="6" r="2" fill="#F44336"/>
+            `;
+            
+            nodesLayer.appendChild(g);
+            
+            // Add position data
+            g.nodeData = { x, y, id };
+            
+            return g;
+        }
+        
+        function createTestEdge() {
+            if (testNodes.length < 2) {
+                log('Need at least 2 nodes to create an edge');
+                return;
+            }
+            
+            const fromNode = testNodes[0];
+            const toNode = testNodes[1];
+            
+            const edge = createEdge('edge1', fromNode, toNode);
+            testEdges.push(edge);
+            
+            log(`Created edge from ${fromNode.id} to ${toNode.id}`);
+        }
+        
+        function createEdge(id, fromNode, toNode) {
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('id', id);
+            path.setAttribute('class', 'svg-edge');
+            
+            edgesLayer.appendChild(path);
+            
+            // Calculate edge path
+            updateEdgePath(path, fromNode, toNode);
+            
+            return path;
+        }
+        
+        function updateEdgePath(path, fromNode, toNode) {
+            // Get node centers
+            const fromCenter = getNodeCenter(fromNode);
+            const toCenter = getNodeCenter(toNode);
+            
+            log(`Edge calculation:`);
+            log(`  From node ${fromNode.id}: transform=${fromNode.getAttribute('transform')}`);
+            log(`  From center: (${fromCenter.x}, ${fromCenter.y}), radius=${fromCenter.radius}`);
+            log(`  To node ${toNode.id}: transform=${toNode.getAttribute('transform')}`);
+            log(`  To center: (${toCenter.x}, ${toCenter.y}), radius=${toCenter.radius}`);
+            
+            // Calculate edge endpoints (from center to edge of nodes)
+            const dx = toCenter.x - fromCenter.x;
+            const dy = toCenter.y - fromCenter.y;
+            const distance = Math.hypot(dx, dy) || 1;
+            
+            const x1 = fromCenter.x + dx * (fromCenter.radius / distance);
+            const y1 = fromCenter.y + dy * (fromCenter.radius / distance);
+            const x2 = toCenter.x - dx * (toCenter.radius / distance);
+            const y2 = toCenter.y - dy * (toCenter.radius / distance);
+            
+            log(`  Direction: dx=${dx}, dy=${dy}, distance=${distance}`);
+            log(`  Edge endpoints: (${x1}, ${y1}) to (${x2}, ${y2})`);
+            
+            const pathData = `M ${x1} ${y1} L ${x2} ${y2}`;
+            path.setAttribute('d', pathData);
+            
+            log(`  Path data: ${pathData}`);
+        }
+        
+        function getNodeCenter(node) {
+            try {
+                // Get the bounding box of the node's content
+                const bbox = node.getBBox();
+                log(`    getBBox for ${node.id}: x=${bbox.x}, y=${bbox.y}, width=${bbox.width}, height=${bbox.height}`);
+                
+                // Get the current transform matrix
+                const ctm = node.getCTM();
+                log(`    getCTM for ${node.id}: ${ctm ? `a=${ctm.a}, b=${ctm.b}, c=${ctm.c}, d=${ctm.d}, e=${ctm.e}, f=${ctm.f}` : 'null'}`);
+                
+                // Local center relative to the node's coordinate system
+                const localCenterX = bbox.x + bbox.width / 2;
+                const localCenterY = bbox.y + bbox.height / 2;
+                const localRadius = Math.min(bbox.width, bbox.height) / 2;
+                
+                log(`    Local center: (${localCenterX}, ${localCenterY}), radius=${localRadius}`);
+                
+                // Transform to global coordinates
+                let globalX, globalY;
+                if (ctm) {
+                    globalX = ctm.a * localCenterX + ctm.c * localCenterY + ctm.e;
+                    globalY = ctm.b * localCenterX + ctm.d * localCenterY + ctm.f;
+                } else {
+                    // Fallback if no CTM
+                    globalX = localCenterX;
+                    globalY = localCenterY;
+                }
+                
+                log(`    Global center: (${globalX}, ${globalY})`);
+                
+                return {
+                    x: globalX,
+                    y: globalY,
+                    radius: localRadius
+                };
+            } catch (error) {
+                log(`    Error getting center for ${node.id}: ${error.message}`);
+                return { x: 0, y: 0, radius: 25 };
+            }
+        }
+        
+        function debugEdgeCalculation() {
+            if (testEdges.length === 0) {
+                log('No edges to debug');
+                return;
+            }
+            
+            log('=== DETAILED EDGE DEBUG ===');
+            
+            const edge = testEdges[0];
+            const fromNode = testNodes[0];
+            const toNode = testNodes[1];
+            
+            updateEdgePath(edge, fromNode, toNode);
+            
+            log('=== END EDGE DEBUG ===');
+        }
+        
+        function addDebugMarkers() {
+            clearDebugMarkers();
+            
+            testNodes.forEach(node => {
+                const center = getNodeCenter(node);
+                
+                // Add crosshair at center
+                const crosshair = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                
+                // Horizontal line
+                const hLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                hLine.setAttribute('x1', center.x - 10);
+                hLine.setAttribute('y1', center.y);
+                hLine.setAttribute('x2', center.x + 10);
+                hLine.setAttribute('y2', center.y);
+                hLine.setAttribute('class', 'debug-crosshair');
+                
+                // Vertical line
+                const vLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                vLine.setAttribute('x1', center.x);
+                vLine.setAttribute('y1', center.y - 10);
+                vLine.setAttribute('x2', center.x);
+                vLine.setAttribute('y2', center.y + 10);
+                vLine.setAttribute('class', 'debug-crosshair');
+                
+                crosshair.appendChild(hLine);
+                crosshair.appendChild(vLine);
+                
+                // Add center point marker
+                const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                marker.setAttribute('cx', center.x);
+                marker.setAttribute('cy', center.y);
+                marker.setAttribute('class', 'debug-marker');
+                
+                // Add text label
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', center.x);
+                text.setAttribute('y', center.y - 15);
+                text.setAttribute('class', 'debug-text');
+                text.textContent = `${node.id} (${center.x.toFixed(1)}, ${center.y.toFixed(1)})`;
+                
+                debugLayer.appendChild(crosshair);
+                debugLayer.appendChild(marker);
+                debugLayer.appendChild(text);
+            });
+            
+            log('Added debug markers showing calculated node centers');
+        }
+        
+        function clearDebugMarkers() {
+            debugLayer.innerHTML = '';
+        }
+        
+        function zoomIn() {
+            currentViewBox.width *= 0.8;
+            currentViewBox.height *= 0.8;
+            currentViewBox.x += currentViewBox.width * 0.125;
+            currentViewBox.y += currentViewBox.height * 0.125;
+            updateViewBox();
+        }
+        
+        function zoomOut() {
+            currentViewBox.x -= currentViewBox.width * 0.125;
+            currentViewBox.y -= currentViewBox.height * 0.125;
+            currentViewBox.width *= 1.25;
+            currentViewBox.height *= 1.25;
+            updateViewBox();
+        }
+        
+        function resetView() {
+            currentViewBox = { x: 0, y: 0, width: 800, height: 600 };
+            updateViewBox();
+        }
+        
+        function updateViewBox() {
+            svg.setAttribute('viewBox', `${currentViewBox.x} ${currentViewBox.y} ${currentViewBox.width} ${currentViewBox.height}`);
+            log(`ViewBox updated: ${currentViewBox.x} ${currentViewBox.y} ${currentViewBox.width} ${currentViewBox.height}`);
+        }
+        
+        // Initialize
+        log('Edge Endpoint Debug Test initialized');
+        createTestNodes();
+    </script>
+</body>
+</html>

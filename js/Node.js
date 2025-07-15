@@ -229,23 +229,45 @@ export class NodeRenderer {
 
   // Get the center and radius in the node's local coordinate space
   getLocalCenter() {
-    if (this.coordinateSystem) {
-      return this.coordinateSystem.getNodeCenter(this.element, 'local');
-    }
-    
-    // Fallback to original implementation
     try {
       const bbox = this.element.getBBox();
+      
+      // For SVG icons, the center should be at the center of the bounding box
+      // The key insight is that bbox.x and bbox.y give us the offset from the transform origin
+      // So the center is at the center of the bounding box
+      // Note: bbox returns unscaled dimensions, so we need to account for scaling
+      const scale = this.nodeData.scale || 1;
       return {
-        x: bbox.x + bbox.width / 2,
-        y: bbox.y + bbox.height / 2,
-        radius: Math.min(bbox.width, bbox.height) / 2
+        x: (bbox.x + bbox.width / 2) * scale,
+        y: (bbox.y + bbox.height / 2) * scale,
+        radius: Math.min(bbox.width, bbox.height) / 2 * scale
       };
     } catch (error) {
       console.error('Error in getLocalCenter:', error);
       return {
         x: 0,
         y: 0,
+        radius: DEFAULT_NODE_RADIUS
+      };
+    }
+  }
+
+  // Get the center position in viewport coordinates (for edge connections)
+  getViewportCenter() {
+    try {
+      const localCenter = this.getLocalCenter();
+      // The node is positioned at (nodeData.x, nodeData.y) in viewport coordinates
+      // Add the local center offset to get the actual center in viewport coordinates
+      return {
+        x: this.nodeData.x + localCenter.x,
+        y: this.nodeData.y + localCenter.y,
+        radius: localCenter.radius
+      };
+    } catch (error) {
+      console.error('Error in getViewportCenter:', error);
+      return {
+        x: this.nodeData.x,
+        y: this.nodeData.y,
         radius: DEFAULT_NODE_RADIUS
       };
     }
@@ -1162,6 +1184,7 @@ export class Node {
 
   // Delegate all methods to nodeRenderer
   getLocalCenter() { return this.nodeRenderer.getLocalCenter(); }
+  getViewportCenter() { return this.nodeRenderer.getViewportCenter(); }
   getGlobalCenter() { return this.nodeRenderer.getGlobalCenter(); }
   
   // Legacy method for backward compatibility with Edge class

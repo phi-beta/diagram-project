@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Coordinate System Debug</title>
+    <link rel="stylesheet" href="themes/default.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+        .test-panel {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-width: 400px;
+        }
+        .test-button {
+            margin: 3px;
+            padding: 8px 12px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .test-button:hover {
+            background: #005a9e;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 3px;
+            font-size: 14px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+        }
+        .debug-info {
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .debug-info.show {
+            display: block;
+        }
+        .debug-info {
+            display: none;
+        }
+        #diagram {
+            width: 100%;
+            height: 100vh;
+            background: white;
+            border: none;
+        }
+        .grid-overlay {
+            stroke: #ddd;
+            stroke-width: 0.5;
+            fill: none;
+            pointer-events: none;
+        }
+        .grid-major {
+            stroke: #bbb;
+            stroke-width: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-panel">
+        <h3>Edge Coordinate System Debug</h3>
+        
+        <button class="test-button" onclick="addTestNodes()">Add Test Nodes</button>
+        <button class="test-button" onclick="debugCoordinates()">Debug Coordinates</button>
+        <button class="test-button" onclick="panTest()">Pan Test</button>
+        <button class="test-button" onclick="zoomTest()">Zoom Test</button>
+        <button class="test-button" onclick="resetView()">Reset View</button>
+        <button class="test-button" onclick="clearAll()">Clear All</button>
+        
+        <div id="statusDisplay" class="status">
+            Ready - Click "Add Test Nodes" to begin coordinate debugging
+        </div>
+        
+        <div id="debugDisplay" class="debug-info"></div>
+    </div>
+
+    <svg id="diagram" xmlns="http://www.w3.org/2000/svg">
+        <!-- Grid overlay for visual reference -->
+        <defs>
+            <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#eee" stroke-width="1"/>
+            </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)"/>
+        
+        <!-- Diagram content will be rendered here -->
+    </svg>
+
+    <!-- Include necessary scripts -->
+    <script src="js/CoordinateSystem.js"></script>
+    <script src="js/ViewBoxManager.js"></script>
+    <script src="js/LayerManager.js"></script>
+    <script src="js/Node.js"></script>
+    <script src="js/Edge.js"></script>
+    <script src="js/InteractionManager.js"></script>
+    <script src="js/renderer.js"></script>
+
+    <script>
+        // Initialize the diagram
+        const svg = document.getElementById('diagram');
+        const statusDisplay = document.getElementById('statusDisplay');
+        const debugDisplay = document.getElementById('debugDisplay');
+        let interactionManager;
+        let renderer;
+
+        function initializeDiagram() {
+            // Initialize the interaction manager and renderer
+            interactionManager = new InteractionManager(svg);
+            renderer = new Renderer(svg, interactionManager);
+            
+            updateStatus('Diagram initialized - Ready for coordinate debugging');
+        }
+
+        function addTestNodes() {
+            if (!interactionManager) return;
+            
+            clearAll();
+            
+            // Create test nodes at exact grid positions for easy validation
+            const testNodes = [
+                { x: 50, y: 50, text: 'A(50,50)' },
+                { x: 200, y: 50, text: 'B(200,50)' },
+                { x: 350, y: 50, text: 'C(350,50)' },
+                { x: 50, y: 200, text: 'D(50,200)' },
+                { x: 200, y: 200, text: 'E(200,200)' },
+                { x: 350, y: 200, text: 'F(350,200)' }
+            ];
+            
+            const nodes = [];
+            testNodes.forEach(nodeData => {
+                const node = interactionManager.addNode(nodeData.x, nodeData.y);
+                node.text = nodeData.text;
+                node.updateDisplay();
+                nodes.push(node);
+            });
+            
+            // Create edges in a specific pattern
+            const edgeConnections = [
+                [0, 1], // A to B (horizontal)
+                [1, 2], // B to C (horizontal)
+                [0, 3], // A to D (vertical)
+                [1, 4], // B to E (vertical)
+                [2, 5], // C to F (vertical)
+                [3, 4], // D to E (horizontal)
+                [4, 5], // E to F (horizontal)
+                [0, 4], // A to E (diagonal)
+                [1, 5], // B to F (diagonal)
+            ];
+            
+            edgeConnections.forEach(([fromIndex, toIndex]) => {
+                interactionManager.addEdge(nodes[fromIndex], nodes[toIndex]);
+            });
+            
+            renderer.render();
+            updateStatus('Test nodes added at grid positions - Check edge alignment');
+        }
+
+        function debugCoordinates() {
+            if (!interactionManager) return;
+            
+            let debug = "=== COORDINATE DEBUG INFORMATION ===\n\n";
+            
+            // Get current viewBox
+            const viewBox = interactionManager.viewBoxManager.getViewBox();
+            debug += `Current ViewBox: x=${viewBox.x}, y=${viewBox.y}, w=${viewBox.width}, h=${viewBox.height}\n`;
+            debug += `Zoom Level: ${interactionManager.viewBoxManager.getZoom().toFixed(2)}\n\n`;
+            
+            // Debug each node
+            debug += "NODES:\n";
+            interactionManager.nodes.forEach((node, index) => {
+                const nodeData = node.nodeData || node;
+                debug += `Node ${index + 1} (${node.text || node.id}):\n`;
+                debug += `  Raw Position: (${nodeData.x}, ${nodeData.y})\n`;
+                debug += `  Center Should Be: (${nodeData.x + 25}, ${nodeData.y + 25})\n`;
+                
+                if (typeof node.getGlobalCenter === 'function') {
+                    const globalCenter = node.getGlobalCenter();
+                    debug += `  getGlobalCenter(): (${globalCenter.x.toFixed(1)}, ${globalCenter.y.toFixed(1)})\n`;
+                }
+                
+                debug += `  Element Transform: ${node.element.getAttribute('transform') || 'none'}\n`;
+                debug += "\n";
+            });
+            
+            // Debug each edge
+            debug += "EDGES:\n";
+            interactionManager.edges.forEach((edge, index) => {
+                const fromNode = interactionManager.nodes.find(n => n.id === edge.from);
+                const toNode = interactionManager.nodes.find(n => n.id === edge.to);
+                
+                if (fromNode && toNode) {
+                    debug += `Edge ${index + 1}: ${fromNode.text || fromNode.id} -> ${toNode.text || toNode.id}\n`;
+                    
+                    // Calculate what the edge coordinates should be
+                    const fromData = fromNode.nodeData || fromNode;
+                    const toData = toNode.nodeData || toNode;
+                    
+                    const fromCenter = { x: fromData.x + 25, y: fromData.y + 25 };
+                    const toCenter = { x: toData.x + 25, y: toData.y + 25 };
+                    
+                    debug += `  From Center (calculated): (${fromCenter.x}, ${fromCenter.y})\n`;
+                    debug += `  To Center (calculated): (${toCenter.x}, ${toCenter.y})\n`;
+                    
+                    // Get the actual path data
+                    const edgeElement = document.querySelector(`[data-edge-id="${edge.id}"]`);
+                    if (edgeElement) {
+                        const pathData = edgeElement.getAttribute('d');
+                        debug += `  Actual Path: ${pathData}\n`;
+                    }
+                    
+                    debug += "\n";
+                }
+            });
+            
+            debugDisplay.textContent = debug;
+            debugDisplay.classList.add('show');
+            updateStatus('Coordinate debug information displayed');
+        }
+
+        function panTest() {
+            if (!interactionManager) return;
+            
+            // Pan by a specific amount
+            const panAmount = 100;
+            interactionManager.viewBoxManager.pan(panAmount, 0);
+            renderer.render();
+            updateStatus(`Panned ${panAmount} units right - Check if edges shifted correctly`);
+        }
+
+        function zoomTest() {
+            if (!interactionManager) return;
+            
+            interactionManager.viewBoxManager.zoomIn(1.5);
+            renderer.render();
+            updateStatus('Zoomed in 1.5x - Check if edges maintain correct positions');
+        }
+
+        function resetView() {
+            if (!interactionManager) return;
+            
+            interactionManager.viewBoxManager.resetView();
+            renderer.render();
+            updateStatus('View reset - Edges should return to original positions');
+        }
+
+        function clearAll() {
+            if (!interactionManager) return;
+            
+            interactionManager.nodes.length = 0;
+            interactionManager.edges.length = 0;
+            interactionManager.selectedNodes.clear();
+            renderer.render();
+            debugDisplay.classList.remove('show');
+            updateStatus('All nodes and edges cleared');
+        }
+
+        function updateStatus(message) {
+            if (statusDisplay) {
+                statusDisplay.textContent = message;
+            }
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', initializeDiagram);
+    </script>
+</body>
+</html>

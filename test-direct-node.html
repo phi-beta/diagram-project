@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direct Node Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        #svgContainer {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #ddd;
+            margin: 20px 0;
+        }
+        #diagram {
+            width: 100%;
+            height: 100%;
+            background: #fafafa;
+        }
+        .debug-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 11px;
+            border-left: 4px solid #007acc;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #007acc;
+            color: white;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        .highlight {
+            background: yellow;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Direct Node Test</h1>
+        
+        <button onclick="runDirectTest()">Run Direct Test</button>
+        <button onclick="clearAll()">Clear All</button>
+
+        <div id="svgContainer">
+            <svg id="diagram" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="blue" />
+                    </marker>
+                </defs>
+                
+                <g id="background-layer"></g>
+                <g id="edges-layer"></g>
+                <g id="nodes-layer"></g>
+                <g id="foreground-layer"></g>
+                <g id="debug-layer"></g>
+            </svg>
+        </div>
+
+        <div id="debugInfo" class="debug-info">
+            Debug information will appear here...
+        </div>
+    </div>
+
+    <script type="module">
+        import { Node } from './js/Node.js';
+        import { Edge } from './js/Edge.js';
+        import { LayerManager } from './js/LayerManager.js';
+        
+        let debugInfo = document.getElementById('debugInfo');
+        let layerManager = null;
+        let testNodes = [];
+
+        function log(message) {
+            console.log(message);
+            debugInfo.innerHTML += message + '<br>';
+            debugInfo.scrollTop = debugInfo.scrollHeight;
+        }
+
+        function clearLog() {
+            debugInfo.innerHTML = '';
+        }
+
+        function clearAll() {
+            clearLog();
+            testNodes.forEach(node => {
+                if (node.element && node.element.parentNode) {
+                    node.element.parentNode.removeChild(node.element);
+                }
+            });
+            testNodes = [];
+        }
+
+        async function runDirectTest() {
+            try {
+                clearAll();
+                
+                log('=== Direct Node Test ===');
+                
+                // Initialize LayerManager
+                const svg = document.getElementById('diagram');
+                layerManager = new LayerManager(svg);
+                window.layerManager = layerManager;
+                
+                // Create nodes directly using Node class
+                const nodeData1 = {
+                    id: 'direct-test-1',
+                    x: 200,
+                    y: 200,
+                    svg: 'user.svg',
+                    class: 'user',
+                    label: 'Direct Node 1'
+                };
+                
+                const nodeData2 = {
+                    id: 'direct-test-2',
+                    x: 500,
+                    y: 200,
+                    svg: 'server.svg',
+                    class: 'server',
+                    label: 'Direct Node 2'
+                };
+                
+                // Create SVG elements manually
+                const g1 = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g1.setAttribute('class', `node ${nodeData1.class}`);
+                g1.setAttribute('transform', `translate(${nodeData1.x}, ${nodeData1.y})`);
+                
+                const g2 = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g2.setAttribute('class', `node ${nodeData2.class}`);
+                g2.setAttribute('transform', `translate(${nodeData2.x}, ${nodeData2.y})`);
+                
+                // Load SVG content
+                const svgRes1 = await fetch(`assets/icons/${nodeData1.svg}`);
+                const svgText1 = await svgRes1.text();
+                const parser1 = new DOMParser();
+                const svgNode1 = parser1.parseFromString(svgText1, 'image/svg+xml').documentElement;
+                g1.appendChild(svgNode1);
+                
+                const svgRes2 = await fetch(`assets/icons/${nodeData2.svg}`);
+                const svgText2 = await svgRes2.text();
+                const parser2 = new DOMParser();
+                const svgNode2 = parser2.parseFromString(svgText2, 'image/svg+xml').documentElement;
+                g2.appendChild(svgNode2);
+                
+                // Add to layer
+                layerManager.addToLayer('nodes', g1);
+                layerManager.addToLayer('nodes', g2);
+                
+                // Wait for rendering
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Create Node instances
+                const node1 = new Node(nodeData1, g1);
+                const node2 = new Node(nodeData2, g2);
+                
+                // Set coordinateSystem to null to avoid issues
+                node1.coordinateSystem = null;
+                node2.coordinateSystem = null;
+                
+                testNodes.push(node1, node2);
+                
+                log(`Created nodes: ${node1.id} at (${node1.x}, ${node1.y}), ${node2.id} at (${node2.x}, ${node2.y})`);
+                
+                // Test center calculations
+                log('\n=== Testing Center Calculations ===');
+                
+                const node1Local = node1.getLocalCenter();
+                const node1Viewport = node1.getViewportCenter();
+                const node2Local = node2.getLocalCenter();
+                const node2Viewport = node2.getViewportCenter();
+                
+                log(`Node 1 local center: (${node1Local.x}, ${node1Local.y}) radius=${node1Local.radius}`);
+                log(`Node 1 viewport center: (${node1Viewport.x}, ${node1Viewport.y}) radius=${node1Viewport.radius}`);
+                log(`Node 2 local center: (${node2Local.x}, ${node2Local.y}) radius=${node2Local.radius}`);
+                log(`Node 2 viewport center: (${node2Viewport.x}, ${node2Viewport.y}) radius=${node2Viewport.radius}`);
+                
+                // Add visual markers
+                addDebugMarker(node1.x, node1.y, 'orange', 'Node 1 origin');
+                addDebugMarker(node2.x, node2.y, 'green', 'Node 2 origin');
+                addDebugMarker(node1Viewport.x, node1Viewport.y, 'red', 'Node 1 center');
+                addDebugMarker(node2Viewport.x, node2Viewport.y, 'blue', 'Node 2 center');
+                
+                // Create edge manually
+                log('\n=== Creating Edge ===');
+                
+                const edgeData = {
+                    id: 'direct-edge-1',
+                    from: nodeData1.id,
+                    to: nodeData2.id,
+                    label: 'Direct Edge'
+                };
+                
+                // Create edge element
+                const edgeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                edgeGroup.setAttribute('class', 'edge');
+                edgeGroup.setAttribute('data-edge-id', edgeData.id);
+                
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('stroke', 'blue');
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('fill', 'none');
+                path.setAttribute('marker-end', 'url(#arrowhead)');
+                edgeGroup.appendChild(path);
+                
+                layerManager.addToLayer('edges', edgeGroup);
+                
+                // Create Edge instance
+                const edge = new Edge(edgeData, edgeGroup);
+                
+                // Set references to nodes
+                edge.fromNode = node1;
+                edge.toNode = node2;
+                
+                log(`Created edge: ${edge.id}`);
+                
+                // Update edge path
+                if (edge.edgeRenderer) {
+                    edge.edgeRenderer.visiblePath = path;
+                    const updateResult = edge.edgeRenderer.updatePath();
+                    log(`Edge update result: ${updateResult}`);
+                    
+                    // Check the path
+                    const pathData = path.getAttribute('d');
+                    log(`<span class="highlight">Edge path: ${pathData}</span>`);
+                    
+                    // Parse and analyze
+                    const pathMatch = pathData.match(/M\s*([\d.-]+)\s*([\d.-]+)\s*L\s*([\d.-]+)\s*([\d.-]+)/);
+                    if (pathMatch) {
+                        const [, x1, y1, x2, y2] = pathMatch;
+                        log(`Edge connects from (${x1}, ${y1}) to (${x2}, ${y2})`);
+                        
+                        // Add markers at edge endpoints
+                        addDebugMarker(parseFloat(x1), parseFloat(y1), 'purple', 'Edge start');
+                        addDebugMarker(parseFloat(x2), parseFloat(y2), 'purple', 'Edge end');
+                        
+                        // Check distances
+                        const dist1 = Math.hypot(parseFloat(x1) - node1Viewport.x, parseFloat(y1) - node1Viewport.y);
+                        const dist2 = Math.hypot(parseFloat(x2) - node2Viewport.x, parseFloat(y2) - node2Viewport.y);
+                        
+                        log(`Distance from edge start to node 1 center: ${dist1.toFixed(2)}`);
+                        log(`Distance from edge end to node 2 center: ${dist2.toFixed(2)}`);
+                        
+                        const threshold = 30;
+                        if (dist1 < threshold && dist2 < threshold) {
+                            log('<span class="highlight">✅ Edge connections are close to node centers!</span>');
+                        } else {
+                            log('<span class="highlight">❌ Edge connections are NOT close to node centers!</span>');
+                        }
+                    }
+                }
+                
+                log('\n=== Direct Test Complete ===');
+                
+            } catch (error) {
+                log(`ERROR: ${error.message}`);
+                console.error('Direct test error:', error);
+            }
+        }
+
+        function addDebugMarker(x, y, color, label) {
+            const debugLayer = document.getElementById('debug-layer');
+            
+            const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            marker.setAttribute('cx', x);
+            marker.setAttribute('cy', y);
+            marker.setAttribute('r', '4');
+            marker.setAttribute('fill', color);
+            marker.setAttribute('stroke', 'black');
+            marker.setAttribute('stroke-width', '1');
+            debugLayer.appendChild(marker);
+            
+            // Add label
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', x + 6);
+            text.setAttribute('y', y - 6);
+            text.setAttribute('font-size', '10');
+            text.setAttribute('fill', color);
+            text.setAttribute('font-weight', 'bold');
+            text.textContent = label;
+            debugLayer.appendChild(text);
+        }
+
+        // Make functions available globally
+        window.runDirectTest = runDirectTest;
+        window.clearAll = clearAll;
+    </script>
+</body>
+</html>
