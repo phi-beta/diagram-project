@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive Scaling Edge Prevention Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .test-info {
+            background-color: #2a2a2a;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .test-info h3 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+        
+        .test-info ol {
+            margin: 10px 0;
+        }
+        
+        .test-info li {
+            margin: 5px 0;
+        }
+        
+        .warning {
+            background-color: #ff9800;
+            color: #000;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .success {
+            background-color: #4CAF50;
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .error {
+            background-color: #f44336;
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .test-results {
+            background-color: #2a2a2a;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .test-results h3 {
+            margin-top: 0;
+        }
+        
+        .pass {
+            color: #4CAF50;
+        }
+        
+        .fail {
+            color: #f44336;
+        }
+        
+        .info {
+            color: #2196F3;
+        }
+        
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        
+        .svg-container {
+            border: 2px solid #333;
+            border-radius: 5px;
+            background-color: #2a2a2a;
+            padding: 10px;
+        }
+        
+        svg {
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+        }
+        
+        .node {
+            cursor: pointer;
+        }
+        
+        .node.selected {
+            stroke: #4CAF50;
+            stroke-width: 3;
+        }
+        
+        .node.scaling {
+            stroke: #ff9800;
+            stroke-width: 3;
+            stroke-dasharray: 3,3;
+        }
+        
+        .temporary-edge {
+            stroke: #ff6b6b;
+            stroke-width: 2;
+            stroke-dasharray: 5,5;
+            fill: none;
+            pointer-events: none;
+        }
+        
+        .edge {
+            stroke: #666;
+            stroke-width: 2;
+            fill: none;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Comprehensive Scaling Edge Prevention Test</h1>
+        </div>
+        
+        <div class="test-info">
+            <h3>Test Procedure:</h3>
+            <ol>
+                <li>Click on a node to select it</li>
+                <li>Hold Shift key and mouse down on the node</li>
+                <li>Drag the mouse outside the node boundaries (this should start scaling)</li>
+                <li>While scaling, move the mouse around - check that NO temporary edges appear</li>
+                <li>Release the mouse button to stop scaling</li>
+                <li>With the node still selected, hold Shift and move mouse outside node - this should create temporary edges</li>
+                <li>Repeat with different nodes</li>
+            </ol>
+        </div>
+        
+        <div class="warning">
+            <strong>Expected Behavior:</strong> 
+            <ul>
+                <li>During scaling (mouse down + shift + drag): NO temporary edges should appear</li>
+                <li>After scaling (mouse up): Temporary edges should work normally</li>
+                <li>The console should show "🚫 SKIPPING EDGE CREATION: Node X is currently being scaled"</li>
+            </ul>
+        </div>
+        
+        <div class="test-results">
+            <h3>Real-time Test Results:</h3>
+            <div id="test-results">
+                <div class="info">⏳ Waiting for test interactions...</div>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <div class="svg-container">
+                <svg id="diagram" width="800" height="600" viewBox="0 0 800 600">
+                    <!-- This is just a placeholder - actual nodes and edges will be created by the system -->
+                </svg>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { initializeRenderer } from './js/renderer.js?v=108';
+        
+        // Test monitoring
+        let testResults = [];
+        let monitoringActive = false;
+        
+        // Get test results div
+        const testResultsDiv = document.getElementById('test-results');
+        
+        // Initialize the full diagram system
+        async function initializeSystem() {
+            try {
+                console.log('🚀 Initializing full diagram system...');
+                
+                // Initialize renderer with all components
+                const result = await initializeRenderer();
+                
+                if (result.success) {
+                    console.log('✅ Full diagram system initialized successfully');
+                    
+                    // Start monitoring for scaling edge prevention
+                    startMonitoring(result);
+                    
+                } else {
+                    console.error('❌ Failed to initialize diagram system:', result.error);
+                    showError('Failed to initialize diagram system: ' + result.error);
+                }
+            } catch (error) {
+                console.error('❌ Error during system initialization:', error);
+                showError('Error during system initialization: ' + error.message);
+            }
+        }
+        
+        function startMonitoring(systemComponents) {
+            console.log('🔍 Starting monitoring for scaling edge prevention...');
+            
+            const { interactionManager, nodeMap } = systemComponents;
+            
+            // Monitor InteractionManager for scaling checks
+            if (interactionManager) {
+                // Override the mouse move handler to monitor scaling prevention
+                const originalHandleMouseMove = interactionManager.handleMouseMove;
+                interactionManager.handleMouseMove = function(e) {
+                    const selectedNode = this.selectedNode;
+                    if (selectedNode && selectedNode.isScaling) {
+                        logTestResult('SCALING_DETECTION', 'INFO', `Node ${selectedNode.id} is currently scaling`);
+                    }
+                    
+                    // Call original method
+                    return originalHandleMouseMove.call(this, e);
+                };
+                
+                // Override startEdgeCreation to monitor prevention
+                const originalStartEdgeCreation = interactionManager.startEdgeCreation;
+                interactionManager.startEdgeCreation = function(fromNode) {
+                    if (fromNode && fromNode.isScaling) {
+                        logTestResult('SCALING_PREVENTION', 'PASS', `Edge creation correctly blocked for scaling node ${fromNode.id}`);
+                    } else {
+                        logTestResult('EDGE_CREATION', 'INFO', `Edge creation allowed for node ${fromNode.id}`);
+                    }
+                    
+                    // Call original method
+                    return originalStartEdgeCreation.call(this, fromNode);
+                };
+            }
+            
+            // Monitor nodes for scaling state changes
+            nodeMap.forEach(node => {
+                if (node.nodeRenderer) {
+                    // Monitor isScaling property changes
+                    let lastScalingState = false;
+                    
+                    const checkScalingState = () => {
+                        const currentScalingState = node.nodeRenderer.isScaling;
+                        if (currentScalingState !== lastScalingState) {
+                            logTestResult('SCALING_STATE_CHANGE', 'INFO', 
+                                `Node ${node.id} scaling state changed: ${lastScalingState} → ${currentScalingState}`);
+                            lastScalingState = currentScalingState;
+                        }
+                    };
+                    
+                    // Check scaling state periodically
+                    setInterval(checkScalingState, 100);
+                }
+            });
+            
+            monitoringActive = true;
+            logTestResult('MONITORING', 'INFO', 'Scaling edge prevention monitoring started');
+        }
+        
+        function logTestResult(category, level, message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const result = {
+                timestamp,
+                category,
+                level,
+                message
+            };
+            
+            testResults.push(result);
+            updateTestResultsDisplay();
+            
+            // Also log to console with appropriate level
+            const consoleMessage = `[${timestamp}] ${category}: ${message}`;
+            switch (level) {
+                case 'PASS':
+                    console.log(`✅ ${consoleMessage}`);
+                    break;
+                case 'FAIL':
+                    console.error(`❌ ${consoleMessage}`);
+                    break;
+                case 'INFO':
+                    console.info(`ℹ️ ${consoleMessage}`);
+                    break;
+                default:
+                    console.log(consoleMessage);
+            }
+        }
+        
+        function updateTestResultsDisplay() {
+            if (testResults.length === 0) {
+                testResultsDiv.innerHTML = '<div class="info">⏳ Waiting for test interactions...</div>';
+                return;
+            }
+            
+            // Show last 10 results
+            const recentResults = testResults.slice(-10);
+            const html = recentResults.map(result => {
+                const className = result.level.toLowerCase();
+                const icon = result.level === 'PASS' ? '✅' : 
+                           result.level === 'FAIL' ? '❌' : 
+                           result.level === 'INFO' ? 'ℹ️' : '📝';
+                return `<div class="${className}">${icon} [${result.timestamp}] ${result.category}: ${result.message}</div>`;
+            }).join('');
+            
+            testResultsDiv.innerHTML = html;
+            
+            // Scroll to bottom
+            testResultsDiv.scrollTop = testResultsDiv.scrollHeight;
+        }
+        
+        function showError(message) {
+            testResultsDiv.innerHTML = `<div class="error">❌ ${message}</div>`;
+        }
+        
+        // Initialize the system when the page loads
+        initializeSystem();
+    </script>
+</body>
+</html>

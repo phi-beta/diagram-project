@@ -465,14 +465,22 @@ export class DiagramStateManager {
    */
   removeTemporaryEdge() {
     debugEdgeCreation('🔧 removeTemporaryEdge called');
+    
+    // Remove DiagramStateManager's temporary edge if it exists
     if (this.temporaryEdge) {
-      debugEdgeCreation('🗑️ Removing existing temporary edge');
+      debugEdgeCreation('🗑️ Removing DiagramStateManager temporary edge');
       this.temporaryEdge.remove();
       this.temporaryEdge = null;
-      debugEdgeCreation('✅ Temporary edge removed');
-    } else {
-      debugEdgeCreation('ℹ️ No temporary edge to remove');
+      debugEdgeCreation('✅ DiagramStateManager temporary edge removed');
     }
+    
+    // Also delegate to InteractionManager to remove its temporary edge
+    if (this.interactionManager && typeof this.interactionManager.cleanupLocalEdgeState === 'function') {
+      debugEdgeCreation('🗑️ Delegating temporary edge cleanup to InteractionManager');
+      this.interactionManager.cleanupLocalEdgeState();
+    }
+    
+    debugEdgeCreation('✅ Temporary edge cleanup completed');
   }
   
   /**
@@ -662,6 +670,13 @@ export class DiagramStateManager {
    */
   startEdgeCreation(sourceNode, reason = 'manual') {
     debugEdgeCreation(`🚀 DiagramStateManager.startEdgeCreation called from ${sourceNode?.id} (${reason})`);
+
+    // Check if the source node is currently being scaled
+    if (sourceNode && sourceNode.isScaling) {
+      console.log(`🚫 SKIPPING EDGE CREATION: Source node ${sourceNode.id} is currently being scaled`);
+      debugEdgeCreation(`🚫 Blocked edge creation - source node is scaling`);
+      return false;
+    }
 
     // Get the actual shift key state from InteractionManager
     const shiftKeyDown = this.interactionManager ? this.interactionManager.shiftDown : false;

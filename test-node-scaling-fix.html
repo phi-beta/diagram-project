@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node Scaling Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        #svgContainer {
+            width: 100%;
+            height: 500px;
+            border: 2px solid #ddd;
+            margin: 20px 0;
+        }
+        #diagram {
+            width: 100%;
+            height: 100%;
+            background: #fafafa;
+        }
+        .debug-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            border-left: 4px solid #007acc;
+        }
+        .instructions {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 4px solid #0078d4;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #007acc;
+            color: white;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .highlight {
+            background: yellow;
+            padding: 2px 4px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Node Scaling Fix Test</h1>
+        
+        <div class="instructions">
+            <h3>Test Instructions:</h3>
+            <ol>
+                <li><strong>Click "Initialize Test"</strong> to create nodes with different scales</li>
+                <li><strong>Select a node</strong> by clicking on it (it should turn blue)</li>
+                <li><strong>Scale the node</strong> by holding <span class="highlight">Shift</span> and dragging the mouse away from or toward the node center</li>
+                <li><strong>Test scaling behavior:</strong>
+                    <ul>
+                        <li>Scaling should be relative to the <em>actual visible center</em> of the node</li>
+                        <li>Mouse distance from center should correctly determine scale factor</li>
+                        <li>Scaling should work properly with both small and large nodes</li>
+                    </ul>
+                </li>
+                <li><strong>Test pan/zoom:</strong> Try scaling nodes while the viewport is panned or zoomed</li>
+            </ol>
+        </div>
+        
+        <button onclick="initializeTest()">Initialize Test</button>
+        <button onclick="testScaling()">Test Scaling Info</button>
+        <button onclick="clearLog()">Clear Log</button>
+
+        <div id="svgContainer">
+            <svg id="diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+                <!-- Standard layer structure -->
+                <g id="background-layer"></g>
+                <g id="edges-layer"></g>
+                <g id="nodes-layer"></g>
+                <g id="foreground-layer"></g>
+                <g id="debug-layer"></g>
+            </svg>
+        </div>
+
+        <div id="debugInfo" class="debug-info">
+            Test logs will appear here...
+        </div>
+    </div>
+
+    <script type="module">
+        import { renderer } from './js/renderer.js';
+        
+        let debugInfo = document.getElementById('debugInfo');
+        let isInitialized = false;
+        let testNodes = [];
+
+        function log(message, className = '') {
+            console.log(message);
+            const span = document.createElement('span');
+            span.className = className;
+            span.textContent = message;
+            debugInfo.appendChild(span);
+            debugInfo.appendChild(document.createElement('br'));
+            debugInfo.scrollTop = debugInfo.scrollHeight;
+        }
+
+        function clearLog() {
+            debugInfo.innerHTML = '';
+        }
+
+        async function initializeTest() {
+            try {
+                if (isInitialized) {
+                    log('Test already initialized. Refresh page to restart.');
+                    return;
+                }
+
+                clearLog();
+                log('=== Initializing Node Scaling Test ===');
+                
+                // Initialize renderer
+                await renderer.initialize();
+                log('✅ Renderer initialized', 'success');
+                
+                // Create nodes with different initial scales
+                const userNodeSmall = await renderer.createNode({
+                    id: 'user-small',
+                    x: 150,
+                    y: 150,
+                    svg: 'user.svg',
+                    class: 'user',
+                    label: 'User Small (21% scale)',
+                    scale: 0.21037687894947063
+                });
+                
+                const userNodeMedium = await renderer.createNode({
+                    id: 'user-medium',
+                    x: 350,
+                    y: 150,
+                    svg: 'user.svg',
+                    class: 'user',
+                    label: 'User Medium (50% scale)',
+                    scale: 0.5
+                });
+                
+                const userNodeLarge = await renderer.createNode({
+                    id: 'user-large',
+                    x: 550,
+                    y: 150,
+                    svg: 'user.svg',
+                    class: 'user',
+                    label: 'User Large (100% scale)',
+                    scale: 1.0
+                });
+                
+                const serverNodeSmall = await renderer.createNode({
+                    id: 'server-small',
+                    x: 150,
+                    y: 350,
+                    svg: 'server.svg',
+                    class: 'server',
+                    label: 'Server Small (30% scale)',
+                    scale: 0.3
+                });
+                
+                const serverNodeMedium = await renderer.createNode({
+                    id: 'server-medium',
+                    x: 350,
+                    y: 350,
+                    svg: 'server.svg',
+                    class: 'server',
+                    label: 'Server Medium (50% scale)',
+                    scale: 0.49719793227240705
+                });
+                
+                const serverNodeLarge = await renderer.createNode({
+                    id: 'server-large',
+                    x: 550,
+                    y: 350,
+                    svg: 'server.svg',
+                    class: 'server',
+                    label: 'Server Large (80% scale)',
+                    scale: 0.8
+                });
+                
+                testNodes = [userNodeSmall, userNodeMedium, userNodeLarge, serverNodeSmall, serverNodeMedium, serverNodeLarge];
+                
+                // Wait for rendering
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                log('✅ Created 6 test nodes with different scales', 'success');
+                log('ℹ️ Now try scaling nodes:');
+                log('  1. Click to select a node (it should turn blue)');
+                log('  2. Hold Shift and drag to scale');
+                log('  3. Mouse distance from center should control scale');
+                log('  4. Test with different initial scales');
+                
+                isInitialized = true;
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                log(`Stack: ${error.stack}`, 'error');
+            }
+        }
+
+        async function testScaling() {
+            if (!isInitialized) {
+                log('Please initialize test first', 'error');
+                return;
+            }
+
+            log('\n=== Node Scaling Information ===');
+            
+            for (const node of testNodes) {
+                const center = node.getViewportCenter();
+                log(`${node.id}: position=(${node.x}, ${node.y}) center=(${center.x.toFixed(2)}, ${center.y.toFixed(2)}) scale=${node.scale.toFixed(3)} radius=${center.radius.toFixed(2)}`);
+            }
+            
+            log('\n=== Scaling Test Tips ===');
+            log('• The scaling should be relative to the actual visible center of each node');
+            log('• Nodes with smaller initial scales should scale proportionally');
+            log('• The mouse distance calculation should use the scaled center position');
+            log('• Try scaling while panning/zooming to test viewport stability');
+        }
+
+        // Make functions available globally
+        window.initializeTest = initializeTest;
+        window.testScaling = testScaling;
+        window.clearLog = clearLog;
+    </script>
+</body>
+</html>

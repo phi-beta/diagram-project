@@ -460,9 +460,7 @@ export class NodeRenderer {
     this.hasStartedDragging = false;
     
     // Get node center for drag/scale calculations
-    const center = this.coordinateSystem 
-      ? this.coordinateSystem.getNodeCenter(this.element, 'global')
-      : this.getGlobalCenter();
+    const center = this.getViewportCenter();
     
     // Try state machine first if available
     if (this.useStateMachine && this.stateMachine) {
@@ -553,10 +551,8 @@ export class NodeRenderer {
   legacyMouseDown(e, svg, getShiftDown, selectCallback, scheduleRedrawCallback, isEdgeCreationMode, cancelEdgeCreationCallback, startEdgeCreationCallback, getMousePositionInViewBox) {
     const mousePos = getMousePositionInViewBox(e);
     
-    // Get node center using coordinate system or fallback
-    const center = this.coordinateSystem 
-      ? this.coordinateSystem.getNodeCenter(this.element, 'global')
-      : this.getGlobalCenter();
+    // Get node center using consistent center calculation
+    const center = this.getViewportCenter();
     
     this.centerX = center.x;
     this.centerY = center.y;
@@ -575,10 +571,8 @@ export class NodeRenderer {
     }
 
     if (this.isScaling) {
-      // For scaling, recalculate center using the proper coordinate system
-      const scalingCenter = this.coordinateSystem 
-        ? this.coordinateSystem.getNodeCenter(this.element, 'global')
-        : this.getGlobalCenter();
+      // For scaling, use the same center calculation as other operations
+      const scalingCenter = this.getViewportCenter();
       this.centerX = scalingCenter.x;
       this.centerY = scalingCenter.y;
       this.startDistance = Math.hypot(mousePos.x - this.centerX, mousePos.y - this.centerY);
@@ -617,10 +611,8 @@ export class NodeRenderer {
           this.isScaling = (this.nodeData.interactionMode === 'scale');
           
           if (this.isScaling) {
-            // Initialize scaling parameters
-            const center = this.coordinateSystem 
-              ? this.coordinateSystem.getNodeCenter(this.element, 'global')
-              : this.getGlobalCenter();
+            // Initialize scaling parameters using consistent center calculation
+            const center = this.getViewportCenter();
             this.centerX = center.x;
             this.centerY = center.y;
             this.startDistance = Math.hypot(mousePos.x - this.centerX, mousePos.y - this.centerY);
@@ -667,9 +659,7 @@ export class NodeRenderer {
     if (this.hasInteractionModeChanged()) {
       if (this.nodeData.interactionMode === 'scale') {
         // Switching to scale mode - recalculate scaling parameters based on current state
-        const center = this.coordinateSystem 
-          ? this.coordinateSystem.getNodeCenter(this.element, 'global')
-          : this.getGlobalCenter();
+        const center = this.getViewportCenter();
         this.centerX = center.x;
         this.centerY = center.y;
         this.startDistance = Math.hypot(mouseXInSvg - this.centerX, mouseYInSvg - this.centerY);

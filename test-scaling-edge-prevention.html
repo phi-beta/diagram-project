@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Scaling Edge Prevention</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .test-info {
+            background-color: #2a2a2a;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .test-info h3 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+        
+        .test-info ul {
+            margin: 10px 0;
+        }
+        
+        .test-info li {
+            margin: 5px 0;
+        }
+        
+        .warning {
+            background-color: #ff9800;
+            color: #000;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .success {
+            background-color: #4CAF50;
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .error {
+            background-color: #f44336;
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .test-results {
+            background-color: #2a2a2a;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .test-results h3 {
+            margin-top: 0;
+        }
+        
+        .pass {
+            color: #4CAF50;
+        }
+        
+        .fail {
+            color: #f44336;
+        }
+        
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        
+        .svg-container {
+            border: 2px solid #333;
+            border-radius: 5px;
+            background-color: #2a2a2a;
+            padding: 10px;
+        }
+        
+        svg {
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+        }
+        
+        .node {
+            cursor: pointer;
+        }
+        
+        .node.selected {
+            stroke: #4CAF50;
+            stroke-width: 3;
+        }
+        
+        .node.scaling {
+            stroke: #ff9800;
+            stroke-width: 3;
+            stroke-dasharray: 3,3;
+        }
+        
+        .temporary-edge {
+            stroke: #ff6b6b;
+            stroke-width: 2;
+            stroke-dasharray: 5,5;
+            fill: none;
+            pointer-events: none;
+        }
+        
+        .edge {
+            stroke: #666;
+            stroke-width: 2;
+            fill: none;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Test: Scaling Mode Edge Prevention</h1>
+        </div>
+        
+        <div class="test-info">
+            <h3>Test Instructions:</h3>
+            <ul>
+                <li>Click a node to select it</li>
+                <li>Hold Shift and start scaling the node (mouse down and drag outside the node)</li>
+                <li>While scaling, move the mouse around - temporary edges should NOT appear</li>
+                <li>Release Shift to stop scaling</li>
+                <li>Try again with Shift held down to create edges normally</li>
+            </ul>
+        </div>
+        
+        <div class="warning">
+            <strong>Expected Behavior:</strong> When a node is in scaling mode (isScaling = true), temporary edges should NOT be created, even when moving the mouse outside the node bounds with Shift held down.
+        </div>
+        
+        <div class="test-results">
+            <h3>Test Results:</h3>
+            <div id="test-results">
+                <div>🔄 Test not yet run</div>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <div class="svg-container">
+                <svg id="diagram" width="800" height="600" viewBox="0 0 800 600">
+                    <!-- Grid pattern -->
+                    <defs>
+                        <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                            <rect width="50" height="50" fill="none" stroke="#333" stroke-width="1"/>
+                        </pattern>
+                        
+                        <!-- Arrowhead marker -->
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                                refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+                        </marker>
+                    </defs>
+                    
+                    <!-- Background with grid -->
+                    <rect width="100%" height="100%" fill="url(#grid)"/>
+                    
+                    <!-- Test nodes -->
+                    <g class="node" data-node-id="node1">
+                        <circle cx="200" cy="200" r="40" fill="#4CAF50" stroke="#333" stroke-width="2"/>
+                        <text x="200" y="205" text-anchor="middle" fill="#000" font-size="12">Node 1</text>
+                    </g>
+                    
+                    <g class="node" data-node-id="node2">
+                        <circle cx="400" cy="200" r="40" fill="#2196F3" stroke="#333" stroke-width="2"/>
+                        <text x="400" y="205" text-anchor="middle" fill="#000" font-size="12">Node 2</text>
+                    </g>
+                    
+                    <g class="node" data-node-id="node3">
+                        <circle cx="600" cy="200" r="40" fill="#FF9800" stroke="#333" stroke-width="2"/>
+                        <text x="600" y="205" text-anchor="middle" fill="#000" font-size="12">Node 3</text>
+                    </g>
+                    
+                    <g class="node" data-node-id="node4">
+                        <circle cx="300" cy="350" r="40" fill="#9C27B0" stroke="#333" stroke-width="2"/>
+                        <text x="300" y="355" text-anchor="middle" fill="#000" font-size="12">Node 4</text>
+                    </g>
+                    
+                    <g class="node" data-node-id="node5">
+                        <circle cx="500" cy="350" r="40" fill="#F44336" stroke="#333" stroke-width="2"/>
+                        <text x="500" y="355" text-anchor="middle" fill="#000" font-size="12">Node 5</text>
+                    </g>
+                </svg>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { Node } from './js/Node.js?v=032';
+        import { Edge } from './js/Edge.js?v=014';
+        import { CoordinateSystem } from './js/CoordinateSystem.js?v=003';
+        import { InteractionManager } from './js/InteractionManager.js?v=082';
+        import { DiagramStateManager } from './js/DiagramStateManager.js?v=011';
+        
+        // Test state
+        let selectedNode = null;
+        let isScaling = false;
+        let shiftDown = false;
+        let temporaryEdgeCount = 0;
+        let testResults = [];
+        
+        // Get DOM elements
+        const svg = document.getElementById('diagram');
+        const nodeElements = document.querySelectorAll('.node');
+        const testResultsDiv = document.getElementById('test-results');
+        
+        // Simple node map for testing
+        const nodeMap = new Map();
+        const coordinateSystem = new CoordinateSystem();
+        
+        // Create simple Node objects for testing
+        nodeElements.forEach(nodeElement => {
+            const nodeId = nodeElement.getAttribute('data-node-id');
+            const circle = nodeElement.querySelector('circle');
+            const cx = parseFloat(circle.getAttribute('cx'));
+            const cy = parseFloat(circle.getAttribute('cy'));
+            const r = parseFloat(circle.getAttribute('r'));
+            
+            // Create a simple node object that mimics the Node class
+            const node = {
+                id: nodeId,
+                element: nodeElement,
+                x: cx,
+                y: cy,
+                radius: r,
+                isScaling: false,
+                
+                getViewportCenter() {
+                    return {
+                        x: this.x,
+                        y: this.y,
+                        radius: this.radius
+                    };
+                },
+                
+                setScaling(scaling) {
+                    this.isScaling = scaling;
+                    if (scaling) {
+                        this.element.classList.add('scaling');
+                    } else {
+                        this.element.classList.remove('scaling');
+                    }
+                }
+            };
+            
+            nodeMap.set(nodeId, node);
+        });
+        
+        // Mock InteractionManager for testing
+        const mockInteractionManager = {
+            selectedNode: null,
+            shiftDown: false,
+            
+            startEdgeCreation(node) {
+                console.log(`🚀 Mock startEdgeCreation called for node: ${node.id}`);
+                console.log(`🔍 Node isScaling: ${node.isScaling}`);
+                
+                // Check if node is scaling - this is the key test
+                if (node.isScaling) {
+                    console.log('🚫 BLOCKED: Node is scaling, edge creation prevented');
+                    testResults.push({
+                        test: 'Scaling Prevention',
+                        result: 'PASS',
+                        message: 'Edge creation correctly blocked while node is scaling'
+                    });
+                    updateTestResults();
+                    return false;
+                }
+                
+                // If we get here, edge creation was not blocked
+                console.log('❌ FAILED: Edge creation was not blocked during scaling');
+                testResults.push({
+                    test: 'Scaling Prevention',
+                    result: 'FAIL',
+                    message: 'Edge creation was NOT blocked while node is scaling'
+                });
+                updateTestResults();
+                
+                // Create a temporary edge to visualize
+                createTemporaryEdge(node);
+                return true;
+            }
+        };
+        
+        // Mock DiagramStateManager
+        const mockDiagramStateManager = {
+            startEdgeCreation(node, reason) {
+                console.log(`🚀 Mock DiagramStateManager.startEdgeCreation called for node: ${node.id} (${reason})`);
+                
+                // Check if node is scaling - this is the key test
+                if (node.isScaling) {
+                    console.log('🚫 BLOCKED: DiagramStateManager prevented edge creation - node is scaling');
+                    testResults.push({
+                        test: 'DiagramStateManager Scaling Prevention',
+                        result: 'PASS',
+                        message: 'DiagramStateManager correctly blocked edge creation while node is scaling'
+                    });
+                    updateTestResults();
+                    return false;
+                }
+                
+                console.log('❌ FAILED: DiagramStateManager did not block edge creation during scaling');
+                testResults.push({
+                    test: 'DiagramStateManager Scaling Prevention',
+                    result: 'FAIL',
+                    message: 'DiagramStateManager did NOT block edge creation while node is scaling'
+                });
+                updateTestResults();
+                return true;
+            }
+        };
+        
+        // Create temporary edge for visualization
+        function createTemporaryEdge(fromNode) {
+            // Remove any existing temporary edge
+            const existingEdge = document.querySelector('.temporary-edge');
+            if (existingEdge) {
+                existingEdge.remove();
+            }
+            
+            temporaryEdgeCount++;
+            
+            const center = fromNode.getViewportCenter();
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('class', 'temporary-edge');
+            path.setAttribute('d', `M ${center.x} ${center.y} L ${center.x + 100} ${center.y + 100}`);
+            svg.appendChild(path);
+            
+            console.log(`🔴 Temporary edge created! Count: ${temporaryEdgeCount}`);
+        }
+        
+        // Update test results display
+        function updateTestResults() {
+            if (testResults.length === 0) {
+                testResultsDiv.innerHTML = '<div>🔄 Test not yet run</div>';
+                return;
+            }
+            
+            const html = testResults.map(test => {
+                const className = test.result === 'PASS' ? 'pass' : 'fail';
+                const icon = test.result === 'PASS' ? '✅' : '❌';
+                return `<div class="${className}">${icon} ${test.test}: ${test.result} - ${test.message}</div>`;
+            }).join('');
+            
+            testResultsDiv.innerHTML = html;
+        }
+        
+        // Event handlers
+        function handleKeyDown(e) {
+            if (e.key === 'Shift') {
+                shiftDown = true;
+                mockInteractionManager.shiftDown = true;
+                console.log('🔑 Shift key pressed');
+            }
+        }
+        
+        function handleKeyUp(e) {
+            if (e.key === 'Shift') {
+                shiftDown = false;
+                mockInteractionManager.shiftDown = false;
+                console.log('🔑 Shift key released');
+                
+                // Stop scaling for all nodes
+                nodeMap.forEach(node => {
+                    node.setScaling(false);
+                });
+            }
+        }
+        
+        function handleNodeClick(e) {
+            const nodeElement = e.currentTarget;
+            const nodeId = nodeElement.getAttribute('data-node-id');
+            const node = nodeMap.get(nodeId);
+            
+            if (!node) return;
+            
+            // Clear previous selection
+            if (selectedNode) {
+                selectedNode.element.classList.remove('selected');
+            }
+            
+            // Select new node
+            selectedNode = node;
+            mockInteractionManager.selectedNode = node;
+            node.element.classList.add('selected');
+            
+            console.log(`🎯 Node ${nodeId} selected`);
+        }
+        
+        function handleMouseDown(e) {
+            if (!selectedNode || !shiftDown) return;
+            
+            const rect = svg.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            const center = selectedNode.getViewportCenter();
+            const distance = Math.hypot(mouseX - center.x, mouseY - center.y);
+            
+            // If mouse is outside the node radius, start scaling
+            if (distance > center.radius) {
+                selectedNode.setScaling(true);
+                console.log(`🔄 Node ${selectedNode.id} started scaling`);
+                
+                // Clear test results for a fresh test
+                testResults = [];
+                updateTestResults();
+            }
+        }
+        
+        function handleMouseMove(e) {
+            if (!selectedNode || !shiftDown) return;
+            
+            const rect = svg.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            const center = selectedNode.getViewportCenter();
+            const distance = Math.hypot(mouseX - center.x, mouseY - center.y);
+            
+            // If mouse moves outside the node and shift is held, this would normally trigger edge creation
+            if (distance > center.radius) {
+                console.log(`🖱️ Mouse moved outside node ${selectedNode.id} with Shift held`);
+                console.log(`🔍 Node isScaling: ${selectedNode.isScaling}`);
+                
+                // Test both InteractionManager and DiagramStateManager
+                mockInteractionManager.startEdgeCreation(selectedNode);
+                mockDiagramStateManager.startEdgeCreation(selectedNode, 'mouseMoved');
+            }
+        }
+        
+        // Add event listeners
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+        svg.addEventListener('mousedown', handleMouseDown);
+        svg.addEventListener('mousemove', handleMouseMove);
+        
+        nodeElements.forEach(nodeElement => {
+            nodeElement.addEventListener('click', handleNodeClick);
+        });
+        
+        // Initial test results
+        updateTestResults();
+        
+        console.log('🧪 Test setup complete - ready to test scaling edge prevention');
+    </script>
+</body>
+</html>

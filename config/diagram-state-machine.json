@@ -40,12 +40,12 @@
         "conditions": [
           {
             "state": "idle",
-            "condition": "shiftKeyDown && mouseMovedAwayFromNode",
+            "condition": "shiftKeyDown && mouseMovedAwayFromNode && !sourceNode.isScaling",
             "action": "startEdgeCreation"
           },
           {
             "state": "idle", 
-            "condition": "shiftKeyDown && clickedDifferentNode",
+            "condition": "shiftKeyDown && clickedDifferentNode && !sourceNode.isScaling",
             "action": "startEdgeCreation"
           }
         ]

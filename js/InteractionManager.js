@@ -351,6 +351,12 @@ export class InteractionManager {
           this.cancelEdgeCreation();
         }
       } else if (!isCreatingEdge && !mouseOverSelectedNode && this.selectedNode) {
+        // Don't start edge creation if the selected node is currently being scaled
+        if (this.selectedNode.isScaling) {
+          console.log(`🚫 SKIPPING EDGE CREATION: Node ${this.selectedNode.id} is currently being scaled`);
+          return;
+        }
+        
         // Start edge creation when mouse moves away from the selected node
         console.log(`🚀 MOUSE MOVE EDGE CREATION: Starting edge creation from ${this.selectedNode.id} - mouse moved away from node`);
         console.log(`🔍 SHIFT KEY STATE: shiftDown=${this.shiftDown} (should be true for edge creation)`);

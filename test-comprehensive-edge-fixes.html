@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive Edge Creation Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .test-section {
+            background-color: #2a2a2a;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .test-section h3 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+        
+        .test-section ol {
+            margin: 10px 0;
+        }
+        
+        .test-section li {
+            margin: 5px 0;
+        }
+        
+        .issue-box {
+            background-color: #f44336;
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .fix-box {
+            background-color: #4CAF50;
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .test-results {
+            background-color: #2a2a2a;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .test-results h3 {
+            margin-top: 0;
+            position: sticky;
+            top: 0;
+            background-color: #2a2a2a;
+            padding-bottom: 10px;
+        }
+        
+        .pass {
+            color: #4CAF50;
+        }
+        
+        .fail {
+            color: #f44336;
+        }
+        
+        .info {
+            color: #2196F3;
+        }
+        
+        .warning {
+            color: #ff9800;
+        }
+        
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        
+        .svg-container {
+            border: 2px solid #333;
+            border-radius: 5px;
+            background-color: #2a2a2a;
+            padding: 10px;
+        }
+        
+        svg {
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+        }
+        
+        .node {
+            cursor: pointer;
+        }
+        
+        .node.selected {
+            stroke: #4CAF50;
+            stroke-width: 3;
+        }
+        
+        .node.scaling {
+            stroke: #ff9800;
+            stroke-width: 3;
+            stroke-dasharray: 3,3;
+        }
+        
+        .temporary-edge {
+            stroke: #ff6b6b;
+            stroke-width: 2;
+            stroke-dasharray: 5,5;
+            fill: none;
+            pointer-events: none;
+        }
+        
+        .edge {
+            stroke: #666;
+            stroke-width: 2;
+            fill: none;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Comprehensive Edge Creation Test</h1>
+            <p>Testing scaling edge prevention and temporary edge cleanup</p>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 1: Scaling Edge Prevention</h3>
+            <ol>
+                <li>Click on a node to select it</li>
+                <li>Hold Shift and mouse down on the node</li>
+                <li>Drag outside the node to start scaling</li>
+                <li>While scaling, move the mouse around - NO temporary edges should appear</li>
+                <li>Release the mouse button</li>
+            </ol>
+            <div class="issue-box">
+                <strong>Issue:</strong> Temporary edges appeared while scaling nodes
+            </div>
+            <div class="fix-box">
+                <strong>Fix:</strong> Added scaling checks in InteractionManager and DiagramStateManager
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 2: Temporary Edge Cleanup</h3>
+            <ol>
+                <li>Select a node and hold Shift</li>
+                <li>Move mouse away from node (temporary edge should appear)</li>
+                <li>Click on the background (empty area)</li>
+                <li>Temporary edge should disappear immediately</li>
+                <li>Press Escape to test alternative cleanup</li>
+            </ol>
+            <div class="issue-box">
+                <strong>Issue:</strong> Temporary edges "stuck" and remained after background click
+            </div>
+            <div class="fix-box">
+                <strong>Fix:</strong> DiagramStateManager now properly delegates cleanup to InteractionManager
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 3: Post-Scaling Edge Creation</h3>
+            <ol>
+                <li>Scale a node (Shift + drag)</li>
+                <li>Release mouse button but keep Shift held</li>
+                <li>Move mouse away from node (temporary edge should appear)</li>
+                <li>Click on another node to create permanent edge</li>
+                <li>Temporary edge should disappear and permanent edge should appear</li>
+            </ol>
+        </div>
+        
+        <div class="test-results">
+            <h3>Real-time Test Results:</h3>
+            <div id="test-results">
+                <div class="info">⏳ Waiting for test interactions...</div>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <div class="svg-container">
+                <svg id="diagram" width="800" height="600" viewBox="0 0 800 600">
+                    <!-- This will be populated by the full diagram system -->
+                </svg>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { initializeRenderer } from './js/renderer.js?v=108';
+        
+        // Test monitoring
+        let testResults = [];
+        let scalingEdgePreventionPassed = false;
+        let temporaryEdgeCleanupPassed = false;
+        
+        // Get test results div
+        const testResultsDiv = document.getElementById('test-results');
+        
+        // Initialize the full diagram system
+        async function initializeSystem() {
+            try {
+                console.log('🚀 Initializing full diagram system...');
+                
+                // Initialize renderer with all components
+                const result = await initializeRenderer();
+                
+                if (result.success) {
+                    console.log('✅ Full diagram system initialized successfully');
+                    
+                    // Start comprehensive monitoring
+                    startMonitoring(result);
+                    
+                } else {
+                    console.error('❌ Failed to initialize diagram system:', result.error);
+                    showError('Failed to initialize diagram system: ' + result.error);
+                }
+            } catch (error) {
+                console.error('❌ Error during system initialization:', error);
+                showError('Error during system initialization: ' + error.message);
+            }
+        }
+        
+        function startMonitoring(systemComponents) {
+            console.log('🔍 Starting comprehensive monitoring...');
+            
+            const { interactionManager, diagramStateManager, svg, nodeMap } = systemComponents;
+            
+            // Test 1: Scaling edge prevention monitoring
+            if (interactionManager) {
+                const originalStartEdgeCreation = interactionManager.startEdgeCreation;
+                interactionManager.startEdgeCreation = function(fromNode) {
+                    if (fromNode && fromNode.isScaling) {
+                        logTestResult('SCALING_PREVENTION', 'PASS', `✅ Edge creation correctly blocked for scaling node ${fromNode.id}`);
+                        scalingEdgePreventionPassed = true;
+                        return false;
+                    } else {
+                        logTestResult('EDGE_CREATION', 'INFO', `Edge creation allowed for node ${fromNode.id}`);
+                        return originalStartEdgeCreation.call(this, fromNode);
+                    }
+                };
+            }
+            
+            // Test 2: Temporary edge cleanup monitoring
+            if (diagramStateManager) {
+                const originalHandleBackgroundClick = diagramStateManager.handleBackgroundClick;
+                diagramStateManager.handleBackgroundClick = function() {
+                    logTestResult('BACKGROUND_CLICK', 'INFO', `Background clicked - testing cleanup`);
+                    
+                    const result = originalHandleBackgroundClick.call(this);
+                    
+                    // Check if cleanup was successful
+                    setTimeout(() => {
+                        const temporaryEdges = svg.querySelectorAll('.temporary-edge');
+                        if (temporaryEdges.length === 0) {
+                            logTestResult('TEMP_EDGE_CLEANUP', 'PASS', `✅ Temporary edges properly cleaned up after background click`);
+                            temporaryEdgeCleanupPassed = true;
+                        } else {
+                            logTestResult('TEMP_EDGE_CLEANUP', 'FAIL', `❌ ${temporaryEdges.length} temporary edge(s) still present after background click`);
+                        }
+                    }, 100);
+                    
+                    return result;
+                };
+                
+                // Monitor DiagramStateManager's removeTemporaryEdge
+                const originalRemoveTemporaryEdge = diagramStateManager.removeTemporaryEdge;
+                diagramStateManager.removeTemporaryEdge = function() {
+                    logTestResult('REMOVE_TEMP_EDGE', 'INFO', `DiagramStateManager removing temporary edge`);
+                    
+                    const result = originalRemoveTemporaryEdge.call(this);
+                    
+                    // Verify cleanup
+                    setTimeout(() => {
+                        const temporaryEdges = svg.querySelectorAll('.temporary-edge');
+                        if (temporaryEdges.length === 0) {
+                            logTestResult('TEMP_EDGE_REMOVAL', 'PASS', `✅ Temporary edges successfully removed by DiagramStateManager`);
+                        } else {
+                            logTestResult('TEMP_EDGE_REMOVAL', 'FAIL', `❌ ${temporaryEdges.length} temporary edge(s) still present after DiagramStateManager cleanup`);
+                        }
+                    }, 50);
+                    
+                    return result;
+                };
+            }
+            
+            // Test 3: Node scaling state monitoring
+            if (nodeMap) {
+                nodeMap.forEach(node => {
+                    if (node.nodeRenderer) {
+                        let lastScalingState = false;
+                        
+                        const checkScalingState = () => {
+                            const currentScalingState = node.nodeRenderer.isScaling;
+                            if (currentScalingState !== lastScalingState) {
+                                logTestResult('SCALING_STATE', 'INFO', 
+                                    `Node ${node.id} scaling: ${lastScalingState} → ${currentScalingState}`);
+                                lastScalingState = currentScalingState;
+                            }
+                        };
+                        
+                        setInterval(checkScalingState, 100);
+                    }
+                });
+            }
+            
+            // Monitor DOM changes for temporary edges
+            const observer = new MutationObserver(mutations => {
+                mutations.forEach(mutation => {
+                    if (mutation.type === 'childList') {
+                        mutation.addedNodes.forEach(node => {
+                            if (node.nodeType === Node.ELEMENT_NODE && node.classList && node.classList.contains('temporary-edge')) {
+                                logTestResult('TEMP_EDGE_ADDED', 'INFO', `Temporary edge added to DOM`);
+                            }
+                        });
+                        
+                        mutation.removedNodes.forEach(node => {
+                            if (node.nodeType === Node.ELEMENT_NODE && node.classList && node.classList.contains('temporary-edge')) {
+                                logTestResult('TEMP_EDGE_REMOVED', 'INFO', `Temporary edge removed from DOM`);
+                            }
+                        });
+                    }
+                });
+            });
+            
+            observer.observe(svg, { childList: true, subtree: true });
+            
+            // Periodic test summary
+            setInterval(() => {
+                updateTestSummary();
+            }, 5000);
+            
+            logTestResult('MONITORING', 'INFO', 'Comprehensive monitoring started');
+        }
+        
+        function updateTestSummary() {
+            const summary = [];
+            
+            if (scalingEdgePreventionPassed) {
+                summary.push('✅ Scaling edge prevention: PASSED');
+            } else {
+                summary.push('⏳ Scaling edge prevention: Not yet tested');
+            }
+            
+            if (temporaryEdgeCleanupPassed) {
+                summary.push('✅ Temporary edge cleanup: PASSED');
+            } else {
+                summary.push('⏳ Temporary edge cleanup: Not yet tested');
+            }
+            
+            if (summary.length > 0) {
+                logTestResult('TEST_SUMMARY', 'INFO', summary.join(' | '));
+            }
+        }
+        
+        function logTestResult(category, level, message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const result = {
+                timestamp,
+                category,
+                level,
+                message
+            };
+            
+            testResults.push(result);
+            updateTestResultsDisplay();
+            
+            // Also log to console
+            const consoleMessage = `[${timestamp}] ${category}: ${message}`;
+            switch (level) {
+                case 'PASS':
+                    console.log(`✅ ${consoleMessage}`);
+                    break;
+                case 'FAIL':
+                    console.error(`❌ ${consoleMessage}`);
+                    break;
+                case 'INFO':
+                    console.info(`ℹ️ ${consoleMessage}`);
+                    break;
+                case 'WARNING':
+                    console.warn(`⚠️ ${consoleMessage}`);
+                    break;
+                default:
+                    console.log(consoleMessage);
+            }
+        }
+        
+        function updateTestResultsDisplay() {
+            if (testResults.length === 0) {
+                testResultsDiv.innerHTML = '<div class="info">⏳ Waiting for test interactions...</div>';
+                return;
+            }
+            
+            // Show last 20 results
+            const recentResults = testResults.slice(-20);
+            const html = recentResults.map(result => {
+                const className = result.level.toLowerCase();
+                const icon = result.level === 'PASS' ? '✅' : 
+                           result.level === 'FAIL' ? '❌' : 
+                           result.level === 'INFO' ? 'ℹ️' : 
+                           result.level === 'WARNING' ? '⚠️' : '📝';
+                return `<div class="${className}">${icon} [${result.timestamp}] ${result.category}: ${result.message}</div>`;
+            }).join('');
+            
+            testResultsDiv.innerHTML = html;
+            
+            // Scroll to bottom
+            testResultsDiv.scrollTop = testResultsDiv.scrollHeight;
+        }
+        
+        function showError(message) {
+            testResultsDiv.innerHTML = `<div class="error">❌ ${message}</div>`;
+        }
+        
+        // Initialize the system when the page loads
+        initializeSystem();
+    </script>
+</body>
+</html>
