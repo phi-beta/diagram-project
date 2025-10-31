@@ -136,6 +136,7 @@ export class EdgeData {
  */
 export class EdgeRenderer {
   constructor(edgeData, element, visiblePath = null, clickPath = null) {
+    console.log('EdgeRenderer constructor called with edgeData:', edgeData);
     this.edgeData = edgeData;
     this.element = element; // The group element
     this.visiblePath = visiblePath || element; // The visible path
@@ -413,7 +414,7 @@ export class Edge {
     const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     group.setAttribute('class', `edge ${edgeData.class}`);
     group.setAttribute('data-edge-id', edgeData.id);
-    
+
     // Create the invisible wider path for better click detection
     const clickPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     clickPath.setAttribute('stroke', 'transparent');
@@ -422,13 +423,13 @@ export class Edge {
     clickPath.setAttribute('stroke-linecap', 'round');
     clickPath.setAttribute('stroke-linejoin', 'round');
     clickPath.setAttribute('pointer-events', 'stroke');
-    
+
     // Create the visible path
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('class', edgeData.class);
     path.setAttribute('marker-end', 'url(#arrowhead)');
     path.setAttribute('pointer-events', 'none'); // Don't interfere with click detection
-    
+
     // Add both paths to the group
     group.appendChild(clickPath);
     group.appendChild(path);
@@ -446,19 +447,24 @@ export class Edge {
       }
     }
     
-    return new Edge(edgeData, group);
+    // Replace legacy Edge class with EdgeRenderer
+    const renderer = new EdgeRenderer(edgeData, group, path, clickPath);
+    return renderer; // Return the renderer instead of the legacy Edge class
   }
 
   static redrawAllEdges(edgeList, nodeMap) {
+    console.log('redrawAllEdges called with edgeList:', edgeList);
+    console.log('redrawAllEdges called with nodeMap:', Array.from(nodeMap.entries()));
+
     for (const edge of edgeList) {
-      const fromNode = nodeMap.get(edge.from);
-      const toNode = nodeMap.get(edge.to);
-      
+      const fromNode = nodeMap.get(edge.edgeData.from);
+      const toNode = nodeMap.get(edge.edgeData.to);
+
       if (!fromNode || !toNode) {
-        console.warn(`Edge ${edge.id}: Missing nodes - from: ${edge.from} (${fromNode?.id || 'undefined'}), to: ${edge.to} (${toNode?.id || 'undefined'})`);
+        console.warn(`Edge ${edge.edgeData.id}: Missing nodes - from: ${edge.edgeData.from} (${fromNode?.id || 'undefined'}), to: ${edge.edgeData.to} (${toNode?.id || 'undefined'})`);
         continue;
       }
-      
+
       edge.updatePath(fromNode, toNode);
     }
   }

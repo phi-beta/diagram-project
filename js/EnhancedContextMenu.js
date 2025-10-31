@@ -2,6 +2,8 @@
  * Enhanced Context Menu Manager - JSON-based context menus
  * Handles right-click context menus with configurable actions based on element type
  */
+import { ContextMenuActions } from './ContextMenuActions.js';
+
 export class EnhancedContextMenu {
   constructor(svg, diagramComponents = {}) {
     this.svg = svg;
@@ -27,7 +29,6 @@ export class EnhancedContextMenu {
     this.setupEventListeners();
     
     // Import and initialize actions handler
-    const { ContextMenuActions } = await import('./ContextMenuActions.js');
     this.actions = new ContextMenuActions(this.diagramComponents);
     
     // Make actions available globally for keyboard shortcuts
@@ -209,6 +210,10 @@ export class EnhancedContextMenu {
     this.isVisible = true;
     
     console.log(`🎯 Enhanced context menu shown for ${context} at (${screenCoords.x}, ${screenCoords.y})`);
+    console.log(`🔍 Debugging EnhancedContextMenu.show:`);
+    console.log(`  - context: ${context}`);
+    console.log(`  - targetElement:`, targetElement);
+    console.log(`  - mousePosition:`, this.mousePosition);
   }
   
   /**
@@ -393,6 +398,7 @@ export class EnhancedContextMenu {
     actionBg.addEventListener('click', (e) => {
       if (action.enabled) {
         e.stopPropagation();
+        console.log(`🖱️ Action clicked: ${action.id}`); // Debugging log
         this.executeAction(action.id);
       }
     });
@@ -451,17 +457,24 @@ export class EnhancedContextMenu {
   /**
    * Execute action
    */
-  async executeAction(actionId) {
-    this.hide(); // Hide menu first
-    
-    if (this.actions) {
-      await this.actions.executeAction(
-        actionId,
-        this.currentContext,
-        this.targetElement,
-        this.mousePosition
-      );
+  executeAction(actionId) {
+    console.log(`🖱️ Action clicked: ${actionId}`);
+    console.log(`🎯 Executing action: ${actionId}`);
+    console.log(`🔍 Current context:`, this.currentContext);
+    console.log(`🔍 Target element:`, this.targetElement);
+    console.log(`🔍 Mouse position:`, this.mousePosition);
+
+    if (!this.currentContext) {
+      console.error('❌ Context type is null. Ensure the correct context type is passed.');
+      return;
     }
+
+    ContextMenuActions.executeAction({
+      actionId,
+      contextType: this.currentContext,
+      targetElement: this.targetElement,
+      mousePosition: this.mousePosition,
+    });
   }
   
   /**

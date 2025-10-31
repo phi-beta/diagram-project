@@ -189,4 +189,23 @@ export class ViewBoxManager {
       this.svg.style.cursor = '';
     }
   }
+  
+  /**
+   * Update the viewBox based on the provided layout dimensions
+   */
+  updateViewBoxForLayout(layout) {
+    const oldViewBox = this.getCurrentViewBox();
+
+    // Update viewBox dimensions
+    this.viewBoxX = 0;
+    this.viewBoxY = 0;
+    this.viewBoxWidth = layout.width;
+    this.viewBoxHeight = layout.height;
+
+    // Apply the changes to the SVG element
+    this.updateViewBox();
+
+    // Notify callbacks about the viewBox change
+    this.notifyViewBoxChange(oldViewBox);
+  }
 }

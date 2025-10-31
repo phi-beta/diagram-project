@@ -1112,6 +1112,8 @@ export const renderer = {
       label: edgeData.label || ''
     };
     
+    console.log('Initializing createEdge with edgeData:', fullEdgeData);
+    
     // Create the edge using the Edge.createEdge method
     const edge = Edge.createEdge(fullEdgeData, svg, layerManager);
     edgeList.push(edge);
@@ -1120,7 +1122,10 @@ export const renderer = {
     const fromNode = nodeMap.get(fullEdgeData.from);
     const toNode = nodeMap.get(fullEdgeData.to);
     if (fromNode && toNode) {
+      console.log('Found fromNode and toNode, updating edge path');
       edge.updatePath(fromNode, toNode);
+    } else {
+      console.warn('⚠️ fromNode or toNode not found in nodeMap:', { fromNode, toNode });
     }
     
     return edge;

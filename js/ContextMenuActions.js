@@ -28,8 +28,14 @@ export class ContextMenuActions {
     console.log(`  - contextType: ${contextType}`);
     console.log(`  - targetElement:`, targetElement);
     console.log(`  - mousePosition:`, mousePosition);
-    
+
     try {
+      if (!contextType) {
+        console.error(`❌ Context type is null. Ensure the correct context type is passed.`);
+        console.log(`🔍 Debug Info: actionId=${actionId}, targetElement=`, targetElement, `, mousePosition=`, mousePosition);
+        return;
+      }
+
       switch (contextType) {
         case 'node':
           console.log(`🎯 Executing node action: ${actionId}`);
@@ -449,17 +455,93 @@ export class ContextMenuActions {
     // Edge Actions Implementation
   async editEdge(edge) {
     console.log(`📝 Editing edge: ${edge.id}`);
-    
-    const label = prompt(`Edit label for edge ${edge.id}:`, edge.label || '');
-    if (label !== null) {
-      edge.label = label;
-      // Update the edge display if there's a label element
-      const labelElement = edge.element.querySelector('text');
-      if (labelElement) {
-        labelElement.textContent = label;
+
+    // Create a modal or floating box for editing edge properties
+    const modal = document.createElement('div');
+    modal.style.position = 'absolute';
+    modal.style.top = '50%';
+    modal.style.left = '50%';
+    modal.style.transform = 'translate(-50%, -50%)';
+    modal.style.padding = '20px';
+    modal.style.backgroundColor = 'white';
+    modal.style.border = '1px solid black';
+    modal.style.zIndex = '1000';
+
+    // Line type dropdown
+    const lineTypeLabel = document.createElement('label');
+    lineTypeLabel.textContent = 'Line Type:';
+    const lineTypeSelect = document.createElement('select');
+    ['solid', 'dashed', 'dotted'].forEach(type => {
+      const option = document.createElement('option');
+      option.value = type;
+      option.textContent = type;
+      if (edge.lineType === type) option.selected = true;
+      lineTypeSelect.appendChild(option);
+    });
+
+    // Arrow end type dropdown
+    const arrowTypeLabel = document.createElement('label');
+    arrowTypeLabel.textContent = 'Arrow End Type:';
+    const arrowTypeSelect = document.createElement('select');
+    ['none', 'arrow', 'circle'].forEach(type => {
+      const option = document.createElement('option');
+      option.value = type;
+      option.textContent = type;
+      if (edge.arrowType === type) option.selected = true;
+      arrowTypeSelect.appendChild(option);
+    });
+
+    // Text input for edge label
+    const textLabel = document.createElement('label');
+    textLabel.textContent = 'Edge Label:';
+    const textInput = document.createElement('input');
+    textInput.type = 'text';
+    textInput.value = edge.label || '';
+
+    // Save button
+    const saveButton = document.createElement('button');
+    saveButton.textContent = 'Save';
+    saveButton.onclick = () => {
+      edge.lineType = lineTypeSelect.value;
+      edge.arrowType = arrowTypeSelect.value;
+      edge.label = textInput.value;
+
+      // Update the edge visually
+      const fromNode = this.nodeMap.get(edge.from);
+      const toNode = this.nodeMap.get(edge.to);
+      if (fromNode && toNode && edge.renderer) {
+        edge.renderer.updatePath(fromNode, toNode);
+      } else {
+        console.error('Failed to update edge visual: Missing nodes or renderer');
       }
-      console.log(`✅ Updated edge ${edge.id} label to: ${label}`);
-    }
+
+      document.body.removeChild(modal);
+      console.log(`✅ Edge ${edge.id} updated.`);
+    };
+
+    // Cancel button
+    const cancelButton = document.createElement('button');
+    cancelButton.textContent = 'Cancel';
+    cancelButton.onclick = () => {
+      document.body.removeChild(modal);
+      console.log(`❌ Edit cancelled for edge ${edge.id}.`);
+    };
+
+    // Append elements to modal
+    modal.appendChild(lineTypeLabel);
+    modal.appendChild(lineTypeSelect);
+    modal.appendChild(document.createElement('br'));
+    modal.appendChild(arrowTypeLabel);
+    modal.appendChild(arrowTypeSelect);
+    modal.appendChild(document.createElement('br'));
+    modal.appendChild(textLabel);
+    modal.appendChild(textInput);
+    modal.appendChild(document.createElement('br'));
+    modal.appendChild(saveButton);
+    modal.appendChild(cancelButton);
+
+    // Append modal to body
+    document.body.appendChild(modal);
   }
 
   async showEdgeProperties(edge) {
