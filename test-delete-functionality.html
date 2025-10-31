@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Delete Functionality</title>
+    <link rel="stylesheet" href="themes/default.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .instructions {
+            background: #ffe6e6;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ff4444;
+        }
+        .diagram-container {
+            border: 2px solid #333;
+            border-radius: 8px;
+            background: white;
+            overflow: hidden;
+            position: relative;
+        }
+        #diagram {
+            width: 100%;
+            height: 500px;
+            display: block;
+        }
+        .controls {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .test-results {
+            margin: 15px 0;
+            padding: 10px;
+            background: #fff3cd;
+            border-radius: 4px;
+            border-left: 4px solid #ffc107;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+        .error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗑️ Test Delete Functionality</h1>
+        
+        <div class="instructions">
+            <h3>Delete Test Instructions:</h3>
+            <ul>
+                <li><strong>Test 1:</strong> Click on a node to select it, then press the <strong>Delete</strong> key to delete it</li>
+                <li><strong>Test 2:</strong> Right-click on a node and select <strong>"Delete"</strong> from the context menu</li>
+                <li><strong>Test 3:</strong> Right-click on a node that is NOT selected and choose <strong>"Delete"</strong></li>
+                <li><strong>Expected:</strong> All three methods should delete the node and any connected edges</li>
+                <li><strong>Note:</strong> A confirmation dialog should appear before deleting</li>
+            </ul>
+        </div>
+        
+        <div class="controls">
+            <button id="theme-toggle">🌙 Toggle Theme</button>
+            <button id="reset-view">🏠 Reset View</button>
+            <button id="create-user">👤 Add User</button>
+            <button id="create-server">🖥️ Add Server</button>
+            <button id="create-edge">🔗 Add Edge</button>
+            <button id="clear-all">🧹 Clear All</button>
+            <button id="show-status">📊 Show Status</button>
+        </div>
+        
+        <div class="test-results" id="test-results">
+            <h4>Test Results:</h4>
+            <div id="results-content">Ready to test deletion...</div>
+        </div>
+        
+        <div class="diagram-container">
+            <svg id="diagram"></svg>
+        </div>
+    </div>
+
+    <script type="module">
+        import { User } from './js/user.js';
+        import { Server } from './js/server.js';
+        import { ViewBoxManager } from './js/ViewBoxManager.js';
+        import { DragManager } from './js/DragManager.js';
+        import { InteractionManager } from './js/InteractionManager.js';
+        import { EnhancedContextMenu } from './js/EnhancedContextMenu.js';
+        import { LayerManager } from './js/LayerManager.js';
+        import { CoordinateSystemManager } from './js/CoordinateSystemManager.js';
+
+        // Initialize the diagram
+        const svg = document.getElementById('diagram');
+        const nodeMap = new Map();
+        const edgeList = [];
+        let selectedNode = null;
+        let testCount = 0;
+
+        // Initialize managers
+        const coordinateSystem = new CoordinateSystemManager();
+        const viewBoxManager = new ViewBoxManager(svg, coordinateSystem);
+        const layerManager = new LayerManager(svg);
+        const dragManager = new DragManager();
+        
+        // Initialize interaction manager
+        const interactionManager = new InteractionManager(
+            svg,
+            nodeMap,
+            edgeList,
+            viewBoxManager,
+            dragManager,
+            layerManager
+        );
+
+        // Initialize context menu
+        const contextMenu = new EnhancedContextMenu(svg, {
+            svg,
+            nodeMap,
+            edgeList,
+            viewBoxManager,
+            layerManager,
+            interactionManager
+        });
+
+        // Set up the interaction manager
+        interactionManager.setupEventListeners();
+        interactionManager.setCallbacks(
+            (node) => {
+                selectedNode = node;
+                logResult(`Node ${node?.id || 'null'} selected`);
+            },
+            (from, to) => {
+                // Create a simple edge object
+                const edge = {
+                    id: `edge-${Date.now()}`,
+                    from: from.id,
+                    to: to.id,
+                    element: createEdgeElement(from, to)
+                };
+                edgeList.push(edge);
+                console.log(`Edge created: ${from.id} -> ${to.id}`);
+                logResult(`Edge created: ${from.id} -> ${to.id}`);
+            },
+            () => {
+                console.log('Redraw requested');
+            }
+        );
+
+        // Set context menu reference
+        interactionManager.contextMenu = contextMenu;
+
+        // Helper function to create edge elements
+        function createEdgeElement(from, to) {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', from.nodeData.x);
+            line.setAttribute('y1', from.nodeData.y);
+            line.setAttribute('x2', to.nodeData.x);
+            line.setAttribute('y2', to.nodeData.y);
+            line.setAttribute('stroke', '#333');
+            line.setAttribute('stroke-width', '2');
+            line.setAttribute('class', 'edge');
+            svg.appendChild(line);
+            return line;
+        }
+
+        // Initialize the duplicate function globally (from our previous implementation)
+        async function duplicateSelectedNode(nodeToClone = null) {
+            const targetNode = nodeToClone || selectedNode;
+            
+            if (!targetNode) {
+                logResult('❌ No node provided or selected for duplication', 'error');
+                return;
+            }
+
+            try {
+                const clonedNode = await targetNode.clone(svg, coordinateSystem, dragManager, layerManager);
+                nodeMap.set(clonedNode.id, clonedNode);
+                
+                clonedNode.makeDraggable(
+                    svg,
+                    () => interactionManager.shiftDown,
+                    (node) => interactionManager.selectNode(node),
+                    () => {},
+                    () => interactionManager.getIsCreatingEdge(),
+                    () => interactionManager.cancelEdgeCreation(),
+                    (fromNode) => interactionManager.startEdgeCreation(fromNode),
+                    (e) => viewBoxManager.screenToViewBox(e.clientX, e.clientY),
+                    dragManager,
+                    coordinateSystem,
+                    () => interactionManager.justCompletedEdge
+                );
+
+                logResult(`✅ Successfully duplicated node ${targetNode.id} -> ${clonedNode.id}`, 'success');
+                
+            } catch (error) {
+                logResult(`❌ Failed to duplicate node ${targetNode.id}: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize the delete function globally (our new implementation)
+        async function deleteSelectedNode() {
+            if (!selectedNode) {
+                logResult('❌ No node selected for deletion', 'error');
+                return;
+            }
+
+            testCount++;
+            logResult(`🗑️ Test ${testCount}: Delete key pressed for node ${selectedNode.id}`);
+            logResult(`🔍 EdgeList has ${edgeList.length} edges before deletion`);
+
+            // Show current edges
+            edgeList.forEach(edge => {
+                logResult(`🔍 Edge: ${edge.id} from ${edge.from} to ${edge.to}`);
+            });
+
+            try {
+                // Use the context menu actions delete function if available
+                if (window.contextMenuActions && window.contextMenuActions.deleteNode) {
+                    logResult(`✅ Test ${testCount}: Using context menu delete for ${selectedNode.id}`);
+                    await window.contextMenuActions.deleteNode(selectedNode);
+                    logResult(`🔍 EdgeList has ${edgeList.length} edges after context menu deletion`);
+                } else {
+                    logResult(`⚠️ Test ${testCount}: Context menu actions not available, using fallback`, 'error');
+                    
+                    // Fallback deletion logic
+                    if (confirm(`Are you sure you want to delete node "${selectedNode.id}"?`)) {
+                        const nodeIdToDelete = selectedNode.id;
+                        
+                        // Deselect first
+                        interactionManager.deselectAllNodes();
+                        selectedNode = null;
+                        
+                        // Remove from nodeMap
+                        if (nodeMap.has(nodeIdToDelete)) {
+                            nodeMap.delete(nodeIdToDelete);
+                            logResult(`✅ Removed node ${nodeIdToDelete} from nodeMap`);
+                        }
+                        
+                        // Remove from DOM
+                        const nodeElement = document.querySelector(`[data-node-id="${nodeIdToDelete}"]`);
+                        if (nodeElement && nodeElement.parentNode) {
+                            nodeElement.remove();
+                            logResult(`✅ Removed node ${nodeIdToDelete} from DOM`);
+                        }
+                        
+                        // Remove edges
+                        const initialEdgeCount = edgeList.length;
+                        const edgesToRemove = edgeList.filter(edge => 
+                            edge.from === nodeIdToDelete || edge.to === nodeIdToDelete
+                        );
+                        
+                        logResult(`🔍 Found ${edgesToRemove.length} edges to remove`);
+                        
+                        edgesToRemove.forEach(edge => {
+                            const edgeIndex = edgeList.indexOf(edge);
+                            if (edgeIndex > -1) {
+                                edgeList.splice(edgeIndex, 1);
+                            }
+                            if (edge.element && edge.element.parentNode) {
+                                edge.element.remove();
+                            }
+                            logResult(`✅ Removed edge ${edge.id}`);
+                        });
+                        
+                        logResult(`🔍 EdgeList reduced from ${initialEdgeCount} to ${edgeList.length} edges`);
+                    }
+                }
+            } catch (error) {
+                logResult(`❌ Test ${testCount}: Failed to delete node ${selectedNode?.id}: ${error.message}`, 'error');
+            }
+        }
+
+        // Make functions available globally
+        window.duplicateSelectedNode = duplicateSelectedNode;
+        window.deleteSelectedNode = deleteSelectedNode;
+
+        // Add keyboard handlers
+        document.addEventListener('keydown', e => {
+            if (e.ctrlKey && e.key === 'd') {
+                e.preventDefault();
+                duplicateSelectedNode();
+            }
+            
+            if (e.key === 'Delete' || e.key === 'Del') {
+                e.preventDefault();
+                deleteSelectedNode();
+            }
+        });
+
+        // Helper function to log results
+        function logResult(message, type = 'info') {
+            const resultsContent = document.getElementById('results-content');
+            const timestamp = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            
+            if (type === 'success') {
+                div.style.color = '#28a745';
+            } else if (type === 'error') {
+                div.style.color = '#dc3545';
+            }
+            
+            resultsContent.appendChild(div);
+            resultsContent.scrollTop = resultsContent.scrollHeight;
+        }
+
+        // Create sample nodes
+        function createUserNode() {
+            const user = new User(svg, coordinateSystem, dragManager, layerManager);
+            user.createNode(200 + Math.random() * 200, 200 + Math.random() * 200);
+            nodeMap.set(user.id, user);
+            
+            user.makeDraggable(
+                svg,
+                () => interactionManager.shiftDown,
+                (node) => interactionManager.selectNode(node),
+                () => {},
+                () => interactionManager.getIsCreatingEdge(),
+                () => interactionManager.cancelEdgeCreation(),
+                (fromNode) => interactionManager.startEdgeCreation(fromNode),
+                (e) => viewBoxManager.screenToViewBox(e.clientX, e.clientY),
+                dragManager,
+                coordinateSystem,
+                () => interactionManager.justCompletedEdge
+            );
+            
+            logResult(`✅ Created user node ${user.id}`);
+        }
+
+        function createServerNode() {
+            const server = new Server(svg, coordinateSystem, dragManager, layerManager);
+            server.createNode(400 + Math.random() * 200, 200 + Math.random() * 200);
+            nodeMap.set(server.id, server);
+            
+            server.makeDraggable(
+                svg,
+                () => interactionManager.shiftDown,
+                (node) => interactionManager.selectNode(node),
+                () => {},
+                () => interactionManager.getIsCreatingEdge(),
+                () => interactionManager.cancelEdgeCreation(),
+                (fromNode) => interactionManager.startEdgeCreation(fromNode),
+                (e) => viewBoxManager.screenToViewBox(e.clientX, e.clientY),
+                dragManager,
+                coordinateSystem,
+                () => interactionManager.justCompletedEdge
+            );
+            
+            logResult(`✅ Created server node ${server.id}`);
+        }
+
+        function createRandomEdge() {
+            const nodes = Array.from(nodeMap.values());
+            if (nodes.length < 2) {
+                logResult('❌ Need at least 2 nodes to create an edge', 'error');
+                return;
+            }
+            
+            const from = nodes[Math.floor(Math.random() * nodes.length)];
+            let to = nodes[Math.floor(Math.random() * nodes.length)];
+            while (to === from && nodes.length > 1) {
+                to = nodes[Math.floor(Math.random() * nodes.length)];
+            }
+            
+            const edge = {
+                id: `edge-${Date.now()}`,
+                from: from.id,
+                to: to.id,
+                element: createEdgeElement(from, to)
+            };
+            edgeList.push(edge);
+            logResult(`✅ Created edge ${from.id} -> ${to.id}`);
+        }
+
+        function clearAll() {
+            // Clear all nodes
+            nodeMap.forEach(node => {
+                if (node.element && node.element.parentNode) {
+                    node.element.remove();
+                }
+            });
+            nodeMap.clear();
+            
+            // Clear all edges
+            edgeList.forEach(edge => {
+                if (edge.element && edge.element.parentNode) {
+                    edge.element.remove();
+                }
+            });
+            edgeList.length = 0;
+            
+            // Deselect everything
+            interactionManager.deselectAllNodes();
+            selectedNode = null;
+            
+            logResult('🧹 All nodes and edges cleared');
+        }
+
+        function showStatus() {
+            logResult(`📊 Status: ${nodeMap.size} nodes, ${edgeList.length} edges`);
+            logResult(`📊 Selected node: ${selectedNode?.id || 'none'}`);
+            
+            // List all nodes
+            const nodes = Array.from(nodeMap.keys());
+            logResult(`📊 Nodes: [${nodes.join(', ')}]`);
+            
+            // List all edges
+            const edges = edgeList.map(e => `${e.id}(${e.from}->${e.to})`);
+            logResult(`📊 Edges: [${edges.join(', ')}]`);
+        }
+
+        // Theme toggle
+        let currentTheme = 'light';
+        function toggleTheme() {
+            currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+            const themeLink = document.querySelector('link[href*="themes/"]');
+            themeLink.href = `themes/${currentTheme === 'dark' ? 'dark' : 'default'}.css`;
+            logResult(`🌙 Theme switched to ${currentTheme}`);
+        }
+
+        // Event listeners
+        document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+        document.getElementById('reset-view').addEventListener('click', () => {
+            viewBoxManager.resetView();
+            logResult('🏠 View reset');
+        });
+        document.getElementById('create-user').addEventListener('click', createUserNode);
+        document.getElementById('create-server').addEventListener('click', createServerNode);
+        document.getElementById('create-edge').addEventListener('click', createRandomEdge);
+        document.getElementById('clear-all').addEventListener('click', clearAll);
+        document.getElementById('show-status').addEventListener('click', showStatus);
+
+        // Create initial nodes
+        createUserNode();
+        createServerNode();
+        createRandomEdge();
+        
+        logResult('🧪 Delete test environment ready!');
+        logResult('💡 Instructions: Select a node and press Delete key, or right-click and choose Delete');
+    </script>
+</body>
+</html>

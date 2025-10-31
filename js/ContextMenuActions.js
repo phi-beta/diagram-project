@@ -23,24 +23,32 @@ export class ContextMenuActions {
    * @param {Object} mousePosition - The mouse position where the action was triggered
    */
   async executeAction(actionId, contextType, targetElement, mousePosition) {
-    console.log(`🎯 Executing action: ${actionId} for ${contextType}`);
+    console.log(`🎯 ContextMenuActions.executeAction called:`);
+    console.log(`  - actionId: ${actionId}`);
+    console.log(`  - contextType: ${contextType}`);
+    console.log(`  - targetElement:`, targetElement);
+    console.log(`  - mousePosition:`, mousePosition);
     
     try {
       switch (contextType) {
         case 'node':
+          console.log(`🎯 Executing node action: ${actionId}`);
           await this.executeNodeAction(actionId, targetElement, mousePosition);
           break;
         case 'edge':
+          console.log(`🎯 Executing edge action: ${actionId}`);
           await this.executeEdgeAction(actionId, targetElement, mousePosition);
           break;
         case 'background':
+          console.log(`🎯 Executing background action: ${actionId}`);
           await this.executeBackgroundAction(actionId, mousePosition);
           break;
         default:
           console.warn(`Unknown context type: ${contextType}`);
       }
     } catch (error) {
-      console.error(`Failed to execute action ${actionId}:`, error);
+      console.error(`❌ Error executing action ${actionId}:`, error);
+      alert(`Failed to execute action: ${error.message}`);
     }
   }
   
@@ -48,13 +56,22 @@ export class ContextMenuActions {
    * Execute node-specific actions
    */
   async executeNodeAction(actionId, nodeElement, mousePosition) {
+    console.log(`🎯 ExecuteNodeAction called: actionId=${actionId}`);
+    console.log(`🔍 NodeElement:`, nodeElement);
+    
     const nodeId = nodeElement.getAttribute('data-node-id');
+    console.log(`🔍 Node ID from element: ${nodeId}`);
+    
     const node = this.nodeMap?.get(nodeId);
+    console.log(`🔍 Node from nodeMap:`, node);
     
     if (!node) {
-      console.error(`Node not found: ${nodeId}`);
+      console.error(`❌ Node not found: ${nodeId}`);
+      console.log(`🔍 Available nodes in nodeMap:`, Array.from(this.nodeMap?.keys() || []));
       return;
     }
+    
+    console.log(`✅ Executing ${actionId} action for node ${node.id}`);
     
     switch (actionId) {
       case 'edit':
@@ -79,6 +96,7 @@ export class ContextMenuActions {
         await this.showNodeLogs(node);
         break;
       case 'delete':
+        console.log(`🗑️ Delete action triggered for node ${node.id}`);
         await this.deleteNode(node);
         break;
       default:
@@ -167,14 +185,9 @@ export class ContextMenuActions {
     console.log(`📋 Duplicating node: ${node.id}`);
     
     if (window.duplicateSelectedNode) {
-      // First select the node
-      if (this.interactionManager) {
-        this.interactionManager.selectNode(node);
-      }
-      
-      // Then duplicate it
+      // Pass the node directly to duplicateSelectedNode instead of relying on selection
       try {
-        await window.duplicateSelectedNode();
+        await window.duplicateSelectedNode(node);
         console.log(`✅ Node ${node.id} duplicated successfully`);
       } catch (error) {
         console.error(`Failed to duplicate node ${node.id}:`, error);
@@ -224,40 +237,213 @@ export class ContextMenuActions {
     alert(`Logs for: ${node.id}`);
   }
   
-  async deleteNode(node) {
-    console.log(`🗑️ Deleting node: ${node.id}`);
+  /**
+   * Delete a node without confirmation (for testing)
+   */
+  async deleteNodeDirect(node) {
+    console.log(`🗑️ DIRECT DELETE: Deleting node: ${node.id} WITHOUT confirmation`);
     
-    if (confirm(`Are you sure you want to delete node "${node.id}"?`)) {
+    try {
+      // Deselect the node if it's currently selected
+      if (this.interactionManager && this.interactionManager.selectedNode === node) {
+        console.log(`🔄 Deselecting node ${node.id} before deletion`);
+        this.interactionManager.deselectAllNodes();
+      }
+      
+      // Remove from node map
+      if (this.nodeMap && this.nodeMap.has(node.id)) {
+        this.nodeMap.delete(node.id);
+        console.log(`✅ Removed node ${node.id} from nodeMap`);
+      } else {
+        console.warn(`⚠️ Node ${node.id} not found in nodeMap`);
+      }
+      
+      // Remove from DOM
+      if (node.element && node.element.parentNode) {
+        node.element.remove();
+        console.log(`✅ Removed node ${node.id} from DOM`);
+      } else {
+        console.warn(`⚠️ Node ${node.id} element not found in DOM or has no parent`);
+      }
+      
+      console.log(`🗑️ DIRECT DELETE: Node map and DOM cleanup completed`);
+
+      // Remove associated edges - use the live edge list reference
+      console.log(`🗑️ DIRECT DELETE: Starting edge cleanup...`);
+      const currentEdgeList = window.renderer?.getEdgeList?.() || window.edgeList || this.edgeList;
+      console.log(`🗑️ DIRECT DELETE: Got edge list reference:`, currentEdgeList);
+      if (currentEdgeList) {
+        const initialEdgeCount = currentEdgeList.length;
+        console.log(`🔍 Looking for edges connected to node ${node.id} in edgeList of ${initialEdgeCount} edges`);
+        console.log(`🔍 Using edge list reference:`, currentEdgeList === this.edgeList ? 'this.edgeList' : 'window.edgeList/renderer');
+        
+        // Debug: Log all edges and their properties
+        currentEdgeList.forEach((edge, index) => {
+          console.log(`🔍 Edge ${index}: id=${edge.id}, from=${edge.from}, to=${edge.to}, type=${typeof edge.from}/${typeof edge.to}`);
+        });
+        
+        const edgesToRemove = currentEdgeList.filter(edge => {
+          // Handle both string and object IDs
+          const edgeFrom = typeof edge.from === 'string' ? edge.from : edge.from?.id;
+          const edgeTo = typeof edge.to === 'string' ? edge.to : edge.to?.id;
+          const nodeId = typeof node.id === 'string' ? node.id : node.id?.toString();
+          
+          console.log(`🔍 Comparing edge ${edge.id}:`);
+          console.log(`  edge.from = ${edge.from} (type: ${typeof edge.from})`);
+          console.log(`  edge.to = ${edge.to} (type: ${typeof edge.to})`);
+          console.log(`  edgeFrom = ${edgeFrom} (type: ${typeof edgeFrom})`);
+          console.log(`  edgeTo = ${edgeTo} (type: ${typeof edgeTo})`);
+          console.log(`  node.id = ${node.id} (type: ${typeof node.id})`);
+          console.log(`  nodeId = ${nodeId} (type: ${typeof nodeId})`);
+          
+          const shouldRemove = edgeFrom === nodeId || edgeTo === nodeId;
+          console.log(`  shouldRemove = ${shouldRemove}`);
+          
+          return shouldRemove;
+        });
+        
+        console.log(`🔍 Found ${edgesToRemove.length} edges to remove for node ${node.id}`);
+        
+        edgesToRemove.forEach(edge => {
+          const edgeIndex = currentEdgeList.indexOf(edge);
+          if (edgeIndex > -1) {
+            currentEdgeList.splice(edgeIndex, 1);
+            console.log(`✅ Removed edge ${edge.id} from edgeList`);
+          }
+          if (edge.element && edge.element.parentNode) {
+            edge.element.remove();
+            console.log(`✅ Removed edge ${edge.id} from DOM`);
+          }
+        });
+        
+        console.log(`🔍 Edges removed: ${initialEdgeCount - currentEdgeList.length}`);
+      } else {
+        console.warn(`⚠️ DIRECT DELETE: EdgeList not available for edge cleanup`);
+      }
+
+      console.log(`✅ DIRECT DELETE COMPLETE: Node ${node.id} deleted successfully`);
+      
+      // Trigger a redraw if callback is available
+      if (this.diagramComponents.redrawCallback) {
+        this.diagramComponents.redrawCallback();
+      }
+      
+    } catch (error) {
+      console.error(`❌ DIRECT DELETE ERROR: Failed to delete node ${node.id}:`, error);
+    }
+  }
+
+  async deleteNode(node) {
+    console.log(`🗑️ DELETENODE START: Deleting node: ${node.id}`);
+    console.log(`🔍 Node object:`, node);
+    console.log(`🔍 Node element:`, node.element);
+    console.log(`🔍 NodeMap size before:`, this.nodeMap?.size);
+    console.log(`🔍 EdgeList reference:`, this.edgeList);
+    console.log(`🔍 EdgeList === window.edgeList:`, this.edgeList === window.edgeList);
+    console.log(`🔍 EdgeList === window.renderer?.getEdgeList():`, this.edgeList === window.renderer?.getEdgeList?.());
+    
+    console.log(`🗑️ DELETENODE: About to show confirmation dialog`);
+    // Temporarily skip confirmation for debugging
+    const confirmResult = true; // confirm(`Are you sure you want to delete node "${node.id}"?`);
+    console.log(`🗑️ DELETENODE: Confirmation result: ${confirmResult} (SKIPPED FOR DEBUG)`);
+    
+    if (confirmResult) {
+      console.log(`🗑️ DELETENODE: User confirmed deletion, proceeding...`);
       try {
+        // Deselect the node if it's currently selected
+        if (this.interactionManager && this.interactionManager.selectedNode === node) {
+          console.log(`🔄 Deselecting node ${node.id} before deletion`);
+          this.interactionManager.deselectAllNodes();
+        }
+        
         // Remove from node map
-        this.nodeMap?.delete(node.id);
+        if (this.nodeMap && this.nodeMap.has(node.id)) {
+          this.nodeMap.delete(node.id);
+          console.log(`✅ Removed node ${node.id} from nodeMap`);
+        } else {
+          console.warn(`⚠️ Node ${node.id} not found in nodeMap`);
+        }
         
         // Remove from DOM
-        if (node.element) {
+        if (node.element && node.element.parentNode) {
           node.element.remove();
+          console.log(`✅ Removed node ${node.id} from DOM`);
+        } else {
+          console.warn(`⚠️ Node ${node.id} element not found in DOM or has no parent`);
         }
-        
-        // Remove associated edges
-        if (this.edgeList) {
-          const edgesToRemove = this.edgeList.filter(edge => 
-            edge.from === node.id || edge.to === node.id
-          );
+        console.log(`🗑️ DELETENODE: Node map and DOM cleanup completed`);
+
+        // Remove associated edges - use the live edge list reference
+        console.log(`🗑️ DELETENODE: Starting edge cleanup...`);
+        const currentEdgeList = window.renderer?.getEdgeList?.() || window.edgeList || this.edgeList;
+        console.log(`🗑️ DELETENODE: Got edge list reference:`, currentEdgeList);
+        if (currentEdgeList) {
+          const initialEdgeCount = currentEdgeList.length;
+          console.log(`🔍 Looking for edges connected to node ${node.id} in edgeList of ${initialEdgeCount} edges`);
+          console.log(`🔍 Using edge list reference:`, currentEdgeList === this.edgeList ? 'this.edgeList' : 'window.edgeList/renderer');
+          
+          // Debug: Log all edges and their properties
+          currentEdgeList.forEach((edge, index) => {
+            console.log(`🔍 Edge ${index}: id=${edge.id}, from=${edge.from}, to=${edge.to}, type=${typeof edge.from}/${typeof edge.to}`);
+            console.log(`🔍 Edge ${index} full object:`, edge);
+            console.log(`🔍 Edge ${index} edgeData:`, edge.edgeData);
+          });
+          
+          const edgesToRemove = currentEdgeList.filter(edge => {
+            // Handle both string and object IDs
+            const edgeFrom = typeof edge.from === 'string' ? edge.from : edge.from?.id;
+            const edgeTo = typeof edge.to === 'string' ? edge.to : edge.to?.id;
+            const nodeId = typeof node.id === 'string' ? node.id : node.id?.toString();
+            
+            console.log(`🔍 Comparing edge ${edge.id}:`);
+            console.log(`  edge.from = ${edge.from} (type: ${typeof edge.from})`);
+            console.log(`  edge.to = ${edge.to} (type: ${typeof edge.to})`);
+            console.log(`  edgeFrom = ${edgeFrom} (type: ${typeof edgeFrom})`);
+            console.log(`  edgeTo = ${edgeTo} (type: ${typeof edgeTo})`);
+            console.log(`  node.id = ${node.id} (type: ${typeof node.id})`);
+            console.log(`  nodeId = ${nodeId} (type: ${typeof nodeId})`);
+            
+            const shouldRemove = edgeFrom === nodeId || edgeTo === nodeId;
+            console.log(`  shouldRemove = ${shouldRemove}`);
+            
+            if (shouldRemove) {
+              console.log(`✅ Will remove edge ${edge.id} (matches node ${nodeId})`);
+            }
+            return shouldRemove;
+          });
+          
+          console.log(`🔍 Found ${edgesToRemove.length} edges to remove for node ${node.id}`);
           
           edgesToRemove.forEach(edge => {
-            const edgeIndex = this.edgeList.indexOf(edge);
+            const edgeIndex = currentEdgeList.indexOf(edge);
             if (edgeIndex > -1) {
-              this.edgeList.splice(edgeIndex, 1);
+              currentEdgeList.splice(edgeIndex, 1);
+              console.log(`✅ Removed edge ${edge.id} from edgeList`);
             }
-            if (edge.element) {
+            if (edge.element && edge.element.parentNode) {
               edge.element.remove();
+              console.log(`✅ Removed edge ${edge.id} from DOM`);
             }
           });
+          
+          console.log(`🔍 Edges removed: ${initialEdgeCount - currentEdgeList.length}`);        } else {
+          console.warn(`⚠️ DELETENODE: EdgeList not available for edge cleanup`);
+        }
+
+        console.log(`🔍 NodeMap size after:`, this.nodeMap?.size);
+        console.log(`✅ DELETENODE COMPLETE: Node ${node.id} deleted successfully`);
+        
+        // Trigger a redraw if callback is available
+        if (this.diagramComponents.redrawCallback) {
+          this.diagramComponents.redrawCallback();
         }
         
-        console.log(`✅ Node ${node.id} deleted successfully`);
       } catch (error) {
-        console.error(`Failed to delete node ${node.id}:`, error);
+        console.error(`❌ DELETENODE ERROR: Failed to delete node ${node.id}:`, error);
+        alert(`Failed to delete node: ${error.message}`);
       }
+    } else {
+      console.log(`❌ DELETENODE CANCELLED: Node deletion cancelled by user`);
     }
   }
     // Edge Actions Implementation

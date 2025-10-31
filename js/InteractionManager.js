@@ -116,6 +116,15 @@ export class InteractionManager {
   }
 
   /**
+   * Update context menu shadow filter for theme changes
+   */
+  updateContextMenuShadow() {
+    if (this.contextMenu && this.contextMenu.updateShadowFilter) {
+      this.contextMenu.updateShadowFilter();
+    }
+  }
+
+  /**
    * Set up all event listeners
    */
   setupEventListeners() {

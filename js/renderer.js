@@ -34,13 +34,16 @@ function selectNode(node) {
   interactionManager.selectNode(node);
 }
 
-async function duplicateSelectedNode() {
-  if (!interactionManager.selectedNode) {
-    console.log('No node selected for duplication');
+async function duplicateSelectedNode(nodeToClone = null) {
+  // Use provided node or fall back to selected node
+  const targetNode = nodeToClone || interactionManager.selectedNode;
+  
+  if (!targetNode) {
+    console.log('No node provided or selected for duplication');
     return;
   }
 
-  const selectedNode = interactionManager.selectedNode;
+  const selectedNode = targetNode;
   console.log('Selected node for duplication:', selectedNode);
   console.log('Selected node type:', selectedNode.constructor.name);
   console.log('Has clone method:', typeof selectedNode.clone);
@@ -496,6 +499,13 @@ async function createNode(nodeData) {
 window.createNode = createNode;
 window.duplicateSelectedNode = duplicateSelectedNode;
 
+// Export context menu shadow update for theme changes
+window.updateContextMenuShadow = function() {
+  if (interactionManager && interactionManager.updateContextMenuShadow) {
+    interactionManager.updateContextMenuShadow();
+  }
+};
+
 function toggleTheme() {
   const link = document.getElementById('theme-link');
   const currentHref = link.href;
@@ -560,6 +570,11 @@ function toggleTheme() {
       // Update arrowhead color for theme change
       if (window.updateArrowheadColor) {
         window.updateArrowheadColor();
+      }
+      
+      // Update context menu shadow filter for theme change
+      if (window.updateContextMenuShadow) {
+        window.updateContextMenuShadow();
       }
       
       // Ensure temporary arrowhead is always visible
@@ -672,14 +687,111 @@ function refreshSVGMarkers() {
 // Make it globally available
 window.refreshSVGMarkers = refreshSVGMarkers;
 
-// Add duplication handler
+// Add duplication and deletion handlers
 document.addEventListener('keydown', e => {
   // Handle Ctrl+D for duplication
   if (e.ctrlKey && e.key === 'd') {
     e.preventDefault(); // Prevent browser's bookmark dialog
     duplicateSelectedNode();
   }
+  
+  // Handle Delete key for deletion
+  if (e.key === 'Delete' || e.key === 'Del') {
+    e.preventDefault(); // Prevent any default behavior
+    deleteSelectedNode();
+  }
 });
+
+/**
+ * Delete the currently selected node
+ */
+async function deleteSelectedNode() {
+  if (!interactionManager.selectedNode) {
+    console.log('No node selected for deletion');
+    return;
+  }
+
+  const selectedNode = interactionManager.selectedNode;
+  console.log('Selected node for deletion:', selectedNode);
+
+  try {
+    // Use the context menu actions delete function if available
+    if (window.contextMenuActions && window.contextMenuActions.deleteNode) {
+      console.log('🎯 Using context menu actions delete function');
+      await window.contextMenuActions.deleteNode(selectedNode);
+    } else {
+      console.log('🎯 Using fallback delete logic');
+      // Fallback: direct deletion logic
+      if (confirm(`Are you sure you want to delete node "${selectedNode.id}"?`)) {
+        // Deselect the node first
+        interactionManager.deselectAllNodes();
+        
+        // Remove from node map
+        if (nodeMap.has(selectedNode.id)) {
+          nodeMap.delete(selectedNode.id);
+          console.log(`✅ Removed node ${selectedNode.id} from nodeMap`);
+        }
+        
+        // Remove from DOM
+        if (selectedNode.element && selectedNode.element.parentNode) {
+          selectedNode.element.remove();
+          console.log(`✅ Removed node ${selectedNode.id} from DOM`);
+        }
+        
+        // Remove associated edges - use global edgeList
+        console.log(`🔍 Looking for edges connected to node ${selectedNode.id} in global edgeList`);
+        console.log(`🔍 EdgeList length: ${edgeList?.length || 'undefined'}`);
+        
+        if (edgeList && edgeList.length > 0) {
+          const initialEdgeCount = edgeList.length;
+          
+          // Debug: Log all edges
+          edgeList.forEach((edge, index) => {
+            console.log(`🔍 Edge ${index}: id=${edge.id}, from=${edge.from}, to=${edge.to}`);
+          });
+          
+          const edgesToRemove = edgeList.filter(edge => {
+            const edgeFrom = typeof edge.from === 'string' ? edge.from : edge.from?.id;
+            const edgeTo = typeof edge.to === 'string' ? edge.to : edge.to?.id;
+            const nodeId = selectedNode.id;
+            
+            const shouldRemove = edgeFrom === nodeId || edgeTo === nodeId;
+            if (shouldRemove) {
+              console.log(`✅ Will remove edge ${edge.id} (matches node ${nodeId})`);
+            }
+            return shouldRemove;
+          });
+          
+          console.log(`🔍 Found ${edgesToRemove.length} edges to remove`);
+          
+          edgesToRemove.forEach(edge => {
+            const edgeIndex = edgeList.indexOf(edge);
+            if (edgeIndex > -1) {
+              edgeList.splice(edgeIndex, 1);
+              console.log(`✅ Removed edge ${edge.id} from edgeList`);
+            }
+            if (edge.element && edge.element.parentNode) {
+              edge.element.remove();
+              console.log(`✅ Removed edge ${edge.id} from DOM`);
+            }
+          });
+          
+          console.log(`🔍 Edges removed: ${initialEdgeCount - edgeList.length}`);
+        } else {
+          console.log('⚠️ No edges found or edgeList is empty');
+        }
+        
+        console.log(`✅ Node ${selectedNode.id} deleted successfully via fallback`);
+      }
+    }
+  } catch (error) {
+    console.error('Error deleting node:', error);
+    alert(`Failed to delete node: ${error.message}`);
+  }
+}
+
+// Make the delete function available globally
+window.deleteSelectedNode = deleteSelectedNode;
 
 /**
  * Download the current diagram as an SVG file

@@ -30,6 +30,10 @@ export class EnhancedContextMenu {
     const { ContextMenuActions } = await import('./ContextMenuActions.js');
     this.actions = new ContextMenuActions(this.diagramComponents);
     
+    // Make actions available globally for keyboard shortcuts
+    window.contextMenuActions = this.actions;
+    window.deleteNodeDirect = this.actions.deleteNodeDirect.bind(this.actions);
+    
     console.log('🎯 EnhancedContextMenu initialized');
   }
   
@@ -133,7 +137,10 @@ export class EnhancedContextMenu {
     feDropShadow.setAttribute('dx', this.menuConfig?.settings?.shadowOffset || 2);
     feDropShadow.setAttribute('dy', this.menuConfig?.settings?.shadowOffset || 2);
     feDropShadow.setAttribute('stdDeviation', this.menuConfig?.settings?.shadowBlur || 6);
-    feDropShadow.setAttribute('flood-color', 'rgba(0,0,0,0.3)');
+    
+    // Get shadow color from CSS variable
+    const shadowColor = getComputedStyle(document.documentElement).getPropertyValue('--context-menu-shadow').trim() || 'rgba(0,0,0,0.3)';
+    feDropShadow.setAttribute('flood-color', shadowColor);
     feDropShadow.setAttribute('flood-opacity', '1');
     
     filter.appendChild(feDropShadow);
@@ -265,8 +272,8 @@ export class EnhancedContextMenu {
     background.setAttribute('height', menuHeight);
     background.setAttribute('rx', settings.cornerRadius);
     background.setAttribute('ry', settings.cornerRadius);
-    background.setAttribute('fill', 'white');
-    background.setAttribute('stroke', menuConfig.borderColor);
+    background.setAttribute('fill', 'var(--context-menu-background)');
+    background.setAttribute('stroke', 'var(--context-menu-border)');
     background.setAttribute('stroke-width', '1');
     background.setAttribute('filter', 'url(#enhanced-context-menu-shadow)');
     
@@ -305,8 +312,7 @@ export class EnhancedContextMenu {
     const headerBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     headerBg.setAttribute('width', menuWidth);
     headerBg.setAttribute('height', headerHeight);
-    headerBg.setAttribute('fill', menuConfig.color);
-    headerBg.setAttribute('opacity', '0.1');
+    headerBg.setAttribute('fill', 'var(--context-menu-header-background)');
     group.appendChild(headerBg);
     
     // Icon
@@ -314,6 +320,7 @@ export class EnhancedContextMenu {
     icon.setAttribute('x', 12);
     icon.setAttribute('y', 20);
     icon.setAttribute('font-size', '16');
+    icon.setAttribute('fill', 'var(--context-menu-header-text)');
     icon.textContent = menuConfig.icon;
     group.appendChild(icon);
     
@@ -324,7 +331,7 @@ export class EnhancedContextMenu {
     title.setAttribute('font-family', 'Arial, sans-serif');
     title.setAttribute('font-size', '14');
     title.setAttribute('font-weight', 'bold');
-    title.setAttribute('fill', '#333');
+    title.setAttribute('fill', 'var(--context-menu-header-text)');
     title.textContent = menuConfig.title;
     group.appendChild(title);
     
@@ -334,7 +341,7 @@ export class EnhancedContextMenu {
     subtitle.setAttribute('y', 32);
     subtitle.setAttribute('font-family', 'Arial, sans-serif');
     subtitle.setAttribute('font-size', '11');
-    subtitle.setAttribute('fill', '#666');
+    subtitle.setAttribute('fill', 'var(--context-menu-header-subtitle)');
     subtitle.textContent = menuConfig.subtitle;
     group.appendChild(subtitle);
     
@@ -350,7 +357,7 @@ export class EnhancedContextMenu {
     line.setAttribute('y1', y + margin);
     line.setAttribute('x2', menuWidth - 8);
     line.setAttribute('y2', y + margin);
-    line.setAttribute('stroke', '#e0e0e0');
+    line.setAttribute('stroke', 'var(--context-menu-separator)');
     line.setAttribute('stroke-width', '1');
     return line;
   }
@@ -374,7 +381,7 @@ export class EnhancedContextMenu {
     // Add hover effects
     actionBg.addEventListener('mouseenter', () => {
       if (action.enabled) {
-        actionBg.setAttribute('fill', action.dangerous ? '#ffebee' : '#f5f5f5');
+        actionBg.setAttribute('fill', action.dangerous ? 'var(--context-menu-hover-danger)' : 'var(--context-menu-hover)');
       }
     });
     
@@ -397,7 +404,7 @@ export class EnhancedContextMenu {
     icon.setAttribute('x', 12);
     icon.setAttribute('y', y + height/2 + 5);
     icon.setAttribute('font-size', '14');
-    icon.setAttribute('fill', action.enabled ? '#333' : '#ccc');
+    icon.setAttribute('fill', action.enabled ? 'var(--context-menu-text)' : 'var(--context-menu-text-disabled)');
     icon.textContent = action.icon;
     group.appendChild(icon);
     
@@ -407,7 +414,7 @@ export class EnhancedContextMenu {
     label.setAttribute('y', y + height/2 + 4);
     label.setAttribute('font-family', 'Arial, sans-serif');
     label.setAttribute('font-size', '12');
-    label.setAttribute('fill', action.enabled ? (action.dangerous ? '#d32f2f' : '#333') : '#ccc');
+    label.setAttribute('fill', action.enabled ? (action.dangerous ? 'var(--context-menu-text-danger)' : 'var(--context-menu-text)') : 'var(--context-menu-text-disabled)');
     label.textContent = action.label;
     group.appendChild(label);
     
@@ -418,15 +425,29 @@ export class EnhancedContextMenu {
       shortcut.setAttribute('y', y + height/2 + 4);
       shortcut.setAttribute('font-family', 'Arial, sans-serif');
       shortcut.setAttribute('font-size', '10');
-      shortcut.setAttribute('fill', action.enabled ? '#666' : '#ccc');
+      shortcut.setAttribute('fill', action.enabled ? 'var(--context-menu-shortcut)' : 'var(--context-menu-text-disabled)');
       shortcut.setAttribute('text-anchor', 'end');
       shortcut.textContent = action.shortcut;
       group.appendChild(shortcut);
     }
-    
-    return group;
+      return group;
   }
-  
+
+  /**
+   * Update shadow filter for theme changes
+   */
+  updateShadowFilter() {
+    const filter = document.getElementById('enhanced-context-menu-shadow');
+    if (filter) {
+      const feDropShadow = filter.querySelector('feDropShadow');
+      if (feDropShadow) {
+        const shadowColor = getComputedStyle(document.documentElement).getPropertyValue('--context-menu-shadow').trim() || 'rgba(0,0,0,0.3)';
+        feDropShadow.setAttribute('flood-color', shadowColor);
+        console.log('🎨 Context menu shadow updated for theme change');
+      }
+    }
+  }
+
   /**
    * Execute action
    */

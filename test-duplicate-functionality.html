@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Duplicate Functionality</title>
+    <link rel="stylesheet" href="themes/default.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .instructions {
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4caf50;
+        }
+        .diagram-container {
+            border: 2px solid #333;
+            border-radius: 8px;
+            background: white;
+            overflow: hidden;
+            position: relative;
+        }
+        #diagram {
+            width: 100%;
+            height: 500px;
+            display: block;
+        }
+        .controls {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .test-results {
+            margin: 15px 0;
+            padding: 10px;
+            background: #fff3cd;
+            border-radius: 4px;
+            border-left: 4px solid #ffc107;
+        }
+        .success {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+        .error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Duplicate Functionality</h1>
+        
+        <div class="instructions">
+            <h3>Test Instructions:</h3>
+            <ul>
+                <li><strong>Test 1:</strong> Click on a node to select it, then press <strong>Ctrl+D</strong> to duplicate it</li>
+                <li><strong>Test 2:</strong> Right-click on a node and select <strong>"Duplicate"</strong> from the context menu</li>
+                <li><strong>Test 3:</strong> Right-click on a node that is NOT selected and choose <strong>"Duplicate"</strong></li>
+                <li><strong>Expected:</strong> All three methods should create a duplicate of the node</li>
+            </ul>
+        </div>
+        
+        <div class="controls">
+            <button id="theme-toggle">🌙 Toggle Theme</button>
+            <button id="reset-view">🏠 Reset View</button>
+            <button id="create-user">👤 Add User</button>
+            <button id="create-server">🖥️ Add Server</button>
+        </div>
+        
+        <div class="test-results" id="test-results">
+            <h4>Test Results:</h4>
+            <div id="results-content">Ready to test...</div>
+        </div>
+        
+        <div class="diagram-container">
+            <svg id="diagram"></svg>
+        </div>
+    </div>
+
+    <script type="module">
+        import { User } from './js/user.js';
+        import { Server } from './js/server.js';
+        import { ViewBoxManager } from './js/ViewBoxManager.js';
+        import { DragManager } from './js/DragManager.js';
+        import { InteractionManager } from './js/InteractionManager.js';
+        import { EnhancedContextMenu } from './js/EnhancedContextMenu.js';
+        import { LayerManager } from './js/LayerManager.js';
+        import { CoordinateSystemManager } from './js/CoordinateSystemManager.js';
+
+        // Initialize the diagram
+        const svg = document.getElementById('diagram');
+        const nodeMap = new Map();
+        const edgeList = [];
+        let selectedNode = null;
+        let testCount = 0;
+
+        // Initialize managers
+        const coordinateSystem = new CoordinateSystemManager();
+        const viewBoxManager = new ViewBoxManager(svg, coordinateSystem);
+        const layerManager = new LayerManager(svg);
+        const dragManager = new DragManager();
+        
+        // Initialize interaction manager
+        const interactionManager = new InteractionManager(
+            svg,
+            nodeMap,
+            edgeList,
+            viewBoxManager,
+            dragManager,
+            layerManager
+        );
+
+        // Initialize context menu
+        const contextMenu = new EnhancedContextMenu(svg, {
+            svg,
+            nodeMap,
+            edgeList,
+            viewBoxManager,
+            layerManager,
+            interactionManager
+        });
+
+        // Set up the interaction manager
+        interactionManager.setupEventListeners();
+        interactionManager.setCallbacks(
+            (node) => {
+                selectedNode = node;
+                logResult(`Node ${node?.id || 'null'} selected`);
+            },
+            (from, to) => {
+                console.log(`Edge created: ${from.id} -> ${to.id}`);
+                logResult(`Edge created: ${from.id} -> ${to.id}`);
+            },
+            () => {
+                console.log('Redraw requested');
+            }
+        );
+
+        // Set context menu reference
+        interactionManager.contextMenu = contextMenu;
+
+        // Initialize the duplicate function globally
+        async function duplicateSelectedNode(nodeToClone = null) {
+            const targetNode = nodeToClone || selectedNode;
+            
+            if (!targetNode) {
+                logResult('❌ No node provided or selected for duplication', 'error');
+                return;
+            }
+
+            testCount++;
+            logResult(`🔄 Test ${testCount}: Duplicating node ${targetNode.id}`);
+
+            try {
+                // Create a duplicate
+                const clonedNode = await targetNode.clone(svg, coordinateSystem, dragManager, layerManager);
+                
+                // Add to node map
+                nodeMap.set(clonedNode.id, clonedNode);
+                
+                // Make the cloned node draggable
+                clonedNode.makeDraggable(
+                    svg,
+                    () => interactionManager.shiftDown,
+                    (node) => interactionManager.selectNode(node),
+                    () => {},
+                    () => interactionManager.getIsCreatingEdge(),
+                    () => interactionManager.cancelEdgeCreation(),
+                    (fromNode) => interactionManager.startEdgeCreation(fromNode),
+                    (e) => viewBoxManager.screenToViewBox(e.clientX, e.clientY),
+                    dragManager,
+                    coordinateSystem,
+                    () => interactionManager.justCompletedEdge
+                );
+
+                logResult(`✅ Test ${testCount}: Successfully duplicated node ${targetNode.id} -> ${clonedNode.id}`, 'success');
+                
+            } catch (error) {
+                logResult(`❌ Test ${testCount}: Failed to duplicate node ${targetNode.id}: ${error.message}`, 'error');
+                console.error('Error duplicating node:', error);
+            }
+        }
+
+        // Make the function available globally
+        window.duplicateSelectedNode = duplicateSelectedNode;
+
+        // Add keyboard handler for Ctrl+D
+        document.addEventListener('keydown', e => {
+            if (e.ctrlKey && e.key === 'd') {
+                e.preventDefault();
+                duplicateSelectedNode();
+            }
+        });
+
+        // Helper function to log results
+        function logResult(message, type = 'info') {
+            const resultsContent = document.getElementById('results-content');
+            const timestamp = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            
+            if (type === 'success') {
+                div.style.color = '#28a745';
+            } else if (type === 'error') {
+                div.style.color = '#dc3545';
+            }
+            
+            resultsContent.appendChild(div);
+            resultsContent.scrollTop = resultsContent.scrollHeight;
+        }
+
+        // Create sample nodes
+        function createUserNode() {
+            const user = new User(svg, coordinateSystem, dragManager, layerManager);
+            user.createNode(200 + Math.random() * 200, 200 + Math.random() * 200);
+            nodeMap.set(user.id, user);
+            
+            user.makeDraggable(
+                svg,
+                () => interactionManager.shiftDown,
+                (node) => interactionManager.selectNode(node),
+                () => {},
+                () => interactionManager.getIsCreatingEdge(),
+                () => interactionManager.cancelEdgeCreation(),
+                (fromNode) => interactionManager.startEdgeCreation(fromNode),
+                (e) => viewBoxManager.screenToViewBox(e.clientX, e.clientY),
+                dragManager,
+                coordinateSystem,
+                () => interactionManager.justCompletedEdge
+            );
+            
+            logResult(`✅ Created user node ${user.id}`);
+        }
+
+        function createServerNode() {
+            const server = new Server(svg, coordinateSystem, dragManager, layerManager);
+            server.createNode(400 + Math.random() * 200, 200 + Math.random() * 200);
+            nodeMap.set(server.id, server);
+            
+            server.makeDraggable(
+                svg,
+                () => interactionManager.shiftDown,
+                (node) => interactionManager.selectNode(node),
+                () => {},
+                () => interactionManager.getIsCreatingEdge(),
+                () => interactionManager.cancelEdgeCreation(),
+                (fromNode) => interactionManager.startEdgeCreation(fromNode),
+                (e) => viewBoxManager.screenToViewBox(e.clientX, e.clientY),
+                dragManager,
+                coordinateSystem,
+                () => interactionManager.justCompletedEdge
+            );
+            
+            logResult(`✅ Created server node ${server.id}`);
+        }
+
+        // Theme toggle
+        let currentTheme = 'light';
+        function toggleTheme() {
+            currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+            const themeLink = document.querySelector('link[href*="themes/"]');
+            themeLink.href = `themes/${currentTheme === 'dark' ? 'dark' : 'default'}.css`;
+            logResult(`🌙 Theme switched to ${currentTheme}`);
+        }
+
+        // Event listeners
+        document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+        document.getElementById('reset-view').addEventListener('click', () => {
+            viewBoxManager.resetView();
+            logResult('🏠 View reset');
+        });
+        document.getElementById('create-user').addEventListener('click', createUserNode);
+        document.getElementById('create-server').addEventListener('click', createServerNode);
+
+        // Create initial nodes
+        createUserNode();
+        createServerNode();
+        
+        logResult('🧪 Test environment ready. Try duplicating nodes!');
+    </script>
+</body>
+</html>
