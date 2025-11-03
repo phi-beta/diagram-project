@@ -436,6 +436,7 @@ export class EnhancedContextMenu {
       shortcut.textContent = action.shortcut;
       group.appendChild(shortcut);
     }
+    console.log('🔍 Debugging action object:', action);
       return group;
   }
 
@@ -469,12 +470,8 @@ export class EnhancedContextMenu {
       return;
     }
 
-    ContextMenuActions.executeAction({
-      actionId,
-      contextType: this.currentContext,
-      targetElement: this.targetElement,
-      mousePosition: this.mousePosition,
-    });
+    // Pass parameters individually to avoid wrapping in an object
+    this.actions.executeAction(actionId, this.currentContext, this.targetElement, this.mousePosition);
   }
   
   /**

@@ -42,33 +42,46 @@ const DEFAULT_NODE_RADIUS = 25;
  */
 export class EdgeData {
   constructor(data) {
+    console.log('EdgeData constructor called with data:', data);
+
     this.from = data.from;
     this.to = data.to;
     this.class = data.class;
-    
+
+    // Debugging log for data.id
+    console.log('EdgeData received id:', data.id);
+
     // Handle ID assignment differently for existing vs new edges
     if (data.id && isIdInUse(data.id)) {
-      // This is an existing ID (already registered by initializeFromExisting)
-      // Use it as-is without modification
-      this.id = data.id;
+        console.log('Using existing ID:', data.id);
+        this.id = data.id;
     } else if (data.id) {
-      // This is a new edge with a proposed ID, ensure it's unique
-      this.id = ensureUniqueId(data.id);
+        console.log('Ensuring unique ID for:', data.id);
+        this.id = ensureUniqueId(data.id);
     } else {
-      // This is a completely new edge, generate a fresh GUID
-      this.id = generateGuid('edge');
+        console.log('Generating new GUID for edge');
+        this.id = generateGuid('edge');
     }
-    
+
+    console.log('Assigned edge ID:', this.id);
+
     // Register this ID if it's not already registered
     if (!isIdInUse(this.id)) {
+      console.log('Registering new ID:', this.id);
       registerExistingId(this.id, 'edge');
     }
-    
+
+    // Debugging log for registration confirmation
+    console.log('Edge ID registration status:', isIdInUse(this.id));
+
     // Interaction state
     this.isSelected = false;
     this.isHovering = false;
     this.interactionMode = null; // Future: 'select', 'edit', 'delete', etc.
     this.previousMode = null;
+
+    // Debugging log for final EdgeData state
+    console.debug('Final EdgeData state:', this);
   }
 
   // Check if this edge connects to a specific node
@@ -138,6 +151,7 @@ export class EdgeRenderer {
   constructor(edgeData, element, visiblePath = null, clickPath = null) {
     console.log('EdgeRenderer constructor called with edgeData:', edgeData);
     this.edgeData = edgeData;
+    this.id = edgeData.id; // Assign the edge ID
     this.element = element; // The group element
     this.visiblePath = visiblePath || element; // The visible path
     this.clickPath = clickPath; // The invisible wider path for click detection
@@ -294,11 +308,15 @@ export class EdgeRenderer {
 
   // Static method to create an edge element and EdgeRenderer instance
   static createEdgeRenderer(edgeData, svg) {
+    console.log('Creating EdgeRenderer with edgeData:', edgeData);
+    console.log('edgeData.id:', edgeData.id);
+
     // Create a group to hold both the visible path and invisible wider path
     const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     group.setAttribute('class', `edge ${edgeData.class}`);
     group.setAttribute('data-edge-id', edgeData.id);
-    
+    console.log('Assigned data-edge-id:', group.getAttribute('data-edge-id'));
+
     // Create the invisible wider path for better click detection
     const clickPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     clickPath.setAttribute('stroke', 'transparent');
@@ -332,6 +350,7 @@ export class EdgeRenderer {
 
   // Static method to create edge renderers from layout data
   static createEdgeRenderersFromLayout(edgeDataList, svg) {
+    console.debug('Initializing edgeDataList in createEdgeRenderersFromLayout:', edgeDataList);
     const edgeRenderers = [];
     for (const data of edgeDataList) {
       const edgeData = new EdgeData(data);
@@ -410,10 +429,24 @@ export class Edge {
   
   // Static methods for backward compatibility
   static createEdge(edgeData, svg, layerManager) {
+    console.log('Creating edge with edgeData:', edgeData);
+
+    // Ensure edgeData.id is defined
+    if (!edgeData.id) {
+      edgeData.id = `edge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      console.log('Generated unique edgeData.id:', edgeData.id);
+    }
+
+    // Debugging log for edgeData.id
+    console.log('edgeData.id before assignment to group:', edgeData.id);
+
     // Create a group to hold both the visible path and invisible wider path
     const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     group.setAttribute('class', `edge ${edgeData.class}`);
     group.setAttribute('data-edge-id', edgeData.id);
+
+    // Debugging log for assigned data-edge-id
+    console.log('Assigned data-edge-id:', group.getAttribute('data-edge-id'));
 
     // Create the invisible wider path for better click detection
     const clickPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -470,6 +503,7 @@ export class Edge {
   }
 
   static createEdgesFromLayout(edgeDataList, svg, layerManager) {
+    console.debug('Initializing edgeDataList in createEdgesFromLayout:', edgeDataList);
     const edgeList = [];
     for (const edgeData of edgeDataList) {
       // Validate edge data before creating edge

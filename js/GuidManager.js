@@ -115,7 +115,9 @@ function generateRandomGuid() {
 function generateTimestampGuid(prefix = '') {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substr(2, 5);
-  return prefix ? `${prefix}_${timestamp}_${random}` : `${timestamp}_${random}`;
+  const guid = prefix ? `${prefix}_${timestamp}_${random}` : `${timestamp}_${random}`;
+  console.log(`[DEBUG] generateTimestampGuid generated: ${guid}`);
+  return guid;
 }
 
 /**
@@ -126,6 +128,7 @@ function generateTimestampGuid(prefix = '') {
  * @returns {string} A unique GUID
  */
 export function generateGuid(type = 'node', baseId = null, method = 'timestamp') {
+  console.log(`[DEBUG] generateGuid called with type: ${type}, baseId: ${baseId}, method: ${method}`);
   let guid;
   let attempts = 0;
   const maxAttempts = 1000; // Prevent infinite loops
@@ -138,37 +141,20 @@ export function generateGuid(type = 'node', baseId = null, method = 'timestamp')
       case 'timestamp':
         guid = generateTimestampGuid(baseId || type);
         break;
-      case 'readable':
-        if (baseId) {
-          guid = baseId;
-        } else {
-          guid = `${type}_${generateTimestampGuid()}`;
-        }
-        break;
       default:
+        console.warn(`[GUID DEBUG] Unknown method: ${method}`);
         guid = generateTimestampGuid(baseId || type);
     }
 
-    // If collision detected, add auto-incrementing suffix
-    if (guidRegistry.isUsed(guid)) {
-      const baseGuid = guid;
-      const counter = (guidRegistry.guidCounters.get(baseGuid) || 0) + 1;
-      guidRegistry.guidCounters.set(baseGuid, counter);
-      guid = `${baseGuid}_${counter}`;
-    }
-
     attempts++;
-  } while (guidRegistry.isUsed(guid) && attempts < maxAttempts);
+    if (attempts > maxAttempts) {
+      throw new Error(`[GUID DEBUG] Max attempts reached while generating GUID for type: ${type}`);
+    }
+  } while (guidRegistry.isUsed(guid));
 
-  if (attempts >= maxAttempts) {
-    console.error('Failed to generate unique GUID after maximum attempts');
-    // Fallback to guaranteed unique GUID
-    guid = `${type}_emergency_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
+  console.debug(`[GUID DEBUG] Generated GUID: ${guid}, Type: ${type}`);
 
-  // Register the new GUID
   guidRegistry.register(guid, type);
-  
   return guid;
 }
 
@@ -211,11 +197,16 @@ export function ensureUniqueId(proposedId, type = 'node') {
  */
 export function registerExistingId(id, type = 'node') {
   if (guidRegistry.isUsed(id)) {
-    console.warn(`ID collision detected for existing ID: ${id}`);
+    console.warn(`[GUID DEBUG] ID collision detected for existing ID: ${id}`);
     return false;
   }
-  
+
   guidRegistry.register(id, type);
+  console.log(`[GUID DEBUG] Successfully registered ID: ${id}, Type: ${type}`);
+
+  // Debugging log for registration confirmation
+  console.debug(`[GUID DEBUG] Registration status for ID: ${id} is now:`, guidRegistry.isUsed(id));
+
   return true;
 }
 

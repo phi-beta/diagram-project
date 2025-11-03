@@ -115,15 +115,30 @@ export class ContextMenuActions {
    */
   async executeEdgeAction(actionId, edgeElement, mousePosition) {
     const edgeId = edgeElement.getAttribute('data-edge-id');
+    console.log(`[DEBUG] Retrieved edgeId: ${edgeId}`);
+
+    // Log all edge IDs in edgeList for debugging
+    if (this.edgeList) {
+      console.log(`[DEBUG] edgeList contains ${this.edgeList.length} edges:`);
+      this.edgeList.forEach((e, index) => {
+        console.log(`  [${index}] Edge ID: ${e.id}`);
+      });
+    } else {
+      console.warn(`[WARN] edgeList is undefined or empty.`);
+    }
+
     const edge = this.edgeList?.find(e => e.id === edgeId);
-    
+
     if (!edge) {
-      console.error(`Edge not found: ${edgeId}`);
+      console.error(`[ERROR] Edge not found for edgeId: ${edgeId}`);
+      console.log(`[DEBUG] Current edgeList:`, this.edgeList);
       return;
     }
-    
+
+    console.log(`[DEBUG] Found edge:`, edge);
     switch (actionId) {
       case 'edit':
+        console.log(`[DEBUG] Triggering editEdge for edgeId: ${edgeId}`);
         await this.editEdge(edge);
         break;
       case 'properties':
@@ -136,7 +151,7 @@ export class ContextMenuActions {
         await this.deleteEdge(edge);
         break;
       default:
-        console.warn(`Unknown edge action: ${actionId}`);
+        console.warn(`[WARN] Unknown edge action: ${actionId}`);
     }
   }
   
@@ -454,7 +469,7 @@ export class ContextMenuActions {
   }
     // Edge Actions Implementation
   async editEdge(edge) {
-    console.log(`📝 Editing edge: ${edge.id}`);
+    console.log(`[DEBUG] editEdge called for edge:`, edge);
 
     // Create a modal or floating box for editing edge properties
     const modal = document.createElement('div');
@@ -466,6 +481,8 @@ export class ContextMenuActions {
     modal.style.backgroundColor = 'white';
     modal.style.border = '1px solid black';
     modal.style.zIndex = '1000';
+
+    console.log(`[DEBUG] Modal created for edge editing.`);
 
     // Line type dropdown
     const lineTypeLabel = document.createElement('label');
@@ -479,6 +496,8 @@ export class ContextMenuActions {
       lineTypeSelect.appendChild(option);
     });
 
+    console.log(`[DEBUG] Line type dropdown created.`);
+
     // Arrow end type dropdown
     const arrowTypeLabel = document.createElement('label');
     arrowTypeLabel.textContent = 'Arrow End Type:';
@@ -491,6 +510,8 @@ export class ContextMenuActions {
       arrowTypeSelect.appendChild(option);
     });
 
+    console.log(`[DEBUG] Arrow type dropdown created.`);
+
     // Text input for edge label
     const textLabel = document.createElement('label');
     textLabel.textContent = 'Edge Label:';
@@ -498,10 +519,13 @@ export class ContextMenuActions {
     textInput.type = 'text';
     textInput.value = edge.label || '';
 
+    console.log(`[DEBUG] Text input for edge label created.`);
+
     // Save button
     const saveButton = document.createElement('button');
     saveButton.textContent = 'Save';
     saveButton.onclick = () => {
+      console.log(`[DEBUG] Save button clicked.`);
       edge.lineType = lineTypeSelect.value;
       edge.arrowType = arrowTypeSelect.value;
       edge.label = textInput.value;
@@ -511,12 +535,13 @@ export class ContextMenuActions {
       const toNode = this.nodeMap.get(edge.to);
       if (fromNode && toNode && edge.renderer) {
         edge.renderer.updatePath(fromNode, toNode);
+        console.log(`[DEBUG] Edge visual updated for edgeId: ${edge.id}`);
       } else {
-        console.error('Failed to update edge visual: Missing nodes or renderer');
+        console.error(`[ERROR] Failed to update edge visual: Missing nodes or renderer`);
       }
 
       document.body.removeChild(modal);
-      console.log(`✅ Edge ${edge.id} updated.`);
+      console.log(`[DEBUG] Modal removed after saving edgeId: ${edge.id}`);
     };
 
     // Cancel button
@@ -524,7 +549,7 @@ export class ContextMenuActions {
     cancelButton.textContent = 'Cancel';
     cancelButton.onclick = () => {
       document.body.removeChild(modal);
-      console.log(`❌ Edit cancelled for edge ${edge.id}.`);
+      console.log(`[DEBUG] Edit cancelled for edgeId: ${edge.id}`);
     };
 
     // Append elements to modal
@@ -540,8 +565,8 @@ export class ContextMenuActions {
     modal.appendChild(saveButton);
     modal.appendChild(cancelButton);
 
-    // Append modal to body
     document.body.appendChild(modal);
+    console.log(`[DEBUG] Modal appended to DOM for edgeId: ${edge.id}`);
   }
 
   async showEdgeProperties(edge) {

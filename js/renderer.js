@@ -15,7 +15,6 @@ import { DiagramStateManager, diagramStateManager } from './DiagramStateManager.
 
 // Global variables for diagram state
 let nodeMap = new Map();
-let edgeList = [];
 let svg = null;
 let layout = null;
 
@@ -29,6 +28,9 @@ let screenLayoutManager = null;
 let screenLayoutUI = null;
 // Use singleton instance instead of creating new one
 // let diagramStateManager = null;
+
+// Ensure edgeList is properly initialized and accessible
+let edgeList = []; // Declare edgeList at the top level
 
 function selectNode(node) {
   interactionManager.selectNode(node);
@@ -144,7 +146,8 @@ function completeEdgeCreation(fromNode, toNode) {
   
   // Create a unique edge ID using GuidManager
   const edgeId = generateGuid('edge');
-  
+  console.log(`[DEBUG] Generated edgeId: ${edgeId}`);
+
   // Create the edge data
   const edgeData = {
     id: edgeId,
@@ -153,11 +156,21 @@ function completeEdgeCreation(fromNode, toNode) {
     class: 'connection'
   };
   
-  console.log('Creating new edge:', edgeData);
+  console.log(`[DEBUG] Created edgeData:`, edgeData);
   
   // Create the edge using the new Edge.createEdge method which properly handles layers
   const edge = Edge.createEdge(edgeData, svg, layerManager);
   edgeList.push(edge);
+  
+  // Add debugging log to trace edgeList after edge creation
+  console.log('[DEBUG] edgeList after edge creation:', edgeList);
+  
+  // Remove global accessibility of edgeList
+  // window.edgeList = edgeList; // Commented out to prevent unintended modifications
+
+  // Ensure edgeList is logged before context menu actions
+  interactionManager = new InteractionManager(svg, viewBoxManager, dragManager, nodeMap, layerManager, edgeList);
+  console.log('[DEBUG] edgeList passed to InteractionManager:', edgeList);
   
   console.log('Number of edges:', edgeList.length);
   
@@ -190,251 +203,253 @@ async function loadLayout() {
     layout = await layoutRes.json();
 
     svg = document.getElementById('diagram');
-    
     if (!svg) {
       console.error('❌ SVG element not found!');
       return;
     }
   
-  // Initialize managers
-  viewBoxManager = new ViewBoxManager(svg);
-  dragManager = new DragManager(viewBoxManager);
-  layerManager = new LayerManager(svg);
-  
-  // Make layerManager available globally for backward compatibility
-  window.layerManager = layerManager;
-  
-  // Initialize GridManager directly (no CSS loading check needed since it uses CSS variables)
-  console.log('🔄 Initializing GridManager with CSS variable support');
-  gridManager = new GridManager(svg, layerManager);
-  
-  // Connect GridManager to ViewBoxManager for automatic grid updates
-  viewBoxManager.onViewBoxChange((oldViewBox, newViewBox) => {
-    gridManager.updateGrid(newViewBox.x, newViewBox.y, newViewBox.width, newViewBox.height);
-  });
-  
-  // Initialize grid with current viewBox
-  const currentViewBox = viewBoxManager.getCurrentViewBox();
-  gridManager.updateGrid(currentViewBox.x, currentViewBox.y, currentViewBox.width, currentViewBox.height);
-  
-  interactionManager = new InteractionManager(svg, viewBoxManager, dragManager, nodeMap, layerManager, edgeList);
-  
-  // Initialize NodeStateManager
-  console.log('🔧 About to initialize NodeStateManager...');
-  try {
-    console.log('🔧 Calling nodeStateManager.initialize()...');
-    await nodeStateManager.initialize(interactionManager, 'config/node-state-machine.json');
-    console.log('✅ NodeStateManager initialized successfully');
-    console.log('🔧 NodeStateManager config check:', nodeStateManager.config ? 'Config loaded' : 'Config is null');
-  } catch (error) {
-    console.error('❌ NodeStateManager initialization failed:', error);
-    console.warn('⚠️ NodeStateManager initialization failed, falling back to legacy behavior:', error);
-  }
-  console.log('🔧 NodeStateManager initialization complete, proceeding...');
-  
-  // Initialize DiagramStateManager (singleton)
-  console.log('🔧 About to initialize DiagramStateManager (singleton)...');
-  try {
-    const diagramComponents = {
-      interactionManager,
-      nodeStateManager,
-      dragManager,
-      viewBoxManager,
-      svg,
-      nodeMap,
-      layerManager
-    };
-    console.log('🔧 Calling diagramStateManager.initialize()...');
-    await diagramStateManager.initialize(diagramComponents);
-    console.log('✅ DiagramStateManager initialized successfully');
-  } catch (error) {
-    console.error('❌ DiagramStateManager initialization failed:', error);
-    console.warn('⚠️ DiagramStateManager initialization failed, falling back to legacy behavior:', error);
-  }
-  
-  // Initialize ScreenLayoutManager
-  console.log('🔧 About to initialize ScreenLayoutManager...');
-  try {
-    screenLayoutManager = new ScreenLayoutManager(svg, viewBoxManager);
-    await screenLayoutManager.loadLayouts();
+    // Initialize managers
+    viewBoxManager = new ViewBoxManager(svg);
+    dragManager = new DragManager(viewBoxManager);
+    layerManager = new LayerManager(svg);
     
-    // Initialize UI
-    screenLayoutUI = new ScreenLayoutUI(screenLayoutManager);
+    // Initialize GridManager directly (no CSS loading check needed since it uses CSS variables)
+    console.log('🔄 Initializing GridManager with CSS variable support');
+    gridManager = new GridManager(svg, layerManager);
     
-    console.log('✅ ScreenLayoutManager initialized successfully');
-  } catch (error) {
-    console.error('❌ ScreenLayoutManager initialization failed:', error);
-    console.warn('⚠️ ScreenLayoutManager initialization failed, continuing without layout selection:', error);
-  }
-  console.log('🔧 DiagramStateManager initialization complete, proceeding...');
-  
-  // Set up callbacks
-  interactionManager.setCallbacks(
-    selectNode,
-    completeEdgeCreation,
-    scheduleRedrawEdges
-  );
-  
-  // Add global escape key handler to reset stuck states
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      console.log('🔄 Escape pressed - resetting all node states');
-      nodeStateManager.resetAllNodes();
+    // Connect GridManager to ViewBoxManager for automatic grid updates
+    viewBoxManager.onViewBoxChange((oldViewBox, newViewBox) => {
+      gridManager.updateGrid(newViewBox.x, newViewBox.y, newViewBox.width, newViewBox.height);
+    });
+    
+    // Initialize grid with current viewBox
+    const currentViewBox = viewBoxManager.getCurrentViewBox();
+    gridManager.updateGrid(currentViewBox.x, currentViewBox.y, currentViewBox.width, currentViewBox.height);
+    
+    // Create edges from layout
+    edgeList = Edge.createEdgesFromLayout(layout.edges, svg, layerManager);
+    console.log('[DEBUG] edgeList after creation:', edgeList);
+
+    // Pass edgeList to InteractionManager
+    interactionManager = new InteractionManager(svg, viewBoxManager, dragManager, nodeMap, layerManager, edgeList);
+    console.log('[DEBUG] edgeList passed to InteractionManager:', edgeList);
+
+    // Initialize NodeStateManager
+    console.log('🔧 About to initialize NodeStateManager...');
+    try {
+      console.log('🔧 Calling nodeStateManager.initialize()...');
+      await nodeStateManager.initialize(interactionManager, 'config/node-state-machine.json');
+      console.log('✅ NodeStateManager initialized successfully');
+      console.log('🔧 NodeStateManager config check:', nodeStateManager.config ? 'Config loaded' : 'Config is null');
+    } catch (error) {
+      console.error('❌ NodeStateManager initialization failed:', error);
+      console.warn('⚠️ NodeStateManager initialization failed, falling back to legacy behavior:', error);
     }
-  });
-  
-  const saveButton = document.createElement('button');
-  saveButton.textContent = '💾 Save Layout';
-  saveButton.style.position = 'absolute';
-  saveButton.style.top = '10px';
-  saveButton.style.left = '120px';
-  document.body.appendChild(saveButton);
-
-  // Add event listener to the theme toggle button
-  const themeToggleButton = document.getElementById('theme-toggle');
-  if (themeToggleButton) {
-    themeToggleButton.addEventListener('click', toggleTheme);
-  }
-
-  // Add event listener to the grid toggle button
-  const gridToggleButton = document.getElementById('toggle-grid');
-  if (gridToggleButton) {
-    gridToggleButton.addEventListener('click', () => {
-      if (gridManager) {
-        gridManager.toggleGrid();
-        // Update button text based on grid visibility
-        gridToggleButton.textContent = gridManager.isGridVisible() ? 'Hide Grid' : 'Show Grid';
-      }
-    });
-  }
-
-  // Setup edges toggle button
-  const edgesToggleButton = document.getElementById('toggle-edges');
-  if (edgesToggleButton) {
-    console.log('✅ Edges toggle button found, setting up event listener');
-    edgesToggleButton.addEventListener('click', () => {
-      console.log('🔄 Edges toggle button clicked');
-      if (layerManager) {
-        console.log('🔄 LayerManager available, toggling edges layer');
-        layerManager.toggleLayer('edges');
-        // Update button text based on layer visibility
-        const isVisible = layerManager.isLayerVisible('edges');
-        console.log('🔄 Edges layer visibility:', isVisible);
-        edgesToggleButton.textContent = isVisible ? 'Hide Edges' : 'Show Edges';
-      } else {
-        console.error('❌ LayerManager not available');
-      }
-    });
-  } else {
-    console.error('❌ Edges toggle button not found');
-  }
-
-  // Setup nodes toggle button
-  const nodesToggleButton = document.getElementById('toggle-nodes');
-  if (nodesToggleButton) {
-    console.log('✅ Nodes toggle button found, setting up event listener');
-    nodesToggleButton.addEventListener('click', () => {
-      console.log('🔄 Nodes toggle button clicked');
-      if (layerManager) {
-        console.log('🔄 LayerManager available, toggling nodes layer');
-        layerManager.toggleLayer('nodes');
-        // Update button text based on layer visibility
-        const isVisible = layerManager.isLayerVisible('nodes');
-        console.log('🔄 Nodes layer visibility:', isVisible);
-        nodesToggleButton.textContent = isVisible ? 'Hide Nodes' : 'Show Nodes';
-      } else {
-        console.error('❌ LayerManager not available');
-      }
-    });
-  } else {
-    console.error('❌ Nodes toggle button not found');
-  }
-
-  // Marker definitions are now handled in the HTML to avoid conflicts
-  // They use id="arrowhead" and are properly styled via CSS
-
-  // Add reset view button handler
-  const resetViewButton = document.getElementById('reset-view');
-  if (resetViewButton) {
-    resetViewButton.addEventListener('click', () => viewBoxManager.resetView());
-  }
-
-  // Add download SVG button handler
-  const downloadSvgButton = document.getElementById('download-svg');
-  if (downloadSvgButton) {
-    downloadSvgButton.addEventListener('click', downloadSVG);
-  }
-
-  const downloadPngButton = document.getElementById('download-png');
-  if (downloadPngButton) {
-    downloadPngButton.addEventListener('click', downloadPNG);
-  }
-
-  // Add screen layout button handler
-  const screenLayoutButton = document.getElementById('screen-layout-btn');
-  if (screenLayoutButton) {
-    screenLayoutButton.addEventListener('click', () => {
-      if (screenLayoutUI) {
-        screenLayoutUI.toggle();
-      } else {
-        console.warn('⚠️ Screen layout UI not initialized');
-      }
-    });
-  }
-
-  // Initialize GUID registry with existing data to avoid collisions
-  console.log('Initializing GUID registry with existing layout data');
-  initializeFromExisting(layout.nodes, layout.edges);
-
-  // Create nodes
-  for (const nodeData of layout.nodes) {
-    await createNode(nodeData);
-  }
-
-  // Create edges as <path> with marker-end
-  edgeList = Edge.createEdgesFromLayout(layout.edges, svg, layerManager);
-
-  redrawEdges();
-
-  // Update arrowhead color after layout loads
-  setTimeout(() => {
-    if (window.updateArrowheadColor) {
-      window.updateArrowheadColor();
+    console.log('🔧 NodeStateManager initialization complete, proceeding...');
+    
+    // Initialize DiagramStateManager (singleton)
+    console.log('🔧 About to initialize DiagramStateManager (singleton)...');
+    try {
+      const diagramComponents = {
+        interactionManager,
+        nodeStateManager,
+        dragManager,
+        viewBoxManager,
+        svg,
+        nodeMap,
+        layerManager,
+        edgeList // Include edgeList explicitly
+      };
+      console.log('🔧 Calling diagramStateManager.initialize()...');
+      await diagramStateManager.initialize(diagramComponents);
+      console.log('✅ DiagramStateManager initialized successfully');
+    } catch (error) {
+      console.error('❌ DiagramStateManager initialization failed:', error);
+      console.warn('⚠️ DiagramStateManager initialization failed, falling back to legacy behavior:', error);
     }
     
-    // Ensure temporary arrowhead is always visible
-    if (window.ensureTemporaryArrowheadVisible) {
-      window.ensureTemporaryArrowheadVisible();
+    // Initialize ScreenLayoutManager
+    console.log('🔧 About to initialize ScreenLayoutManager...');
+    try {
+      screenLayoutManager = new ScreenLayoutManager(svg, viewBoxManager);
+      await screenLayoutManager.loadLayouts();
+      
+      // Initialize UI
+      screenLayoutUI = new ScreenLayoutUI(screenLayoutManager);
+      
+      console.log('✅ ScreenLayoutManager initialized successfully');
+    } catch (error) {
+      console.error('❌ ScreenLayoutManager initialization failed:', error);
+      console.warn('⚠️ ScreenLayoutManager initialization failed, continuing without layout selection:', error);
     }
-  }, 100);
+    console.log('🔧 DiagramStateManager initialization complete, proceeding...');
+    
+    // Set up callbacks
+    interactionManager.setCallbacks(
+      selectNode,
+      completeEdgeCreation,
+      scheduleRedrawEdges
+    );
+    
+    // Add global escape key handler to reset stuck states
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        console.log('🔄 Escape pressed - resetting all node states');
+        nodeStateManager.resetAllNodes();
+      }
+    });
+    
+    const saveButton = document.createElement('button');
+    saveButton.textContent = '💾 Save Layout';
+    saveButton.style.position = 'absolute';
+    saveButton.style.top = '10px';
+    saveButton.style.left = '120px';
+    document.body.appendChild(saveButton);
 
-  saveButton.addEventListener('click', () => {
-    const updatedNodes = Array.from(nodeMap.values()).map(n => n.toData());
+    // Add event listener to the theme toggle button
+    const themeToggleButton = document.getElementById('theme-toggle');
+    if (themeToggleButton) {
+      themeToggleButton.addEventListener('click', toggleTheme);
+    }
 
-    const updatedEdges = edgeList.map(e => e.toData());
+    // Add event listener to the grid toggle button
+    const gridToggleButton = document.getElementById('toggle-grid');
+    if (gridToggleButton) {
+      gridToggleButton.addEventListener('click', () => {
+        if (gridManager) {
+          gridManager.toggleGrid();
+          // Update button text based on grid visibility
+          gridToggleButton.textContent = gridManager.isGridVisible() ? 'Hide Grid' : 'Show Grid';
+        }
+      });
+    }
 
-    const output = {
-      nodes: updatedNodes,
-      edges: updatedEdges
-    };
+    // Setup edges toggle button
+    const edgesToggleButton = document.getElementById('toggle-edges');
+    if (edgesToggleButton) {
+      console.log('✅ Edges toggle button found, setting up event listener');
+      edgesToggleButton.addEventListener('click', () => {
+        console.log('🔄 Edges toggle button clicked');
+        if (layerManager) {
+          console.log('🔄 LayerManager available, toggling edges layer');
+          layerManager.toggleLayer('edges');
+          // Update button text based on layer visibility
+          const isVisible = layerManager.isLayerVisible('edges');
+          console.log('🔄 Edges layer visibility:', isVisible);
+          edgesToggleButton.textContent = isVisible ? 'Hide Edges' : 'Show Edges';
+        } else {
+          console.error('❌ LayerManager not available');
+        }
+      });
+    } else {
+      console.error('❌ Edges toggle button not found');
+    }
 
-    const blob = new Blob([JSON.stringify(output, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = "layout-updated.json";
-    a.click();
-    URL.revokeObjectURL(url);
-  });
-  
-  // Make key variables available globally for backward compatibility
-  window.nodeMap = nodeMap;
-  window.edgeList = edgeList;
-  window.layerManager = layerManager;
-  window.viewBoxManager = viewBoxManager;
-  window.dragManager = dragManager;
-  window.interactionManager = interactionManager;
-  
+    // Setup nodes toggle button
+    const nodesToggleButton = document.getElementById('toggle-nodes');
+    if (nodesToggleButton) {
+      console.log('✅ Nodes toggle button found, setting up event listener');
+      nodesToggleButton.addEventListener('click', () => {
+        console.log('🔄 Nodes toggle button clicked');
+        if (layerManager) {
+          console.log('🔄 LayerManager available, toggling nodes layer');
+          layerManager.toggleLayer('nodes');
+          // Update button text based on layer visibility
+          const isVisible = layerManager.isLayerVisible('nodes');
+          console.log('🔄 Nodes layer visibility:', isVisible);
+          nodesToggleButton.textContent = isVisible ? 'Hide Nodes' : 'Show Nodes';
+        } else {
+          console.error('❌ LayerManager not available');
+        }
+      });
+    } else {
+      console.error('❌ Nodes toggle button not found');
+    }
+
+    // Marker definitions are now handled in the HTML to avoid conflicts
+    // They use id="arrowhead" and are properly styled via CSS
+
+    // Add reset view button handler
+    const resetViewButton = document.getElementById('reset-view');
+    if (resetViewButton) {
+      resetViewButton.addEventListener('click', () => viewBoxManager.resetView());
+    }
+
+    // Add download SVG button handler
+    const downloadSvgButton = document.getElementById('download-svg');
+    if (downloadSvgButton) {
+      downloadSvgButton.addEventListener('click', downloadSVG);
+    }
+
+    const downloadPngButton = document.getElementById('download-png');
+    if (downloadPngButton) {
+      downloadPngButton.addEventListener('click', downloadPNG);
+    }
+
+    // Add screen layout button handler
+    const screenLayoutButton = document.getElementById('screen-layout-btn');
+    if (screenLayoutButton) {
+      screenLayoutButton.addEventListener('click', () => {
+        if (screenLayoutUI) {
+          screenLayoutUI.toggle();
+        } else {
+          console.warn('⚠️ Screen layout UI not initialized');
+        }
+      });
+    }
+
+    // Initialize GUID registry with existing data to avoid collisions
+    console.log('Initializing GUID registry with existing layout data');
+    initializeFromExisting(layout.nodes, layout.edges);
+
+    // Create nodes
+    for (const nodeData of layout.nodes) {
+      await createNode(nodeData);
+    }
+
+    // Create edges as <path> with marker-end
+    edgeList = Edge.createEdgesFromLayout(layout.edges, svg, layerManager);
+
+    redrawEdges();
+
+    // Update arrowhead color after layout loads
+    setTimeout(() => {
+      if (window.updateArrowheadColor) {
+        window.updateArrowheadColor();
+      }
+      
+      // Ensure temporary arrowhead is always visible
+      if (window.ensureTemporaryArrowheadVisible) {
+        window.ensureTemporaryArrowheadVisible();
+      }
+    }, 100);
+
+    saveButton.addEventListener('click', () => {
+      const updatedNodes = Array.from(nodeMap.values()).map(n => n.toData());
+
+      const updatedEdges = edgeList.map(e => e.toData());
+
+      const output = {
+        nodes: updatedNodes,
+        edges: updatedEdges
+      };
+
+      const blob = new Blob([JSON.stringify(output, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "layout-updated.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+    
+    // Make key variables available globally for backward compatibility
+    window.nodeMap = nodeMap;
+    window.layerManager = layerManager;
+    window.viewBoxManager = viewBoxManager;
+    window.dragManager = dragManager;
+    window.interactionManager = interactionManager;
+    
   } catch (error) {
     console.error('❌ Error in loadLayout:', error);
   }
@@ -1189,7 +1204,8 @@ export async function initializeRenderer() {
         viewBoxManager,
         svg,
         nodeMap,
-        layerManager
+        layerManager,
+        edgeList // Include edgeList explicitly
       };
       await diagramStateManager.initialize(diagramComponents);
       console.log('✅ DiagramStateManager initialized successfully');
